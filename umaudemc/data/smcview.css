@@ -1,0 +1,246 @@
+/* -- General settings -- */
+
+html {
+	height: 100%;
+}
+
+body {
+	height: 100%;
+	margin: 0px;
+	display: flex;
+	flex-direction: column;
+	font-family: "Ubuntu", "Calibri", sans-serif;
+}
+
+
+/* -- Selection screen -- */
+
+header {
+	padding: 1ex;
+	background-color: olive;
+	border-bottom: greenyellow solid 3px;
+}
+
+/* Box where model checker input data is inserted */
+.mainbox {
+	display: flex;
+	flex-direction: column;
+	background-color: lightgray;
+	margin: 1ex;
+	padding: 1ex;
+	border: darkgray solid 3px;
+	flex-grow: 1;
+}
+
+.mainbox #description {
+	text-align: center;
+	flex-grow: 1;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	overflow: auto;
+}
+
+/* Summary table (used in various places) */
+.sumtable {
+	margin: 2em auto 2em auto;
+}
+
+.sumtable td:first-child {
+	text-align: right;
+	padding-right: 1em;
+}
+
+.sumtable td:last-child {
+	text-align: left;
+}
+
+/* Bar where parsing errors are shown */
+.mainbox #errorbar {
+	text-align: center;
+	background-color: orange;
+	min-height: 1.5em;
+	line-height: 1.5em;
+	vertical-align: middle;
+	margin-bottom: 1ex;
+	display: none;
+	border-radius: 1ex;
+}
+
+.baremph {
+	color: green;
+}
+
+.mcbar {
+	display: inline-flex;
+	align-items: center;
+	flex-direction: row;
+	flex-wrap: wrap;
+}
+
+label + input {
+	margin-left: 1ex;
+}
+
+/* Box where existing dumps are selected */
+.footer {
+	background-color: lightgray;
+	margin: 0ex 1ex 1ex;
+	padding: 1ex;
+	border: darkgray solid 3px;
+}
+
+
+/* -- Modal content -- */
+
+.modal {
+	display: none;
+	position: fixed;
+	z-index: 1;
+	left: 0;
+	top: 0;
+	width: 100%;
+	height: 100%;
+	background-color: rgba(0,0,0,0.4);
+}
+
+.modal-content {
+	background-color: #dfe3e5;
+	flex-grow: 1;
+	margin: 2em;
+	padding: 2ex;
+	border: 1px solid #888;
+	overflow: auto;
+}
+
+/* File browser dialog item */
+.of-item {
+	flex: 1 0 50%;
+}
+
+.of-item:hover {
+	color: magenta;
+	cursor: pointer;
+}
+
+.of-fileList {
+	flex-grow: 1;
+	display: flex;
+	flex-wrap: wrap;
+}
+
+.result-dialog {
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+}
+
+
+/* -- counterexample graph visualization -- */
+
+/* An automaton state */
+.state {
+	fill: aqua;
+	stroke: gray;
+}
+
+/* An automaton state being a solution */
+.solution {
+	fill: lightGreen;
+	stroke: gray;
+}
+
+g:hover > .state {
+	fill: #12f0f5;
+}
+
+
+g:hover > .solution {
+	fill: lime;
+}
+
+.stateLabel {
+	text-anchor: middle;
+	dominant-baseline: middle;
+}
+
+g:hover > .stateLabel {
+	font-weight: bold;
+}
+
+.transitionLabel {
+	text-anchor: middle;
+	font-size: 75%;
+}
+
+.transitionArrow, .selfLoopArrow {
+	stroke: black;
+	stroke-width: 1.5;
+	marker-end: url(#arrowh);
+}
+
+.selfLoopArrow {
+	fill: none;
+}
+
+/* Popup with information about the selected state */
+.statePopup {
+	background-color: rgba(0, 0, 0, 0.8);
+	border-radius: .5ex;
+	font-size: 90%;
+	text-align: left;
+	padding: .6ex 1ex .8ex 1ex;
+	display: inline-block;
+	visibility: hidden;
+	position: absolute;
+	max-width: 40%;
+	color: white;
+}
+
+.statePopup td:first-child {
+	text-align: right;
+	font-weight: bold;
+	padding-right: 1ex;
+	vertical-align: top;
+	color: lightgray;
+}
+
+.statePopup td:last-child {
+	text-align: left;
+}
+
+/* Footer bar with actions regarding the model checker result */
+.actionbar {
+	text-align: center;
+	background-color: lightgray;
+	border-top: darkgray solid 3pt;
+	padding: 1ex;
+	display: flex;
+	min-height: 2.2ex;
+	color: gray;
+}
+
+.actionbar a {
+	color: gray;
+	text-decoration: none;
+	margin-left: 1ex;
+	margin-right: 1ex;
+}
+
+.actionbar a:hover {
+	color: black;
+	text-decoration: none;
+	cursor: pointer;
+}
+
+/* Header table in the results screen */
+.resultHeader {
+	border-bottom: red solid 2.5pt;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	background-color: darkorange;
+	min-height: 2ex;
+	padding: 1ex;
+	color: darkred;
+}

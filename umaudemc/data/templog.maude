@@ -1,0 +1,227 @@
+***
+*** Extension of the predefined LTL module to represent CTL, CTL* and
+*** mu-calculus formulae.
+***
+*** CTL* and mu-calculus constructors can be mixed in the same formula,
+*** so other modules should take care of checking its validity. Sorts
+*** could have been used to distinguish logics and type only valid terms,
+*** but things get complicated and verbose with LTL-SIMPLIFIER...
+***
+
+*** sload model-checker
+
+fmod TEMPORAL-LOGIC is
+	including LTL .
+
+	*** These sorts are intended to be populated at the metalevel
+	sorts @Action@ @MCVariable@ .
+	subsort @MCVariable@ < Formula .
+
+	*** CTL and CTL*
+	op A_ : Formula -> Formula [ctor prec 53] .
+	op E_ : Formula -> Formula [ctor prec 53] .
+
+	*** mu-calculus
+	op <.>_  : Formula -> Formula [ctor prec 53 format (c o d)] .
+	op [.]_  : Formula -> Formula [ctor prec 53 format (c d d os d)] .
+	op <_>_  : @ActionSpec@ Formula -> Formula [ctor prec 53 format(c d d o d)] .
+	op [_]_  : @ActionSpec@ Formula -> Formula [ctor prec 53 format(c d d o d)] .
+	op mu_._ : @MCVariable@ Formula -> Formula [ctor prec 64] .
+	op nu_._ : @MCVariable@ Formula -> Formula [ctor prec 64] .
+
+	*** Action list
+	sorts @ActionSpec@ @ActionList@ .
+	subsort @ActionList@ < @ActionSpec@ .
+	op ~_ : @ActionList@ -> @ActionSpec@ [ctor prec 50] .
+	op __ : @ActionList@ @ActionList@ -> @ActionList@ [ctor assoc] .
+
+	vars f g : Formula .
+	vars V W : @MCVariable@ .
+	var  As  : @ActionSpec@ .
+
+	*** negative normal form
+	eq ~ (A f) = E (~ f) .
+	eq ~ (E f) = A (~ f) .
+	eq ~ (<.> f) = [.] (~ f) .
+	eq ~ ([.] f) = <.> (~ f) .
+	eq ~ (< As > f) = [ As ] (~ f) .
+	eq ~ ([ As ] f) = < As > (~ f) .
+	eq ~ (mu V . f) = nu V . (~ negateVar(f, V)) .
+	eq ~ (nu V . f) = mu V . (~ negateVar(f, V)) .
+
+	*** Negate variable in mu-formulae
+	op negateVar : Formula @MCVariable@ -> Formula .
+
+	eq negateVar(f /\ g, V) = negateVar(f, V) /\ negateVar(g, V) .
+	eq negateVar(f \/ g, V) = negateVar(f, V) \/ negateVar(g, V) .
+	eq negateVar(~ f, V) = ~ negateVar(f, V) .
+	eq negateVar(<.> f, V) = <.> negateVar(f, V) .
+	eq negateVar([.] f, V) = [.] negateVar(f, V) .
+	eq negateVar(< As > f, V) = < As > negateVar(f, V) .
+	eq negateVar([ As ] f, V) = [ As ] negateVar(f, V) .
+	eq negateVar(mu V . f, V) = mu V . f .
+	eq negateVar(nu V . f, V) = mu V . f .
+	eq negateVar(V, V) = ~ V .
+	eq negateVar(mu W . f, V) = mu W . negateVar(f, V) [owise] .
+	eq negateVar(nu W . f, V) = nu W . negateVar(f, V) [owise] .
+	eq negateVar(W, V) = W [owise] .
+	eq negateVar(f, V) = f [owise] .
+endfm
+
+fmod TEMPORAL-LOGIC-TYPE is
+	protecting TEMPORAL-LOGIC .
+	including SATISFACTION .
+
+	subsort Prop < Formula .
+
+	*** Calculate the less-general logic that contains the formula
+	op formulaType : Formula -> @TmpLogicName@ .
+	*** Calculate the less-general logic with the given elements
+	op formulaType : @TmpFormElems@ -> @TmpLogicName@ .
+	*** Determine whether some syntactical elements are present in a formula
+	op formulaElems : Formula -> @TmpFormElems@ .
+
+
+	sort @TmpLogicName@ .
+	*** Temporal logics: propositional logic, LTL, ..., mu-calculus, and
+	*** invalid formulae (containing both CTL* and mu-caculus operators)
+	ops propLogic LTL CTL CTL* Mucalc invalid : -> @TmpLogicName@ [ctor] .
+
+	sorts @TmpFormElem@ @TmpFormAuxElem@ @TmpFormAuxElems@ @TmpFormElems@ .
+	subsort @TmpFormAuxElem@ < @TmpFormElem@ @TmpFormAuxElems@ < @TmpFormElems@ .
+
+	*** Whether the formula contains atomic propositions or edge labels
+	ops atomicProp edgeLabel : -> @TmpFormAuxElem@ [ctor] .
+	*** ctlOp signals temporal operators preceded by path quantifiers,
+	*** other loose temporal operators and path quantifiers are signaled
+	*** with temporalOp and pathQuantifiers
+	ops temporalOp pathQuantifier ctlOp mucalcOp  : -> @TmpFormElem@ [ctor] .
+
+	*** Sets of elements
+	op none : -> @TmpFormAuxElems@ [ctor] .
+	op __ : @TmpFormElem@ @TmpFormElem@ -> @TmpFormElem@ [ctor assoc comm id: none] .
+	op __ : @TmpFormAuxElem@ @TmpFormAuxElem@ -> @TmpFormAuxElem@ [ctor ditto] .
+	eq TLE TLE = TLE .
+
+	vars F1 F2 F : Formula .
+	var  P       : Prop .
+	var  TLE     : @TmpFormElem@ .
+	var  TLEs    : @TmpFormElems@ .
+	var  TLAE    : @TmpFormAuxElems@ .
+	var  As      : @ActionSpec@ .
+	var  MCV     : @MCVariable@ .
+
+	eq formulaType(F) = formulaType(formulaElems(F)) .
+
+	eq formulaType(TLAE) = propLogic .
+	eq formulaType(temporalOp TLAE) = LTL .
+	eq formulaType(ctlOp TLAE) = CTL .
+	eq formulaType(pathQuantifier TLAE) = CTL* .
+	eq formulaType(pathQuantifier temporalOp TLAE) = CTL* .
+	eq formulaType(pathQuantifier ctlOp TLAE) = CTL* .
+	eq formulaType(pathQuantifier ctlOp temporalOp TLAE) = CTL* .
+	eq formulaType(ctlOp temporalOp TLAE) = CTL* .
+	eq formulaType(mucalcOp TLAE) = Mucalc .
+	eq formulaType(TLEs) = invalid [owise] .
+
+	eq formulaElems(P) = atomicProp .
+	eq formulaElems(True) = none .
+	eq formulaElems(False) = none .
+	eq formulaElems(~ F) = formulaElems(F) .
+	eq formulaElems(F1 /\ F2) = formulaElems(F1) formulaElems(F2) .
+	eq formulaElems(F1 \/ F2) = formulaElems(F1) formulaElems(F2) .
+	eq formulaElems(O F) = formulaElems(F) .
+	eq formulaElems(F1 U F2) = temporalOp formulaElems(F1) formulaElems(F2) .
+	eq formulaElems(F1 R F2) = temporalOp formulaElems(F1) formulaElems(F2) .
+	eq formulaElems(A O F) = ctlOp formulaElems(F) .
+	eq formulaElems(E O F) = ctlOp formulaElems(F) .
+	eq formulaElems(A (F1 U F2)) = ctlOp formulaElems(F1) formulaElems(F2) .
+	eq formulaElems(E (F1 U F2)) = ctlOp formulaElems(F1) formulaElems(F2) .
+	eq formulaElems(A (F1 R F2)) = ctlOp formulaElems(F1) formulaElems(F2) .
+	eq formulaElems(E (F1 R F2)) = ctlOp formulaElems(F1) formulaElems(F2) .
+	eq formulaElems(A F) = pathQuantifier formulaElems(F) .
+	eq formulaElems(E F) = pathQuantifier formulaElems(F) .
+	eq formulaElems(<.> F) = mucalcOp formulaElems(F) .
+	eq formulaElems([.] F) = mucalcOp formulaElems(F) .
+	eq formulaElems(< As > F) = edgeLabel mucalcOp formulaElems(F) .
+	eq formulaElems([ As ] F) = edgeLabel mucalcOp formulaElems(F) .
+	eq formulaElems(nu MCV . F) = mucalcOp formulaElems(F) .
+	eq formulaElems(mu MCV . F) = mucalcOp formulaElems(F) .
+	eq formulaElems(MCV) = mucalcOp .
+endfm
+
+view Formula from TRIV to TEMPORAL-LOGIC is
+	sort Elt to Formula .
+endv
+
+fmod TEMPORAL-LOGIC-APROPS is
+	protecting TEMPORAL-LOGIC .
+	protecting SET{Formula} .
+
+	*** Get the atomic propositions in the temporal formula
+	op getAtomicProps : Formula -> Set{Formula} .
+
+	vars f g : Formula .
+	var  As  : @ActionSpec@ .
+	var  MCV : @MCVariable@ .
+
+	eq getAtomicProps(True) = empty .
+	eq getAtomicProps(False) = empty .
+	eq getAtomicProps(~ f) = getAtomicProps(f) .
+	eq getAtomicProps(f /\ g) = getAtomicProps(f), getAtomicProps(g) .
+	eq getAtomicProps(f \/ g) = getAtomicProps(f), getAtomicProps(g) .
+	eq getAtomicProps(O f) = getAtomicProps(f) .
+	eq getAtomicProps([] f) = getAtomicProps(f) .
+	eq getAtomicProps(<> f) = getAtomicProps(f) .
+	eq getAtomicProps(A f) = getAtomicProps(f) .
+	eq getAtomicProps(E f) = getAtomicProps(f) .
+	eq getAtomicProps(f U g) = getAtomicProps(f), getAtomicProps(g) .
+	eq getAtomicProps(<.> f) = getAtomicProps(f) .
+	eq getAtomicProps([.] f) = getAtomicProps(f) .
+	eq getAtomicProps(< As > f) = getAtomicProps(f) .
+	eq getAtomicProps([ As ] f) = getAtomicProps(f) .
+	eq getAtomicProps(mu MCV . f) = getAtomicProps(f) .
+	eq getAtomicProps(nu MCV . f) = getAtomicProps(f) .
+
+	eq getAtomicProps(f) = f [owise] .
+endfm
+
+fmod TEMPORAL-LOGIC-META is
+	protecting META-LEVEL .
+	protecting LEXICAL .
+
+	*** Build a module where to parse temporal formulae
+	*** (module, tokenized formula, list of rule labels)
+	op makeParserModule : Module QidList QidList -> Module .
+
+	var  M     : Module .
+	vars QL AL : QidList .
+	var  Q     : Qid .
+
+	eq makeParserModule(M, QL, AL) = smod getName(M) is
+		getImports(M)
+		(protecting 'TEMPORAL-LOGIC-TYPE .)
+		sorts getSorts(M) .
+		getSubsorts(M)
+		getOps(M)
+		scanVariables(QL)
+		declareActions(AL)
+		getMbs(M)
+		getEqs(M)
+		getRls(M)
+		getStrats(M)
+		getSds(M)
+	endsm .
+
+	op scanVariables : QidList -> OpDeclSet .
+
+	eq scanVariables(nil) = none .
+	eq scanVariables('mu Q '. QL) = op Q : nil -> '@MCVariable@ [ctor] . scanVariables(QL) .
+	eq scanVariables('nu Q '. QL) = op Q : nil -> '@MCVariable@ [ctor] . scanVariables(QL) .
+	eq scanVariables(Q QL) = scanVariables(QL) .
+
+	op declareActions : QidList -> OpDeclSet .
+
+	eq declareActions(nil) = none .
+	eq declareActions(Q QL) = op Q : nil -> '@ActionList@ [ctor] . declareActions(QL) .
+endfm

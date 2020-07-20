@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf8" />
+	<title>Strategy-aware model checker for Maude</title>
+
+	<link rel="stylesheet" type="text/css" href="smcview.css">
+	<script src="smcview.js"></script>
+	<script src="smcgraph.js"></script>
+</head>
+<body>
+	<header>
+		<b style="font-size: 120%;">Strategy-aware model checker</b>
+	</header>
+
+	<!-- Open file dialog -->
+	<div id="openFile" class="modal">
+		<div class="modal-content">
+			<div>
+				<button type="button" id="of-cancel" onclick="closeOpenFileDialog()">Cancel</button>
+				<button type="button" id="of-open" style="float: right;">Open</button>
+			</div>
+			<div style="overflow: auto; display: flex; flex-direction: column;">
+			<ul id="of-fileList" class="of-fileList">
+			</ul>
+			</div>
+		</div>
+	</div>
+
+	<!-- Result display dialog -->
+	<div id="resultDialog" class="modal">
+		<div class="modal-content result-dialog">
+			<!-- Header -->
+			<div id="resultHeader" class="resultHeader">
+			</div>
+			<!-- Counterexample graph -->
+			<div style="margin: 1ex; padding: 0; text-align: center; flex-grow: 1;">
+				<div class="statePopup" id="state-popup">
+				<table>
+					<tr><td>Term:</td><td id="popup-term"></td></tr>
+					<tr><td>Strategy:</td><td id="popup-strat"></td></tr>
+				</table>
+				</div>
+				<svg id="canvas">
+					<defs>
+						<marker orient="auto" id="arrowh" refY="0" markerWidth="10" markerHeight="10" refX="5" viewBox="-0.2 -8 5.6 16">
+							<path stroke="black" fill="none" stroke-width="1.5" d="M0,-5L5,0L0,5"></path>
+						</marker>
+					</defs>
+					<g id="graph"></g>
+				</svg>
+			</div>
+			<!-- Footer -->
+			<div class="actionbar">
+				<!--<a href="/get?file=autdot">Save automaton graph</a>-->
+				<span style="flex-grow: 1"></span>	<!-- spring -->
+				<a onclick="closeResultDialog()" >Go back</a>
+			</div>
+		</div>
+	</div>
+
+	<!-- Load Maude file and model check it -->
+	<div class="mainbox">
+		<b>Load and model check Maude file: </b>
+		<div class="mcbar" style="margin-top: 1ex;">
+			<button type="button" id="sourceFileOpen" onclick="loadSource()">Open Maude file</button>
+			<label for="sourceFileOpen" id="sourceFile" style="margin-left: 1em; flex-grow: 1"></label>
+			<label for="module">Module:</label>
+			<select id="module" disabled style="margin-left: 1ex;" onchange="loadModule()"></select>
+		</div>
+		<div id="description">
+			Please select a Maude file and a Maude module defining the system and properties specification.
+		</div>
+		<div id="errorbar">
+		</div>
+		<div class="mcbar">
+			<label for="initial">Initial term:</label>
+			<input type="text" id="initial" style="flex-grow: 1;" onchange="buttonToggle()" />
+			<label for="formula" style="margin-left: 1.5ex;">Formula:</label>
+			<input type="text" id="formula" style="flex-grow: 1;" onchange="buttonToggle()" />
+		</div>
+		<div class="mcbar" style="margin-top: 1ex;">
+			<label for="strategy">Strategy:</label>
+			<input type="text" id="strategy" style="flex-grow: 1;" onchange="buttonToggle()" />
+			<label for="opaques" style="margin-left: 1.5ex;">Opaque strategies:</label>
+			<input type="text" id="opaques" />
+			<button type="button" id="send" disabled style="margin-left: 1.5ex;" onclick="modelcheck()">Model check</button>
+		</div>
+	</div>
+</body>
+</html>
