@@ -192,6 +192,13 @@ class MuMaudeGame(ParityGame):
 		self.true      = self.module.parseTerm('true', bool_kind)
 		self.satisfies = self.module.findSymbol('_|=_', [state_kind, prop_kind], bool_kind)
 
+		# Number of rewrites used to check this atomic proposition
+		self.nrRewrites = 0
+
+	def getNrRewrites(self):
+		"""Total number of rewrites used to generate the game"""
+		return self.nrRewrites + self.graph.getNrRewrites()
+
 	# The following two functions are used to calculate the alternation
 	# depth of the μ-calculus variables, which is used as the state
 	# priority in the parity game.
@@ -284,7 +291,7 @@ class MuMaudeGame(ParityGame):
 	def check_aprop(self, state, aprop):
 		term  = self.graph.getStateTerm(state)
 		t = self.satisfies.makeTerm([term, aprop])
-		t.reduce()
+		self.nrRewrites += t.reduce()
 		return t.equal(self.true)
 
 	def match_label(self, state, next_state, labels):
@@ -459,7 +466,7 @@ class BuiltinBackend:
 		game = MuMaudeGame(graph, formula)
 		result = game.solve_mucalc()
 
-		return result, {'states': graph.getNrStates(), 'game': len(game)}
+		return result, {'states': graph.getNrStates(), 'rewrites': game.getNrRewrites(), 'game': len(game)}
 
 	def check(self, graph=None, formula=None, logic=None, get_graph=False, **kwargs):
 		"""Check a model-checking problem"""

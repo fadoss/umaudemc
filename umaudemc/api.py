@@ -1,0 +1,381 @@
+#
+# umaudemc API to be used by external programs or extensions
+#
+
+import maude
+
+from . import formulae as _formulae
+from . import backends as _backends
+from . import usermsgs as _usermsgs
+from . import counterprint as _counterprint
+from . import formatter as _formatter
+from . import wrappers as _wrappers
+from . import common as _common
+
+DEFAULT_BACKENDS = ['maude', 'ltsmin', 'pymc', 'nusmv', 'builtin']
+
+def _formula_list2str(formula):
+	"""Convert a formula given as a Python list to a string"""
+
+	head, *rest = formula
+
+	if head == 'Prop':
+		return rest[0]
+	elif head == 'Var':
+		return rest[0]
+	else:
+		rest_str = [f' ({_formula_list2str(arg)}) ' for arg in rest]
+		rest_it  = iter(rest_str)
+
+		g = ''.join([next(rest_it) if ch == '_' else ch for ch in head])
+		return g
+
+# The API allows providing terms as objects, and they may need to be passed to
+# LTSmin in the form of string. The mixfix representation of the terms may
+# cause ambiguities and parsing problems, so the term is converted recursively
+# to prefix unambiguous form if maude 0.5 is not available, otherwise
+# prettyPrint is used.
+
+if hasattr(maude.Term, 'prettyPrint'):
+	def _term2str(term):
+		"""Convert any term to a string in prefix form"""
+		return term.prettyPrint(maude.PRINT_WITH_PARENS | maude.PRINT_DISAMBIG_CONST)
+
+else:
+	PSEUDOSYMBOLS = ['<Strings>', '<Qids>', '<Floats>']
+
+	def _term2str(term):
+		"""Convert any term to a string in prefix form"""
+
+		symbol = term.symbol()
+		symbol_name = str(symbol)
+		arguments = list(term.arguments())
+
+		if symbol.arity() == 0:
+			return str(term) if symbol_name in PSEUDOSYMBOLS \
+			                 else f'({symbol_name}).{term.getSort()}'
+
+		# Avoid some ambiguities with associative operators
+		elif symbol.arity() == 2 and len(arguments) > 2:
+			args = _term2str(arguments[0])
+			for arg in arguments[1:]:
+				args = f'{symbol_name}({args}, {arg})'
+			return args
+
+		else:
+			args = ','.join([f'({_term2str(arg)})' for arg in arguments])
+			return f'{symbol_name}({args})'
+
+
+class MaudeModel:
+	"""Model of a Maude (strategy-controlled) rewriting system"""
+
+	def __init__(self, initial, strategy=None, filename=None, module=None,
+		     metamodule=None, opaque=[], biased_matchrew=True,
+		     already_loaded=False, single_use=False):
+		"""
+		Generate a Maude model for model-checking.
+
+		:param initial: Initial term
+		:type initial: str or maude.Term
+		:param strategy: Strategy to control rewriting
+		:type strategy: str or maude.StrategyExpression or None
+		:param filename: Name of the file to be loaded
+		:type filename: str or None
+		:param module: Module where to model check
+		:type module: str or maude.Module or None
+		:param metamodule: Metarepresentation of the module where to model check
+		(parsed in module)
+		:type metamodule: str or maude.Term or None
+		:param opaque: List of opaque strategies
+		:type opaque: list of str
+		:param biased_matchrew: Whether the biased matchrew feature is enabled
+		:param biased_matchrew: bool
+		:param already_loaded: Whether the file should not be loaded again
+		:param already_loaded: bool
+		:param single_use: Whether a single use of the model with the graph method
+		is intended. Otherwise, graphs will be cached between calls to check
+		:param single_use: bool
+		"""
+
+		# File name
+
+		self.filename = filename
+		needs_loading = not isinstance(module, maude.Module) \
+		                and not isinstance(initial, maude.Term) \
+				and not already_loaded
+
+		if needs_loading:
+			if self.filename is None:
+				raise ValueError('filename must not be empty if not already loaded')
+			else:
+				maude.load(self.filename)
+
+		# Module
+
+		if module is None:
+			if isinstance(initial, maude.Term) and metamodule is None:
+				self.module = initial.symbol().getModule()
+			else:
+				self.module = maude.getCurrentModule()
+			self.module_str = str(self.module)
+		elif isinstance(module, str):
+			self.module = maude.getModule(module)
+			self.module_str = module
+		elif isinstance(module, maude.Module):
+			self.module = module
+			self.module_str = str(module)
+		else:
+			raise TypeError(f"unexpected type '{type(module).__name__}' for module")
+
+		# Metamodule
+
+		if isinstance(metamodule, str):
+			self.metamodule = self.module.parseTerm(metamodule)
+			self.module = maude.downModule(metamodule)
+		elif isinstance(metamodule, maude.Term):
+			self.metamodule = metamodule
+			self.module = maude.downModule(metamodule)
+		else:
+			self.metamodule = None
+
+		# Initial term
+
+		if isinstance(initial, str):
+			self.initial = self.module.parseTerm(initial)
+			self.initial_str = initial
+		elif isinstance(initial, maude.Term):
+			self.initial = initial
+			self.initial_str = str(initial)
+		else:
+			raise TypeError(f"unexpected type '{type(module).__name__}' for term")
+
+		# Strategy expression
+
+		if isinstance(strategy, str):
+			self.strategy = self.module.parseStrategy(strategy)
+			self.strategy_str = strategy
+		elif isinstance(strategy, maude.StrategyExpression):
+			self.strategy = strategy
+			self.strategy_str = str(strategy)
+		else:
+			self.strategy = None
+			self.strategy_str = None
+
+		# Opaque strategies and biased_matchrew
+
+		self.opaque = opaque
+		self.biased_matchrew = biased_matchrew
+
+		# Build the parser
+
+		self.parser = _formulae.Parser()
+		self.parser.set_module(self.module, metamodule=self.metamodule)
+
+		# Look for the Formula sort
+
+		formula_sort = self.module.findSort('Formula')
+		if formula_sort is None:
+			raise ValueError('the given module is not prepared for model checking')
+		self.formula_kind = self.module.findSort('Formula').kind()
+
+		# Graphs (wrapped or not)
+
+		if self.strategy is None:
+			self.graph = maude.RewriteGraph(self.initial)
+		else:
+			self.graph = maude.StrategyRewriteGraph(self.initial, self.strategy,
+								self.opaque, self.biased_matchrew)
+
+		self.wgraphs = {}
+		self.single_use = single_use
+
+	def check(self, formula, purge_fails='default', merge_states='default',
+		  backends=DEFAULT_BACKENDS, formula_str=None,
+		  logic=None, depth=-1, timeout=None, usermsgs=_usermsgs,
+		  extra_args=[]):
+		"""
+		Model check a given temporal formula.
+
+		:param formula: Formula
+		:type formula: str or list or maude.Term
+		:param purge_fails: Whether failed states must be purged (by default,
+			this value is selected depending on the logic)
+		:type purge_fails: bool or str
+		:param merge_states: Whether successors with a common term should be merged
+			(edge, value or none, by default selected depending on the logic)
+		:type merge_states: str
+		:param backends: Prioritized list of model checking backends to be used
+		:type backends: str or list of str
+		:param formula_str: Formula given a a string (in case formula is a list)
+		:type formula_str: str or None
+		:param logic: Logic (in case formula is a list)
+		:type logic: str
+		:param depth: Depth bound on the rewriting graph (only work for some backends)
+		:type depth: int
+		:param timeout: Timeout for the model-checking task (only work for some backends)
+		:type timeout: int or None
+		:param usermsgs: Partially override default user message printing functions
+		:type usermsgs: An object with print_error, print_warning and print_info methods
+		:param extra_args: Additional arguments to be passed to the backend
+		:type extra_args: list of str
+		:returns: the model checking result and a dictionary with statistics
+		"""
+
+		# Formula
+
+		if isinstance(formula, str):
+			pyformula, logic = self.parser.parse(formula)
+			formula_str = formula
+
+		elif isinstance(formula, maude.Term):
+			pyformula = None
+			formula_str = formula_str if formula_str else _term2str(formula)
+			logic = 'LTL'
+
+		elif isinstance(formula, list):
+			pyformula = formula
+			formula_str = formula_str if formula_str else _formula_list2str(formula)
+
+			if logic is None:
+				raise ValueError('logic cannot be None is the formula is given a list')
+
+		# Backends (LTSmin cannot be used if no filename is
+		# known, and depth excludes LTSmin and Maude)
+
+		if isinstance(backends, str):
+			real_backends = backends.split(',')
+		else:
+			real_backends = backends.copy()
+
+		if self.filename is None and 'ltsmin' in real_backends:
+			real_backends.remove('ltsmin')
+
+		if depth > 0:
+			if 'ltsmin' in real_backends:
+				real_backends.remove('ltsmin')
+			if 'maude' in real_backends:
+				real_backends.remove('maude')
+
+		available, unavailable = _backends.get_backends(real_backends)
+		name, backend = _backends.backend_for(available, logic)
+
+		if name is None:
+			usermsgs.print_error('No available backend supports the given formula.')
+			return None, None
+
+		aprops = set()
+		_formulae.collect_aprops(pyformula, aprops)
+
+		# Graph variants (we store them to save work when checking multiple times)
+
+		if self.strategy is not None and (not self.single_use or depth > 0):
+			# The argument purge_fails can be a Boolean
+			if isinstance(purge_fails, bool):
+				purge_fails = 'yes' if purge_fails else 'no'
+
+			# Decide the purge_fails and merge_states values if not explicitly given
+			purge, merge = _common.default_model_settings(logic, purge_fails, merge_states,
+						self.strategy is None, tableau=name in ['nusmv', 'pymc'])
+			wgraph = self.wgraphs.get((purge, merge, depth > 0))
+
+			# The graph is not stored in the cache
+			if wgraph is None or (0 < depth != self._get_detph(wgraph)):
+				# Wrap the graph to limit its depth
+				wgraph = _wrappers.BoundedGraph(self.graph, depth) if depth > 0 else self.graph
+
+				# Create and store the wrapped graph
+				wgraph = _wrappers.wrapGraph(wgraph, purge_fails, merge_states)
+				self.wgraphs[(purge, merge, depth > 0)] = wgraph
+
+				# In case both purge and merge are used, we keep the purged
+				# graph (which is the graph attribute of the MergedGraph)
+				if purge == 'yes' and merge != 'no':
+					self.wgraphs[('yes', 'no', depth > 0)] = wgraph.graph
+		else:
+			wgraph = self.graph
+
+		holds, stats = backend.check(module=self.module,
+			    module_str=self.module_str,
+			    metamodule_str=_term2str(self.metamodule) if self.metamodule else None,
+			    term=self.initial,
+			    term_str=self.initial_str,
+			    strategy=self.strategy,
+			    strategy_str=self.strategy_str,
+			    opaque=self.opaque,
+			    full_matchrew=not self.biased_matchrew,
+			    formula=pyformula,
+			    formula_str=formula_str,
+			    logic=logic,
+			    labels=self.parser.labels,
+			    filename=self.filename,
+			    graph=None if self.single_use and depth <= 0 else wgraph,
+			    aprops=aprops,
+			    get_graph=True,
+			    extra_args=extra_args,
+			    purge_fails=purge_fails,
+			    merge_states=merge_states,
+				timeout=timeout)
+
+		if holds is not None:
+			stats['backend'] = name
+			stats['logic'] = logic
+
+		return holds, stats
+
+	def _get_depth(self, wgraph):
+		"""Get the depth of a bounded depth graph"""
+
+		while wgraph.graph != self.graph:
+			wgraph = wgraph.graph
+
+		return wgraph.depth
+
+	def format_statistics(self, stats):
+		"""
+		Format the statistics produced by the model checkers
+
+		:param stats: Statistics produced by the check method
+		:type stats: dict
+		:return: a formatted text with statistics
+		:rtype: str
+		"""
+
+		return _backends.format_statistics(stats)
+
+	def print_counterexample(self, stats, printer=None, sformat=None, eformat=None):
+		"""
+		Pretty print an counterexample for a previous check (nothing is printed
+		if no counterexample has been found)
+
+		:param stats: Statistics produced by the check method
+		:type stats: dict
+		:param printer: Printer for the counterexample
+		:type printer: a counterexample printer or None
+		:param sformat: State formatter or format string
+		:type sformat: str or function or None
+		:param eformat: Edge formatter or format string
+		:type eformat: str or function or None
+		:rtype: str
+		"""
+
+		counterexample = stats.get('counterexample')
+		graph = stats.get('graph', self.graph)
+
+		if counterexample is None:
+			return
+
+		if printer is None:
+			printer = _counterprint.SimplePrinter()
+
+		sformat_str = sformat if isinstance(sformat, str) else None
+		eformat_str = eformat if isinstance(eformat, str) else None
+
+		slabel, elabel = _formatter.get_formatters(sformat_str, eformat_str, self.graph.strategyControlled)
+
+		if sformat is not None and sformat_str is None:
+			slabel = sformat
+		if eformat is not None and eformat_str is None:
+			elabel = eformat
+
+		_counterprint.print_counterexample(graph, counterexample, (printer, slabel, elabel))

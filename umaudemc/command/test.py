@@ -77,7 +77,7 @@ def load_cases(filename):
 			with open(filename, 'r') as caspec:
 				return yaml.load(caspec, Loader=SafeLineLoader)
 
-		except yaml.error.YamlError as ype:
+		except yaml.error.YAMLError as ype:
 			usermsgs.print_error('Error while parsing tests file: ' + str(ype) + '.')
 
 	# JSON format
@@ -126,7 +126,7 @@ def read_suite(filename):
 
 		yield rel_filename, read_cases(filename, source, parser)
 
-# The following funtions are similar: they receive a test and a string
+# The following functions are similar: they receive a test and a string
 # for one of its attributes, which are parsed and set within the test.
 # In case of error, a message is shown.
 

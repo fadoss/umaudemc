@@ -11,11 +11,11 @@ import maude
 from . import usermsgs
 
 #
-# Warn about old version of the maude package installed
+# Warn about old versions of the maude package installed
 #
 
 if hasattr(maude, 'StateTransitionGraph'):
-	usermsgs.print_warning('Version 3.0 of the maude package contains bugs related to model checking.\n'
+	usermsgs.print_warning('Version 0.3 of the maude package contains bugs related to model checking.\n'
 			       'Please update.')
 
 	# Anyhow, allow using it at their own risk, for which some adaptations are needed
@@ -23,6 +23,15 @@ if hasattr(maude, 'StateTransitionGraph'):
 	maude.StrategyRewriteGraph = maude.StrategyTransitionGraph
 
 	maude.Symbol.__call__ = lambda self, *args: self.makeTerm(args)
+
+if not hasattr(maude, 'Hook'):
+	usermsgs.print_warning('Version 0.5 of the maude package adds some useful features for this program.\n'
+			       'Please update.')
+
+	maude.RewriteGraph.getNrRewrites = lambda: 0
+	maude.StrategyRewriteGraph.getNrRewrites = lambda: 0
+	maude.ModelCheckResult.nrBuchiStates = 0
+	maude.downModule = lambda term: term.symbol().getModule().downModule(term)
 
 
 class InitialData:

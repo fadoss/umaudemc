@@ -157,7 +157,7 @@ def _special_mucalc(form, trsymb, prio):
 		# so a conjunction or disjunction has to be built to support multiple actions.
 		connector = ' || ' if head == '<_>_' else ' && '
 		child = _make_ltsmin_formula(rest[1], _mucalc_translation, prio, _special_mucalc)
-		# Parentheses are adeded when logical connectors are introduced (the priority changes)
+		# Parentheses are added when logical connectors are introduced (the priority changes)
 		if len(rest[0]) > 1:
 			trsymb = '(' + trsymb + ')'
 		clauses = [trsymb.format(str(action), child) for action in rest[0]]
@@ -308,8 +308,8 @@ class LTSmin:
 
 	def check(self, filename=None, module_str=None, metamodule_str=None, labels=[],
 		  formula=None, logic=None, aprops=None, full_matchrew=False, opaque=[],
-		  strategy_str=None, term_str=None, merge_states='default', purge_fails='default',
-		  extra_args=[], **kwargs):
+		  strategy_str=None, term_str=None, merge_states='default',
+		  purge_fails='default', timeout=None, extra_args=[], **kwargs):
 		"""Check a model-checking problem directly with LTSmin"""
 
 		purge_fails, merge_states = default_model_settings(logic, purge_fails, merge_states,
@@ -329,7 +329,8 @@ class LTSmin:
 				  opaque_strats=opaque,
 				  extra_args=extra_args,
 				  purge_fails=purge_fails == 'yes',
-				  merge_states=merge_states)
+				  merge_states=merge_states,
+				  timeout=timeout)
 
 
 class LTSminRunner:
@@ -462,7 +463,7 @@ class LTSminRunner:
 
 	def run(self, filename, initial, strategy, biased_matchrew=True, opaque_strats=[],
 		merge_states='state', purge_fails=True, extra_args=[], raw=False, verbose=False,
-		no_advise=False, depth=0):
+		no_advise=False, depth=0, timeout=None):
 		"""Run LTSmin to model check temporal formulae"""
 
 		if merge_states == 'no':
@@ -529,7 +530,12 @@ class LTSminRunner:
 
 		# Add the directory of the Maude file being used to the MAUDE_LIB
 		# environment variable so that dependencies can be found with relative paths.
-		new_maude_lib = os.getenv('MAUDE_LIB', '')
+		# Moreover, MAUDE_LIB_LTSMIN is preferred over MAUDE_LIB to cover the case
+		# when the LTSmin plugin and the maude Python library have been built with
+		# incompatible Maude versions.
+
+		maude_lib_ltsmin = os.getenv('MAUDE_LIB_LTSMIN')
+		new_maude_lib = os.getenv('MAUDE_LIB', '') if maude_lib_ltsmin is None else maude_lib_ltsmin
 		new_maude_lib = ('' if new_maude_lib == '' else new_maude_lib + os.pathsep) \
 				  + os.path.dirname(filename)
 
@@ -539,7 +545,7 @@ class LTSminRunner:
 		else:
 			# Run the LTSmin tool with the arguments prepared above
 			status = subprocess.run([self.ltsmin.pins2lts[variant]] + args, capture_output=True,
-						env=dict(os.environ, MAUDE_LIB=new_maude_lib))
+						env=dict(os.environ, MAUDE_LIB=new_maude_lib), timeout=timeout)
 
 			if verbose:
 				print(status.stderr[:-1].decode('utf-8'))

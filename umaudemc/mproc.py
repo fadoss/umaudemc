@@ -243,7 +243,6 @@ class MaudeProcess:
 				self.maude.StrategyRewriteGraph.OPAQUE_STRATEGY: 2,
 				self.maude.StrategyRewriteGraph.SOLUTION: 0
 			}[trans.getType()]
-			label = ''
 
 			if ttype == 1:
 				label = trans.getRule()
@@ -308,3 +307,11 @@ class MaudeRemote:
 	def shutdown(self):
 		self.pipe.send([])
 		self.p.join(timeout=2)
+		self.p.terminate()
+		self.p = None
+		self.pipe = None
+
+	def forced_shutdown(self):
+		self.p.kill()
+		self.p = None
+		self.pipe = None

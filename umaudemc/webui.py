@@ -232,7 +232,6 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
 			self.send_response(200)
 			self.send_header('Content-Type', 'text/json; charset=utf-8')
 			self.end_headers()
-			mod = form.getvalue('mod')
 			data = {
 				'module':	form.getvalue('mod'),
 				'initial':	form.getvalue('initial'),
@@ -288,6 +287,15 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
 				'states'	: result.get('states')
 			}
 			self.wfile.write(json.dumps(response).encode('utf-8'))
+		elif question == 'cancel':
+			self.server.info.remote.shutdown()
+			self.server.info.remote = mproc.MaudeRemote()
+
+			self.send_response(200)
+			self.send_header('Content-Type', 'text/plain; charset=utf-8')
+			self.end_headers()
+
+			self.wfile.write('done'.encode('utf-8'))
 		else:
 			self.send_error(404)
 
@@ -319,7 +327,7 @@ def run(args):
 		else:
 			usermsgs.print_warning('Bad address:port specification. Ignoring it.')
 
-	httpd = http.server.HTTPServer(server_address, RequestHandler)
+	httpd = http.server.ThreadingHTTPServer(server_address, RequestHandler)
 	httpd.info = ConnectionInfo()
 
 	# Limit access to the given root path

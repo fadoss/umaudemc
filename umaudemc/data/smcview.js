@@ -65,6 +65,19 @@ function buttonToggle()
 		|| !document.getElementById('description').db.valid
 }
 
+function disableInput(disabled)
+{
+	document.getElementById('send').disabled = disabled
+	document.getElementById('initial').disabled = disabled
+	document.getElementById('formula').disabled = disabled
+	document.getElementById('module').disabled = disabled
+	document.getElementById('module').disabled = disabled
+	document.getElementById('strategy').disabled = disabled
+	document.getElementById('opaques').disabled = disabled
+	document.getElementById('sourceFileOpen').disabled = disabled
+	document.getElementById('description').disabled = disabled
+}
+
 function loadSourceModules(file)
 {
 	const request = new XMLHttpRequest()
@@ -241,7 +254,7 @@ function modelcheck()
 
 			switch (listing.status)
 			{
-				case 0 : errbar.innerText = 'Waiting for the model checker...'; break
+				case 0 : errbar.innerHTML = 'Waiting for the model checker... or <a class="cancelButton" onclick="cancelChecking()">cancel</a> it'; break
 				case 1 : errbar.innerText = 'Syntax error at the initial term'; break
 				case 2 : errbar.innerText = 'Syntax error at the formula'; break
 				case 3 : errbar.innerText = 'Syntax error at strategy expression'; break
@@ -286,6 +299,9 @@ function waitModelChecker(mcref) {
 			var listing = JSON.parse(this.responseText)
 			var errbar = document.getElementById('errorbar')
 
+			// Enable input
+			disableInput(false)
+
 			if (listing.holds)
 			{
 				errbar.innerHTML = `The property <span class="baremph">${escapeHTMLChars(listing.formula)}</span> holds from <span class="baremph">${escapeHTMLChars(listing.initial)}</span>` + (listing.strat == '' ? '' : ` using <span class="baremph">${escapeHTMLChars(listing.strat)}</span>`)
@@ -320,10 +336,36 @@ function waitModelChecker(mcref) {
 		}
 	}
 
+	// Disable input until model checking has finished
+	disableInput(true)
+
 	var question = new FormData()
 
 	question.append('question', 'wait')
 	question.append('mcref', mcref)
+	request.open('post', 'ask')
+	request.send(question)
+}
+
+function cancelChecking() {
+	var request = new XMLHttpRequest()
+	var question = new FormData()
+
+	request.onreadystatechange = function()
+	{
+		if (this.readyState == XMLHttpRequest.DONE && this.status == 200)
+		{
+			// The model checking session need to be restarted
+			disableInput(false)
+			openFile(sourceFile.fullPath)
+
+			// Hide the informative bar
+			var errbar = document.getElementById('errorbar')
+			errbar.style.display = 'none'
+		}
+	}
+
+	question.append('question', 'cancel')
 	request.open('post', 'ask')
 	request.send(question)
 }

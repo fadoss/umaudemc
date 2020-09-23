@@ -100,7 +100,7 @@ class NuSMV:
 
 		return self.nusmv is not None
 
-	def run(self, graph, form, ftype, aprops, extra_args=[], raw=False):
+	def run(self, graph, form, ftype, aprops, extra_args=[], raw=False, timeout=None):
 		"""Run NuSMV to check the following model-checking problem"""
 
 		# If NuSMV has not been found, end with None
@@ -124,7 +124,8 @@ class NuSMV:
 			tmpfile.flush()
 
 		# NuSMV is called on the generated file
-		status = subprocess.run([self.nusmv, tmpfile.name] + extra_args, capture_output=not raw)
+		status = subprocess.run([self.nusmv, tmpfile.name] + extra_args,
+					capture_output=not raw, timeout=timeout)
 
 		if status.returncode != 0:
 			usermsgs.print_error('An error was produced while running NuSMV:\n'
@@ -132,7 +133,10 @@ class NuSMV:
 			os.remove(tmpfile.name)
 			return None, None
 		else:
-			stats = {'states': graph.getNrStates()}
+			stats = {
+				'states': graph.getNrStates(),
+				'rewrites': grapher.getNrRewrites() + graph.getNrRewrites()
+			}
 
 			# Parse the NuSMV output to obtain the binary result of the check and
 			# the counterexample in such case.
@@ -171,7 +175,7 @@ class NuSMV:
 			return result, stats
 
 	def check(self, graph=None, module=None, formula=None, logic=None, aprop_terms=None,
-		  extra_args=[], get_graph=False, **kwargs):
+		  extra_args=[], get_graph=False, timeout=None, **kwargs):
 		"""Solves a model-checking problem with NuSMV"""
 
 		# Create the graph if not provided by the caller
@@ -184,7 +188,7 @@ class NuSMV:
 			collect_aprops(formula, aprops)
 			aprop_terms = [module.parseTerm(prop) for prop in aprops]
 
-		holds, stats = self.run(graph, formula, logic, aprop_terms, extra_args)
+		holds, stats = self.run(graph, formula, logic, aprop_terms, extra_args, timeout=timeout)
 
 		if get_graph:
 			stats['graph'] = graph
@@ -216,10 +220,19 @@ class NuSMVGrapher:
 		self.slabel = slabel if slabel is not None else lambda *args: ""
 		self.stutter_ext = stutter_ext
 
+		self.satisfies = None
+		self.true_term = None
+
+		# Number of rewrites used to check atomic propositions
+		self.nrRewrites = 0
+
+	def getNrRewrites(self):
+		return self.nrRewrites
+
 	def check_aprop(self, graph, propNr, stateNr):
 		"""Check whether a given atomic proposition holds in a state"""
 		t = self.satisfies.makeTerm([graph.getStateTerm(stateNr), self.aprops[propNr]])
-		t.reduce()
+		self.nrRewrites += t.reduce()
 		return t.equal(self.true_term)
 
 	def graph(self, graph, bound=-1):

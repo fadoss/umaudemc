@@ -7,8 +7,8 @@ import os.path
 import sys
 
 from ..common import default_model_settings, parse_initial_data, usermsgs, maude
-from ..backends import supported_logics, get_backends, backend_for, LTSmin
-from ..counterprint import SimplePrinter, JSONPrinter, HTMLPrinter, DOTPrinter
+from ..backends import supported_logics, get_backends, backend_for, LTSmin, format_statistics
+from ..counterprint import SimplePrinter, JSONPrinter, HTMLPrinter, DOTPrinter, print_counterexample
 from ..wrappers import wrapGraph
 from ..formulae import Parser, collect_aprops
 from ..formatter import get_formatters
@@ -18,104 +18,6 @@ from ..formatter import get_formatters
 _itis  = '\033[1;32mis\033[0m'
 _isnot = '\033[1;91mis not\033[0m'
 
-STATS_FORMAT = {
-	'states'	: '{} system states',
-	'rewrites'	: '{} rewites',
-	'game'		: '{} game states',
-	'buchi'		: '{} Büchi states'
-}
-
-
-def is_solution(transition):
-	"""Check whether the given transition represents a solution self-loop"""
-	return transition.getType() == maude.StrategyRewriteGraph.SOLUTION
-
-
-def print_counterexample(graph, counter, printer_triple):
-	"""Print a model-checking counterexample"""
-	leadIn, cycle = counter
-	printer, sformat, eformat = printer_triple
-
-	# Is this a trace prefix? (for branching-time properties)
-	prefix = (cycle == [])
-
-	if prefix:
-		finite = True
-		real_leadin_length = len(leadIn) - 1
-		real_cycle_length = 0
-	else:
-		# Is this a finite counterexample trace?
-		if graph.strategyControlled:
-			finite = is_solution(graph.getTransition(cycle[-1], cycle[0]))
-		else:
-			finite = graph.getRule(cycle[-1], cycle[0]) is None
-
-		# Reduce the length of the cycle
-		real_cycle_length = len(cycle) - 1 if finite else len(cycle)
-		real_leadin_length = len(leadIn)
-
-		if (finite and graph.strategyControlled and real_cycle_length > 0 and
-			is_solution(graph.getTransition(cycle[real_cycle_length - 1], cycle[real_cycle_length]))):
-			real_cycle_length -= 1
-
-	# Begin trace
-	printer.begin_trace(finite,
-		len(leadIn) + real_cycle_length + 1 if finite else len(leadIn),
-		0 if finite else len(cycle))
-
-	# Lead-in to the cycle
-	for i in range(real_leadin_length):
-		index = leadIn[i]
-		next_index = leadIn[i+1] if i+1 < len(leadIn) else cycle[0]
-
-		if graph.strategyControlled:
-			printer.next_step_strat(
-				sformat(graph, index),
-				graph.getStateStrategy(index),
-				eformat(graph, index, next_index),
-				sformat(graph, next_index),
-				first_index=index,
-				second_index=next_index)
-		else:
-			printer.next_step(
-				sformat(graph, index),
-				eformat(graph, index, next_index),
-				sformat(graph, next_index),
-				first_index=index,
-				second_index=next_index)
-
-	# Start the loop part
-	if not finite:
-		printer.start_loop()
-
-	# Cycle
-	for i in range(real_cycle_length):
-		index = cycle[i]
-		next_index = cycle[i+1] if i+1 < len(cycle) else cycle[0]
-
-		if graph.strategyControlled:
-			printer.next_step_strat(
-				sformat(graph, index),
-				graph.getStateStrategy(index),
-				eformat(graph, index, next_index),
-				sformat(graph, next_index),
-				first_index=index,
-				second_index=next_index)
-		else:
-			printer.next_step(
-				sformat(graph, index),
-				eformat(graph, index, next_index),
-				sformat(graph, next_index),
-				first_index=index,
-				second_index=next_index)
-
-	# Last state for solutions
-	if prefix:
-		printer.last_state(sformat(graph, leadIn[-1]), index=leadIn[-1], prefix=True)
-	elif finite:
-		printer.last_state(sformat(graph, cycle[-1]), index=cycle[-1])
-	else:
-		printer.end_cycle()
 
 def get_printer(args):
 	"""Get printer and formatter according to the program arguments"""
@@ -157,7 +59,7 @@ def get_printer(args):
 	elif oformat == 'dot':
 		return DOTPrinter(ofile), *formatters
 	else:
-		usermsgs.print_warning('Counterxample formatter not available. Defaulting to text mode.')
+		usermsgs.print_warning('Counterexample formatter not available. Defaulting to text mode.')
 
 	return SimplePrinter(args.show_strat), *formatters
 
@@ -214,20 +116,6 @@ def generic_check(data, args, formula, logic, backend, handle):
 		print_counterexample(stats['graph'], stats['counterexample'], get_printer(args))
 
 	return 0
-
-def format_statistics(stats):
-	"""Format the statistics provided by the backends"""
-
-	# Format the integral statistic messages
-	params = [msg.format(stats[key]) for key, msg in STATS_FORMAT.items() if key in stats]
-
-	sset   = stats.get('sset')
-	states = stats.get('states')
-
-	if sset is not None:
-		params.append(f'holds in {len(sset)}/{states} states')
-
-	return ', '.join(params)
 
 
 def suggest_install(backends, ftype):

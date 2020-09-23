@@ -16,7 +16,7 @@ CYCLE_BAR   = '\033[1;31m| |\033[0m'	# Two bars in red
 CYCLE_ARR   = '\033[1;31m| ∨\033[0m'	# A bar and an arrow head in red
 CYCLE_END   = '\033[1;31m< ∨\033[0m'	# A loop of arrow heads in red
 SOLUTION    = '\033[1;32mX\033[0m'	# An X in green
-PREFIX      = '\033[1;36mO\033[0m'	# An O in cian
+PREFIX      = '\033[1;36mO\033[0m'	# An O in cyan
 EDGE_FMT    = '\033[3m\033[36m'		# Format for edges
 PEND_FMT    = '\033[3m\033[35m'		# Format for pending strategies
 RESET_FMT   = '\033[0m'			# Reset format
@@ -30,6 +30,101 @@ def print_smc_trans_type(trans):
 		maude.StrategyRewriteGraph.OPAQUE_STRATEGY 	: 'opaque',
 		maude.StrategyRewriteGraph.SOLUTION		: 'solution'
 	}[trans.getType()]
+
+#
+# Funtion that walks through the counterexample calling the printer
+#
+
+def is_solution(transition):
+	"""Check whether the given transition represents a solution self-loop"""
+	return transition.getType() == maude.StrategyRewriteGraph.SOLUTION
+
+
+def print_counterexample(graph, counter, printer_triple):
+	"""Print a model-checking counterexample"""
+	leadIn, cycle = counter
+	printer, sformat, eformat = printer_triple
+
+	# Is this a trace prefix? (for branching-time properties)
+	prefix = (cycle == [])
+
+	if prefix:
+		finite = True
+		real_leadin_length = len(leadIn) - 1
+		real_cycle_length = 0
+	else:
+		# Is this a finite counterexample trace?
+		if graph.strategyControlled:
+			finite = is_solution(graph.getTransition(cycle[-1], cycle[0]))
+		else:
+			finite = graph.getRule(cycle[-1], cycle[0]) is None
+
+		# Reduce the length of the cycle
+		real_cycle_length = len(cycle) - 1 if finite else len(cycle)
+		real_leadin_length = len(leadIn)
+
+		if (finite and graph.strategyControlled and real_cycle_length > 0 and
+			is_solution(graph.getTransition(cycle[real_cycle_length - 1], cycle[real_cycle_length]))):
+			real_cycle_length -= 1
+
+	# Begin trace
+	printer.begin_trace(finite,
+		len(leadIn) + real_cycle_length + 1 if finite else len(leadIn),
+		0 if finite else len(cycle))
+
+	# Lead-in to the cycle
+	for i in range(real_leadin_length):
+		index = leadIn[i]
+		next_index = leadIn[i+1] if i+1 < len(leadIn) else cycle[0]
+
+		if graph.strategyControlled:
+			printer.next_step_strat(
+				sformat(graph, index),
+				graph.getStateStrategy(index),
+				eformat(graph, index, next_index),
+				sformat(graph, next_index),
+				first_index=index,
+				second_index=next_index)
+		else:
+			printer.next_step(
+				sformat(graph, index),
+				eformat(graph, index, next_index),
+				sformat(graph, next_index),
+				first_index=index,
+				second_index=next_index)
+
+	# Start the loop part
+	if not finite:
+		printer.start_loop()
+
+	# Cycle
+	for i in range(real_cycle_length):
+		index = cycle[i]
+		next_index = cycle[i+1] if i+1 < len(cycle) else cycle[0]
+
+		if graph.strategyControlled:
+			printer.next_step_strat(
+				sformat(graph, index),
+				graph.getStateStrategy(index),
+				eformat(graph, index, next_index),
+				sformat(graph, next_index),
+				first_index=index,
+				second_index=next_index)
+		else:
+			printer.next_step(
+				sformat(graph, index),
+				eformat(graph, index, next_index),
+				sformat(graph, next_index),
+				first_index=index,
+				second_index=next_index)
+
+	# Last state for solutions
+	if prefix:
+		printer.last_state(sformat(graph, leadIn[-1]), index=leadIn[-1], prefix=True)
+	elif finite:
+		printer.last_state(sformat(graph, cycle[-1]), index=cycle[-1])
+	else:
+		printer.end_cycle()
 
 #
 # Printers should implement the following methods
@@ -88,7 +183,7 @@ class SimplePrinter:
 
 
 class JSONPrinter:
-	"""Counterxample printer to JSON"""
+	"""Counterexample printer to JSON"""
 
 	def __init__(self, ofile=sys.stdout):
 		self.root  = {}
@@ -121,7 +216,7 @@ class JSONPrinter:
 
 
 class DOTPrinter:
-	"""Counterxample printer to GraphViz's DOT"""
+	"""Counterexample printer to GraphViz's DOT"""
 
 	def __init__(self, ofile=sys.stdout):
 		self.visited = {}

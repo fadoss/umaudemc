@@ -58,11 +58,11 @@ def add_label_format_args(parser):
 
 
 def add_backend_arg(parser):
-	"""Argument to specify the priorized list of backends"""
+	"""Argument to specify the prioritized list of backends"""
 
 	parser.add_argument(
 		'--backend',
-		help='comma-separated priorized list of model-checking backends (among maude, ltsmin, pymc, nusmv, builtin)',
+		help='comma-separated prioritized list of model-checking backends (among maude, ltsmin, pymc, nusmv, builtin)',
 		default='maude,ltsmin,pymc,nusmv,builtin'
 	)
 
@@ -76,7 +76,7 @@ subparsers = parser.add_subparsers(help='Program options')
 
 parser.add_argument(
 	'--no-advise',
-	help='supress debug messages (internal use)',
+	help='suppress debug messages (internal use)',
 	dest='advise',
 	action='store_false'
 )
@@ -102,7 +102,7 @@ parser_gui = subparsers.add_parser('gui', help='Graphical interface')
 
 parser_gui.add_argument(
 	'--web',
-	help='use the web interface (by default)',
+	help='use web interface even if Gtk is available',
 	action='store_true'
 )
 parser_gui.add_argument(
@@ -148,7 +148,7 @@ add_backend_arg(parser_check)
 add_label_format_args(parser_check)
 parser_check.add_argument(
 	'-f', '--format',
-	help='format for printing the counterxample',
+	help='format for printing the counterexample',
 	choices=['text', 'json', 'dot', 'html']
 )
 parser_check.add_argument(
@@ -248,7 +248,7 @@ args.extra_args = extra_args
 if args.version:
 	print('Unified Maude model-checking tool ' + __version__)
 
-	dependencies = {'maude', 'pyModelChecking', 'yaml'}
+	dependencies = {'maude', 'pyModelChecking', 'gi', 'yaml'}
 	available     = {dep for dep in dependencies if importlib.util.find_spec(dep) is not None}
 
 	print('\nInstalled dependencies: ' + ' '.join(available))
@@ -264,6 +264,7 @@ if sys.platform == 'win32':
 	# -11 is standard output, 4 is ENABLE_VIRTUAL_TERMINAL_PROCESSING
 	kernel32.SetConsoleMode(kernel32.GetStdHandle(-11), 4)
 
+has_gtk   = importlib.util.find_spec('gi')
 has_maude = importlib.util.find_spec('maude')
 
 if not has_maude:
@@ -273,8 +274,29 @@ if not has_maude:
 
 # GUI interface subcommand
 if args.mode == 'gui':
-	from . import webui
-	webui.run(args)
+
+	# Check whether Gtk is really installed if required (the current has_gtk
+	# only tells whether the GObject introspection library is installed)
+
+	use_web = args.web or args.address is not None or args.rootdir is not None
+
+	if has_gtk and not use_web:
+		try:
+			from . import gtk
+		except ModuleNotFoundError as mnfe:
+			has_gtk = False
+		except Exception as e:
+			usermsgs.print_warning(f'Loading web interface instead of Gtk: {e}')
+			has_gtk = False
+
+	# If Gtk is not installed or if explicitly requested,
+	# the browser-based interface is used
+
+	if has_gtk and not use_web:
+		gtk.run_gtk()
+	else:
+		from . import webui
+		webui.run(args)
 
 # Graph generation subcommand
 elif args.mode == 'graph':

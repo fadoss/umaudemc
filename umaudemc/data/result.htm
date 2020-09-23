@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf8" />
+	<link rel="stylesheet" type="text/css" href="umaudemc:smcview.css">
+	<script src="umaudemc:smcgraph.js"></script>
+</head>
+<body>
+<header id="resultHeader" class="resultHeader">
+	The property does not hold.
+</header>
+
+<div style="margin: 1ex; padding: 0; text-align: center; flex-grow: 1;">
+	<div class="statePopup" id="state-popup">
+	<table>
+		<tr><td>Term:</td><td id="popup-term"></td></tr>
+		<tr><td>Strategy:</td><td id="popup-strat"></td></tr>
+	</table>
+	</div>
+	<svg id="canvas">
+		<defs>
+			<marker orient="auto" id="arrowh" refY="0" markerWidth="10" markerHeight="10" refX="5" viewBox="-0.2 -8 5.6 16">
+				<path stroke="black" fill="none" stroke-width="1.5" d="M0,-5L5,0L0,5"></path>
+			</marker>
+		</defs>
+		<g id="graph"></g>
+	</svg>
+</div>
+<script>
+	function escapeHTMLChars(text) {
+		return text.replace(/&/g, "&amp;")
+			.replace(/</g, "&lt;")
+			.replace(/>/g, "&gt;")
+			.replace(/"/g, "&quot;")
+			.replace(/'/g, "&#039;")
+	}
+
+	function initCanvas(result) {
+		var canvas = document.getElementById('canvas')
+		var graph = document.getElementById('graph')
+		var resultHeader = document.getElementById('resultHeader')
+
+		console.log(result)
+
+		resultHeader.innerHTML = `The property <span class="baremph">${escapeHTMLChars(result.formula)}</span> does not hold from <span class="baremph">${escapeHTMLChars(result.initial)}</span>` + (result.strat == '' ? '' : ` using <span class="baremph">${escapeHTMLChars(result.strat)}</span>`)
+
+		graph.db = {holds: false, numberStates: 5, path: result.leadIn, cycle: result.cycle}
+		// Remove the previous graph
+		graph.innerHTML = ''
+		// Paints the current graph
+		graph.db.states = result.states
+		paintCanvas(canvas, graph)
+	}
+</script>
+</body>
+</html>

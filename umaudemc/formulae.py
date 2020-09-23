@@ -170,7 +170,7 @@ class Parser:
 			self.templog.parseTerm(self.ruleLabels)
 		)
 		parser_metamod.reduce()
-		extmod = self.templog.downModule(parser_metamod)
+		extmod = maude.downModule(parser_metamod)
 
 		formula_kind = extmod.findSort('Formula').kind()
 

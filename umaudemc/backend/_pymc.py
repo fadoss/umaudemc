@@ -33,6 +33,13 @@ class KripkeBuilder:
 		self.true      = module.parseTerm('true', bool_kind)
 		self.satisfies = module.findSymbol('_|=_', [state_kind, prop_kind], bool_kind)
 
+		# Number of rewrites to test them
+		self.nrRewrites = 0
+
+	def getNrRewrites(self):
+		"""Total count of rewrites used to generate the Kripke structure"""
+		return self.nrRewrites + self.graph.getNrRewrites()
+
 	def labels_of(self, state):
 		"""Set of atomic propositions holding in a state (Kripke's labeling function)"""
 
@@ -41,7 +48,7 @@ class KripkeBuilder:
 
 		for prop in self.aprops:
 			t = self.satisfies.makeTerm([term, prop])
-			t.reduce()
+			self.nrRewrites += t.reduce()
 			if t.equal(self.true):
 				labels.add(str(prop))
 
@@ -187,13 +194,15 @@ class PyModelChecking:
 			aprops = set()
 			collect_aprops(formula, aprops)
 
-			aprop_terms = {module.parseTerm(prop) for prop in aprops}
+			aprop_terms = [module.parseTerm(prop) for prop in aprops]
 
-		kripke       = KripkeBuilder(graph, aprop_terms).make_kripke()
+		kbuilder     = KripkeBuilder(graph, aprop_terms)
+		kripke       = kbuilder.make_kripke()
 		holds, stats = self.check_kripke(kripke, formula, logic)
 
 		if holds is not None:
 			stats['states'] = graph.getNrStates()
+			stats['rewrites'] = kbuilder.getNrRewrites()
 		if get_graph:
 			stats['graph'] = graph
 

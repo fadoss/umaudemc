@@ -17,6 +17,14 @@ supported_logics = {
 }
 
 
+STATS_FORMAT = {
+	'states'	: '{} system state',
+	'rewrites'	: '{} rewrite',
+	'game'		: '{} game state',
+	'buchi'		: '{} Büchi state'
+}
+
+
 class MaudeBackend:
 	"""The Maude LTL model checker and its strategy-aware extension"""
 
@@ -46,7 +54,11 @@ class MaudeBackend:
 			return None, None
 
 		# Build the statistics dictionary
-		stats = {'states': graph.getNrStates()}
+		stats = {
+			'states': graph.getNrStates(),
+			'rewrites': graph.getNrRewrites(),
+			'buchi': result.nrBuchiStates
+		}
 
 		if get_graph:
 			stats['graph'] = graph
@@ -75,7 +87,9 @@ def get_backends(backend_arg):
 	"""Get the lists of available and unavailable backends give a comma-separated list with their names"""
 	available, unavailable = [], []
 
-	for name in backend_arg.split(','):
+	backend_names = backend_arg.split(',') if isinstance(backend_arg, str) else backend_arg
+
+	for name in backend_names:
 		handler = get_backend(name)
 
 		if handler:
@@ -92,3 +106,18 @@ def backend_for(backends, logic):
 	valid = ((name, handle) for name, handle in backends
 				if logic in supported_logics[name])
 	return next(valid, (None, None))
+
+def format_statistics(stats):
+	"""Format the statistics provided by the backends"""
+
+	# Format the integral statistic messages
+	params = [msg.format(stats[key]) + ('s' if stats[key] > 1 else '')
+		  for key, msg in STATS_FORMAT.items() if key in stats]
+
+	sset   = stats.get('sset')
+	states = stats.get('states')
+
+	if sset is not None:
+		params.append(f'holds in {len(sset)}/{states} states')
+
+	return ', '.join(params)

@@ -13,7 +13,7 @@ temporal property on the given rewriting system.
 * `graph <filename> <initial term> [<strategy>]` to generate a visual
 representation of the reachable rewrite graph from the given initial state
 in the [GraphViz](https://graphviz.org/)'s DOT format.
-* `gui` to model check from a graphical user interface.
+* `gui [--web]` to model check from a graphical user interface.
 * `test [--benchmark] <filename>` to test or benchmark model-checking cases.
 
 Formulae are expressed in a syntax extending the `LTL` module of the 

@@ -55,6 +55,10 @@ header {
 	text-align: left;
 }
 
+.sumtable span {
+	cursor: pointer;
+}
+
 /* Bar where parsing errors are shown */
 .mainbox #errorbar {
 	text-align: center;
@@ -80,6 +84,11 @@ header {
 
 label + input {
 	margin-left: 1ex;
+}
+
+.cancelButton {
+	color: red;
+	cursor: pointer;
 }
 
 /* Box where existing dumps are selected */
