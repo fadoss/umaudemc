@@ -63,7 +63,7 @@ class MaudeProcess:
 
 	def getModuleInfo(self, name):
 		modinfo = {'name': name, 'valid': False}
-		mod     = self.maude.getModule(name)
+		mod = self.maude.getModule(name)
 
 		if mod is None:
 			return None
@@ -90,7 +90,7 @@ class MaudeProcess:
 		atomic_props = []
 
 		for symbol in mod.getSymbols():
-			if symbol.getRangeSort().leq(prop_sort):
+			if symbol.getRangeSort() <= prop_sort:
 				prop_signature = [str(symbol)]
 				opdecls = symbol.getOpDeclarations()
 				first_decl = opdecls[0]
@@ -107,7 +107,7 @@ class MaudeProcess:
 		strats = []
 
 		for strat in mod.getStrategies():
-			if strat.getSubjectSort().leq(state_sort):
+			if strat.getSubjectSort() <= state_sort:
 				strat_signature = [strat.getName()]
 
 				for arg in strat.getDomain():
@@ -129,15 +129,15 @@ class MaudeProcess:
 		holds, stats = task()
 
 		if 'counterexample' in stats:
-			leadIn, cycle = stats['counterexample']
-			graph         = stats['graph']
+			lead_in, cycle = stats['counterexample']
+			graph = stats['graph']
 
-			states_involved = set(leadIn).union(set(cycle))
+			states_involved = set(lead_in).union(set(cycle))
 
 			return {
 				'hasCounterexample': True,
 				'holds': holds,
-				'leadIn': list(leadIn),
+				'leadIn': list(lead_in),
 				'cycle': list(cycle),
 				'states': {index: self._state_summary(graph, index) for index in states_involved}
 			}
@@ -197,19 +197,19 @@ class MaudeProcess:
 
 		# Save the model-checking task as a lambda
 		task = lambda: handle.check(module=mod,
-					    module_str=data['module'],
-					    term=initial,
-					    term_str=data['initial'],
-					    strategy=strategy,
-					    strategy_str=data['strat'],
-					    opaque=opaques,
-					    full_matchrew=False,
-					    formula=formula,
-					    formula_str=data['formula'],
-					    logic=logic,
-					    labels=parser.labels,
-					    filename=self.filename,
-					    get_graph=True)
+		                            module_str=data['module'],
+		                            term=initial,
+		                            term_str=data['initial'],
+		                            strategy=strategy,
+		                            strategy_str=data['strat'],
+		                            opaque=opaques,
+		                            full_matchrew=False,
+		                            formula=formula,
+		                            formula_str=data['formula'],
+		                            logic=logic,
+		                            labels=parser.labels,
+		                            filename=self.filename,
+		                            get_graph=True)
 
 		# Add this model-checking job to the table
 		self.jobs[self.counter] = task
@@ -229,7 +229,7 @@ class MaudeProcess:
 			'term'		: str(graph.getStateTerm(index)),
 			'strategy'	: str(graph.getStateStrategy(index)) if graph.strategyControlled else '',
 			'successors'	: [self._transition_summary(graph, index, next_state)
-					   for next_state in graph.getNextStates(index)]
+			                   for next_state in graph.getNextStates(index)]
 		}
 
 	def _transition_summary(self, graph, origin, dest, full=False):
@@ -265,10 +265,6 @@ class MaudeProcess:
 		msg = pipe.recv()
 
 		while msg:
-			# An empty list indicates termination
-			if msg == []:
-				break
-
 			# Call the given method and send the result
 			func, args = msg[0], msg[1:]
 			pipe.send(func(maudp, *args))

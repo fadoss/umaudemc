@@ -8,41 +8,11 @@ import subprocess
 import sys
 from shutil import which
 
+from ..grapher import DOTGrapher
 from ..backend.nusmv import NuSMVGrapher
 from ..common import maude, usermsgs, default_model_settings, parse_initial_data, split_comma
 from ..wrappers import wrapGraph
-from ..formatter import get_formatters, print_term
-
-
-class DOTGrapher:
-	"""Graph writer in GraphViz's DOT format"""
-
-	def __init__(self, outfile=sys.stdout, slabel=print_term, elabel=None):
-		self.visited = set()
-		self.outfile = outfile
-		self.slabel = slabel
-		self.elabel = elabel
-
-	def graph(self, graph, bound=-1):
-		print('digraph {', file=self.outfile)
-		self.exploreAndGraph(graph, 0, bound)
-		print('}', file=self.outfile)
-
-	def exploreAndGraph(self, graph, stateNr, bound=-1):
-		self.visited.add(stateNr)
-		print(f'\t{stateNr} [label="{self.slabel(graph, stateNr)}"];', file=self.outfile)
-
-		if bound == 0:
-			return
-
-		for next_state in graph.getNextStates(stateNr):
-			if self.elabel is None:
-				print(f'\t{stateNr} -> {next_state};', file=self.outfile)
-			else:
-				print(f'\t{stateNr} -> {next_state} [label="{self.elabel(graph, stateNr, next_state)}"];', file=self.outfile)
-
-			if next_state not in self.visited:
-				self.exploreAndGraph(graph, next_state, -1 if bound == -1 else bound-1)
+from ..formatter import get_formatters
 
 
 class ProcessStream:
@@ -85,17 +55,17 @@ def graph(args):
 		return 1
 
 	# Some relevant flags
-	withStrategy = args.strategy is not None
-	toNuSMV      = args.o is not None and os.path.splitext(args.o)[1] == '.smv'
-	purge_fails, merge_states = default_model_settings('CTL' if toNuSMV else 'LTL', args.purge_fails,
-							   args.merge_states, args.strategy, tableau=toNuSMV)
+	with_strategy = args.strategy is not None
+	to_NuSMV = args.o is not None and os.path.splitext(args.o)[1] == '.smv'
+	purge_fails, merge_states = default_model_settings('CTL' if to_NuSMV else 'LTL', args.purge_fails,
+	                                                   args.merge_states, args.strategy, tableau=to_NuSMV)
 
-	if not withStrategy:
-		graph = maude.RewriteGraph(initial_data.term)
+	if not with_strategy:
+		rwgraph = maude.RewriteGraph(initial_data.term)
 
 	else:
-		graph = maude.StrategyRewriteGraph(initial_data.term, initial_data.strategy,
-						   initial_data.opaque, initial_data.full_matchrew)
+		rwgraph = maude.StrategyRewriteGraph(initial_data.term, initial_data.strategy,
+		                                     initial_data.opaque, initial_data.full_matchrew)
 
 	# It is possible to generate models of the NuSMV model checker instead of DOT graphs
 	# They are can be annotated with atomic propositions that are checked in the states.
@@ -108,13 +78,13 @@ def graph(args):
 	else:
 		aprops = []
 
-	slabel, elabel = get_formatters(args.slabel, args.elabel, withStrategy, only_labels=True)
+	slabel, elabel = get_formatters(args.slabel, args.elabel, with_strategy, only_labels=True)
 
 	with output_stream(args.o, args.extra_args) as outfile:
-		if toNuSMV:
+		if to_NuSMV:
 			grapher = NuSMVGrapher(outfile, slabel=slabel, elabel=elabel, aprops=aprops)
 		else:
 			grapher = DOTGrapher(outfile, slabel=slabel, elabel=elabel)
 
-		graph = wrapGraph(graph, purge_fails, merge_states)
-		grapher.graph(graph, bound=args.depth)
+		rwgraph = wrapGraph(rwgraph, purge_fails, merge_states)
+		grapher.graph(rwgraph, bound=args.depth)

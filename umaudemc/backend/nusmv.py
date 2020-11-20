@@ -38,9 +38,9 @@ _ltl_translation = _ctl_translation.copy()
 _ltl_translation['_U_'] = ('{} U {}', 12)
 
 # Regular expression for parsing NuSMV output
-_RESULT_REGEX  = re.compile(b'-- specification .* is (false|true)')
+_RESULT_REGEX = re.compile(b'-- specification .* is (false|true)')
 _COUNTER_REGEX = re.compile(r'^(\s+)state = (\d+)$')
-_LOOP_REGEX    = re.compile(r'^\s+-- Loop starts here$')
+_LOOP_REGEX = re.compile(r'^\s+-- Loop starts here$')
 
 
 def _preprocess_formula(formula):
@@ -77,8 +77,8 @@ def _make_smv_formula(form, aprops, translation, out_prio=20):
 def make_smv_formula(form, aprops, ftype):
 	"""Translate a formula to the NuSMV format"""
 	return _make_smv_formula(_preprocess_formula(form),
-				 aprops,
-				 _ctl_translation if ftype == 'CTL' else _ltl_translation)
+	                         aprops,
+	                         _ctl_translation if ftype == 'CTL' else _ltl_translation)
 
 
 class NuSMV:
@@ -100,7 +100,7 @@ class NuSMV:
 
 		return self.nusmv is not None
 
-	def run(self, graph, form, ftype, aprops, extra_args=[], raw=False, timeout=None):
+	def run(self, graph, form, ftype, aprops, extra_args=(), raw=False, timeout=None):
 		"""Run NuSMV to check the following model-checking problem"""
 
 		# If NuSMV has not been found, end with None
@@ -124,12 +124,12 @@ class NuSMV:
 			tmpfile.flush()
 
 		# NuSMV is called on the generated file
-		status = subprocess.run([self.nusmv, tmpfile.name] + extra_args,
-					capture_output=not raw, timeout=timeout)
+		status = subprocess.run([self.nusmv, tmpfile.name] + list(extra_args),
+		                        capture_output=not raw, timeout=timeout)
 
 		if status.returncode != 0:
 			usermsgs.print_error('An error was produced while running NuSMV:\n'
-					     + status.stderr[:-1].decode('utf-8'))
+			                     + status.stderr[:-1].decode('utf-8'))
 			os.remove(tmpfile.name)
 			return None, None
 		else:
@@ -141,9 +141,9 @@ class NuSMV:
 			# Parse the NuSMV output to obtain the binary result of the check and
 			# the counterexample in such case.
 
-			result         = None
+			result = None
 			counterexample = [], []
-			counter_part   = 0
+			counter_part = 0
 
 			for line in status.stdout.splitlines():
 				if result is None:
@@ -166,7 +166,7 @@ class NuSMV:
 			# Add the counterexample to the statistics
 			if counterexample != ([], []):
 				# NuSMV includes the start of the loop twice, unlike Maude
-				if counterexample[1] != []:
+				if counterexample[1]:
 					counterexample[1].pop()
 
 				stats['counterexample'] = counterexample
@@ -175,7 +175,7 @@ class NuSMV:
 			return result, stats
 
 	def check(self, graph=None, module=None, formula=None, logic=None, aprop_terms=None,
-		  extra_args=[], get_graph=False, timeout=None, **kwargs):
+	          extra_args=(), get_graph=False, timeout=None, **kwargs):
 		"""Solves a model-checking problem with NuSMV"""
 
 		# Create the graph if not provided by the caller
@@ -190,7 +190,7 @@ class NuSMV:
 
 		holds, stats = self.run(graph, formula, logic, aprop_terms, extra_args, timeout=timeout)
 
-		if get_graph:
+		if holds is not None and get_graph:
 			stats['graph'] = graph
 
 		return holds, stats
@@ -199,7 +199,7 @@ class NuSMV:
 class NuSMVGrapher:
 	"""Graph writer in NuSMV input format"""
 
-	def __init__(self, outfile=sys.stdout, aprops=[], slabel=None, elabel=None, stutter_ext=False):
+	def __init__(self, outfile=sys.stdout, aprops=(), slabel=None, elabel=None, stutter_ext=False):
 		"""
 		Creates a grapher for NuSMV modules.
 
@@ -233,7 +233,7 @@ class NuSMVGrapher:
 		"""Check whether a given atomic proposition holds in a state"""
 		t = self.satisfies.makeTerm([graph.getStateTerm(stateNr), self.aprops[propNr]])
 		self.nrRewrites += t.reduce()
-		return t.equal(self.true_term)
+		return t == self.true_term
 
 	def graph(self, graph, bound=-1):
 		"""Generate the graph with a given bound limit"""
@@ -242,21 +242,21 @@ class NuSMVGrapher:
 		# Find the satisfaction (|=) symbol and the true constant to be used
 		# when testing atomic propositions.
 
-		module   = graph.getStateTerm(0).symbol().getModule()
+		module = graph.getStateTerm(0).symbol().getModule()
 		boolkind = module.findSort('Bool').kind()
 
 		self.satisfies = module.findSymbol('_|=_',
-			[module.findSort('State').kind(), module.findSort('Prop').kind()],
-			boolkind)
+		                                   [module.findSort('State').kind(), module.findSort('Prop').kind()],
+		                                   boolkind)
 
 		self.true_term = module.findSymbol('true', [], boolkind).makeTerm([])
 
 		# Start the NuSMV module and declares a single variable 'state' of bounded
 		# integer type that matches with the internal state numbers of the graph.
 
-		maxState = max(self.visited)
+		max_state = max(self.visited)
 
-		print(f'MODULE main\nVAR\n  state: 0..{maxState};', file=self.outfile)
+		print(f'MODULE main\nVAR\n  state: 0..{max_state};', file=self.outfile)
 
 		# Atomic propositions are defined as numbered set constants of the form pn.
 		# The elements of the set are the states in which the property is satisfied.
@@ -279,7 +279,7 @@ class NuSMVGrapher:
 
 		print('TRANS\n  next(state) in case', file=self.outfile)
 
-		for state in range(maxState + 1):
+		for state in range(max_state + 1):
 			# Write the label for each state before its entry (unless empty)
 			comment = self.slabel(graph, state)
 			if comment != '':
@@ -302,10 +302,22 @@ class NuSMVGrapher:
 
 	def explore(self, graph, stateNr, bound=-1):
 		"""Explore the graph up to a optional given depth, adding the nodes to the visited set"""
+		# Depth-first search with a stack
+		pending = [(stateNr, bound)]
 		self.visited.add(stateNr)
+
 		if bound == 0:
 			return
 
-		for next_state in graph.getNextStates(stateNr):
-			if next_state not in self.visited:
-				self.explore(graph, next_state, -1 if bound == -1 else bound-1)
+		while pending:
+			state, limit = pending.pop()
+
+			for next_state in graph.getNextStates(state):
+				# Append the state to be visited if not already done
+				if next_state not in self.visited:
+					self.visited.add(next_state)
+
+					if bound == -1:
+						pending.append((next_state, -1))
+					elif limit > 1:
+						pending.append((next_state, limit - 1))

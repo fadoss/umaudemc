@@ -19,18 +19,22 @@ class KripkeBuilder:
 		:param aprops: Terms for each atomic proposition to be listed in the module
 		:type aprops: collection of maude.Term
 		"""
-		self.graph  = graph
+		self.graph = graph
 		self.aprops = aprops
 		module = graph.getStateTerm(0).symbol().getModule()
+
+		self.relation = []
+		self.labeling = {}
+		self.visited = set()
 
 		# Find the satisfaction (|=) symbol and the true constant to be used
 		# when testing atomic propositions.
 
-		bool_kind  = module.findSort('Bool').kind()
+		bool_kind = module.findSort('Bool').kind()
 		state_kind = module.findSort('State').kind()
-		prop_kind  = module.findSort('Prop').kind()
+		prop_kind = module.findSort('Prop').kind()
 
-		self.true      = module.parseTerm('true', bool_kind)
+		self.true = module.parseTerm('true', bool_kind)
 		self.satisfies = module.findSymbol('_|=_', [state_kind, prop_kind], bool_kind)
 
 		# Number of rewrites to test them
@@ -43,35 +47,42 @@ class KripkeBuilder:
 	def labels_of(self, state):
 		"""Set of atomic propositions holding in a state (Kripke's labeling function)"""
 
-		term   = self.graph.getStateTerm(state)
+		term = self.graph.getStateTerm(state)
 		labels = set()
 
 		for prop in self.aprops:
 			t = self.satisfies.makeTerm([term, prop])
 			self.nrRewrites += t.reduce()
-			if t.equal(self.true):
+			if t == self.true:
 				labels.add(str(prop))
 
 		return labels
 
-	def expand(self, state):
+	def expand(self, initial_state):
 		"""Explore the graph reachable from state filling the Kripke structure"""
+		pending = [initial_state]
+		self.visited.add(initial_state)
 
-		self.visited.add(state)
-		self.labeling[state] = self.labels_of(state)
-		deadlock = True
+		while pending:
+			state = pending.pop()
 
-		for next_state in self.graph.getNextStates(state):
-			deadlock = False
-			if next_state not in self.visited:
-				self.expand(next_state)
-			self.relation.append([state, next_state])
+			self.labeling[state] = self.labels_of(state)
+			deadlock = True
 
-		# The transition relation must be total, so self-loops are added
-		# when there is no successors. Notice that failed states should
-		# be purged when using pyModelChecking even for LTL.
-		if deadlock:
-			self.relation.append([state, state])
+			for next_state in self.graph.getNextStates(state):
+				deadlock = False
+				self.relation.append([state, next_state])
+
+				# Depth-first search with a stack
+				if next_state not in self.visited:
+					self.visited.add(next_state)
+					pending.append(next_state)
+
+			# The transition relation must be total, so self-loops are added
+			# when there is no successors. Notice that failed states should
+			# be purged when using pyModelChecking even for LTL.
+			if deadlock:
+				self.relation.append([state, state])
 
 	def make_kripke(self):
 		"""Get the Kripke structure for the given input problem"""
@@ -82,9 +93,9 @@ class KripkeBuilder:
 		self.expand(0)
 
 		return pyModelChecking.kripke.Kripke(S=list(self.visited),
-						     S0={0},
-						     R=self.relation,
-						     L=self.labeling)
+		                                     S0={0},
+		                                     R=self.relation,
+		                                     L=self.labeling)
 
 # Define the translations to the different formulae
 # supported by pyModelChecking.
@@ -163,6 +174,8 @@ class PyModelChecking:
 		elif ftype == 'CTL*':
 			from pyModelChecking.CTLS.model_checking import modelcheck
 			pymc_formula = make_formula(formula, ctl_translation(ctls_lang))
+		else:
+			raise ValueError('Unexpected logic for pyModelChecking backend.')
 
 		# pyModelChecking supports fairness constraints, but they are not used
 
@@ -188,16 +201,16 @@ class PyModelChecking:
 			graph = create_graph(logic=logic, tableau=True, **kwargs)
 
 		# Reparse the atomic propositions
-		# (we extract atomic propositions as term while parsing the formula
-		# because this is done in a different module)
+		# (atomic propositions terms that were parsed as part of the formula
+		# cannot be directly used because there were parsed in a different module)
 		if aprop_terms is None:
 			aprops = set()
 			collect_aprops(formula, aprops)
 
 			aprop_terms = [module.parseTerm(prop) for prop in aprops]
 
-		kbuilder     = KripkeBuilder(graph, aprop_terms)
-		kripke       = kbuilder.make_kripke()
+		kbuilder = KripkeBuilder(graph, aprop_terms)
+		kripke = kbuilder.make_kripke()
 		holds, stats = self.check_kripke(kripke, formula, logic)
 
 		if holds is not None:

@@ -32,6 +32,9 @@ maude.StrategyRewriteGraph.strategyControlled = True
 class WrappedGraph:
 	"""Common methods for all wrapped graphs that do not change state numbering"""
 
+	def __init__(self, graph):
+		self.graph = graph
+
 	def getStateTerm(self, stateNr):
 		return self.graph.getStateTerm(stateNr)
 
@@ -62,34 +65,42 @@ class FailFreeGraph(WrappedGraph):
 	"""A graph where failed states are removed"""
 
 	def __init__(self, graph):
-		self.graph = graph
+		super().__init__(graph)
 		self.valid_states = [True]
 
 	def expand(self, state=0):
-		is_this_valid = False
-		index = 0
-		next_state = self.graph.getNextState(state, index)
+		# Stack for the depth-first search
+		# (state index, child index, whether the state is already valid)
+		stack = [(state, 0, False)]
+		# To pass whether the child is valid to the parent
+		valid_child = False
 
-		while next_state != -1:
-			# A new state, process it
-			if next_state >= len(self.valid_states):
-				self.valid_states.append(True)
+		while stack:
+			state, index, valid = stack.pop()
 
-				if self.expand(next_state) or self.graph.isSolutionState(state):
-					is_this_valid = True
-			# A valid state has been reached (or a state in the path)
-			elif self.valid_states[next_state]:
-				is_this_valid = True
-
-			# Otherwise, next_state is a failed state
-
-			index = index + 1
 			next_state = self.graph.getNextState(state, index)
 
-		if not is_this_valid:
-			self.valid_states[state] = False
+			# If we come back from a valid child
+			if valid_child:
+				valid, valid_child = True, False
 
-		return is_this_valid
+			# No more successors
+			if next_state == -1:
+				# If no valid successor has been reached, the
+				# state is not valid unless it is a solution
+				valid_child = valid or self.graph.isSolutionState(state)
+				self.valid_states[state] = valid_child
+
+			# A new state, process it
+			elif next_state >= len(self.valid_states):
+				self.valid_states.append(True)
+				stack.append((state, index + 1, valid))
+				stack.append((next_state, 0, False))
+
+			# The child is a known state
+			# (if it is valid or in the path, then this state is valid)
+			else:
+				stack.append((state, index + 1, valid or self.valid_states[next_state]))
 
 	def getNextStates(self, stateNr):
 		for next_state in self.graph.getNextStates(stateNr):
@@ -173,7 +184,7 @@ class EdgeMergedGraph(MergedGraph):
 	@staticmethod
 	def transition_id(transition):
 		"""Identify a transition by its type and label"""
-		tr_type  = transition.getType()
+		tr_type = transition.getType()
 		tr_label = 0
 
 		if tr_type == maude.StrategyRewriteGraph.RULE_APPLICATION:
@@ -215,7 +226,7 @@ class BoundedGraph(WrappedGraph):
 	"""Graph of bounded depth"""
 
 	def __init__(self, graph, depth):
-		self.graph = graph
+		super().__init__(graph)
 		self.depth = depth
 		# Assigns depth to state numbers
 		self.state_depth = {0: 0}
@@ -244,8 +255,9 @@ def wrapGraph(graph, purge_fails, merge_states):
 
 	return graph
 
-def create_graph(term=None, strategy=None, opaque=[], full_matchrew=False, purge_fails='default',
-		 merge_states='default', tableau=False, logic=None, **kwargs):
+
+def create_graph(term=None, strategy=None, opaque=(), full_matchrew=False, purge_fails='default',
+                 merge_states='default', tableau=False, logic=None, **kwargs):
 	"""Create a graph from the problem input data"""
 
 	if strategy is None:
@@ -254,5 +266,6 @@ def create_graph(term=None, strategy=None, opaque=[], full_matchrew=False, purge
 		graph = maude.StrategyRewriteGraph(term, strategy, opaque, full_matchrew)
 
 	# Wrap the graph with the model modification for branching-time
-	purge_fails, merge_states = default_model_settings(logic, purge_fails, merge_states, strategy, tableau=tableau)
+	purge_fails, merge_states = default_model_settings(logic, purge_fails, merge_states, strategy,
+	                                                   tableau=tableau)
 	return wrapGraph(graph, purge_fails, merge_states)

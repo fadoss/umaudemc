@@ -3,15 +3,15 @@
 #
 
 import os
-import copy		# To copy TestCases in some situations
-import csv		# To write the measures collected on benchmarks
-import json		# To parse test suite specifications
-# import psutil		# To measure memory usage
-import re		# To filter files from being process
-import time		# To measure time
+import copy       # To copy TestCases in some situations
+import csv        # To write the measures collected on benchmarks
+import itertools  # To iterate in the product of the parameter values
+import json		  # To parse test suite specifications
+# import psutil	  # To measure memory usage
+import re         # To filter files from being process
+import time       # To measure time
 
-from ..common import maude, usermsgs, default_model_settings
-from ..wrappers import wrapGraph
+from ..common import maude, usermsgs
 from ..formulae import Parser, collect_aprops
 from ..backends import supported_logics, get_backends, backend_for
 
@@ -37,11 +37,19 @@ class TestCase:
 		self.labels = None
 		self.formula_str = None
 		self.ftype = None
-		self.expected = None
+		self.result = None
+
+		self.exclude = []
+		self.parameter = None
+		self.parser = None
 
 	@property
 	def model_module(self):
 		return self.module if self.metamodule is None else self.metamodule
+
+	@property
+	def expected(self):
+		return self.result
 
 
 def load_cases(filename):
@@ -78,7 +86,7 @@ def load_cases(filename):
 				return yaml.load(caspec, Loader=SafeLineLoader)
 
 		except yaml.error.YAMLError as ype:
-			usermsgs.print_error('Error while parsing tests file: ' + str(ype) + '.')
+			usermsgs.print_error(f'Error while parsing test file: {ype}.')
 
 	# JSON format
 	else:
@@ -87,19 +95,22 @@ def load_cases(filename):
 				return json.load(caspec)
 
 		except json.JSONDecodeError as jde:
-			usermsgs.print_error('Error while parsing tests file: ' + str(jde) + '.')
+			usermsgs.print_error(f'Error while parsing test file: {jde}.')
 
 	return None
 
 
 def read_suite(filename):
-	"""Generator that yields generators on the test cases for each file"""
+	"""Generator that reads a test specification file and yields
+	   generators on the test cases for each file"""
+
+	# The YAML or JSON dictionary with the test specification structure
 	cases = load_cases(filename)
 
 	if cases is None:
 		return None, None
 
-	# The formula parser
+	# The parser for temporal formulae
 	parser = Parser()
 
 	if not parser.is_ok():
@@ -115,7 +126,12 @@ def read_suite(filename):
 		usermsgs.print_error('Expected key suite in the root of the test specification.')
 		return None, None
 
+	elif not isinstance(suite, list):
+		usermsgs.print_error('The suite key in the test specification must be a list.')
+		return None, None
+
 	for source in suite:
+		# The name of the file (relative to the previous root)
 		rel_filename = source.get('file', None)
 
 		if rel_filename is None:
@@ -127,215 +143,401 @@ def read_suite(filename):
 		yield rel_filename, read_cases(filename, source, parser)
 
 # The following functions are similar: they receive a test and a string
-# for one of its attributes, which are parsed and set within the test.
+# for one of its attributes, which is parsed and set within the test.
 # In case of error, a message is shown.
 
-def _parse_metamodule(test, metamodule_str):
-	if metamodule_str:
-		test.metamodule_str  = metamodule_str
-		test.metamodule_term = test.module.parseTerm(metamodule_str)
 
-		if test.metamodule_term is None:
-			usermsgs.print_error(f'Cannot parse metamodule term {metamodule_str} '
-					     f'in module {str(test.module)} of file {test.rel_filename}.')
-			return False
+def _store_value(test, name, value, handler):
+	setattr(test, (name + '_str') if handler is not None else name, value)
 
-		test.metamodule_term.reduce()
-		test.metamodule = test.module.downModule(test.metamodule_term)
 
-		if test.metamodule is None:
-			usermsgs.print_error(f'Cannot use metamodule {metamodule_str} in file {test.rel_filename}.')
-			return False
+def _parse_module(test):
+	if test.module_str:
+		test.module = maude.getModule(test.module_str)
+
+		if test.module is None:
+			usermsgs.print_error(f'Cannot find module {test.module_str} in file {test.rel_filename}.')
+
+	else:
+		test.module = maude.getCurrentModule()
+
+		if test.module is None:
+			usermsgs.print_error(f'No module found in file {test.rel_filename}.')
+
+	return test.module is not None
+
+
+def _parse_metamodule(test):
+	test.metamodule_term = test.module.parseTerm(test.metamodule_str)
+
+	if test.metamodule_term is None:
+		usermsgs.print_error(f'Cannot parse metamodule term {test.metamodule_str} '
+		                     f'in module {str(test.module)} of file {test.rel_filename}.')
+		return False
+
+	test.metamodule_term.reduce()
+	test.metamodule = maude.downModule(test.metamodule_term)
+
+	if test.metamodule is None:
+		usermsgs.print_error(f'Cannot use metamodule {test.metamodule_str} in file {test.rel_filename}.')
+		return False
+
 	return True
 
 
-def _parse_initial(test, initial_str):
-	if initial_str:
-		test.initial_str = initial_str
-		test.initial     = test.model_module.parseTerm(initial_str)
+def _parse_initial(test):
+	if test.initial_str is None:
+		return True
 
-		if test.initial is None:
-			usermsgs.print_error(f'Cannot parse initial term {initial_str} in file {test.rel_filename}.')
-			return False
+	test.initial = test.model_module.parseTerm(test.initial_str)
+
+	if test.initial is None:
+		usermsgs.print_error(f'Cannot parse initial term {test.initial_str} in file {test.rel_filename}.')
+		return False
+
 	return True
 
 
-def _parse_strategy(test, strategy_str):
-	if strategy_str:
-		test.strategy_str = strategy_str
-		test.strategy     = test.model_module.parseStrategy(strategy_str)
+def _parse_strategy(test):
+	if test.strategy_str is None:
+		return True
 
-		if test.strategy is None:
-			usermsgs.print_error(f'Cannot parse strategy {strategy_str} in file {test.rel_filename}.')
-			return False
+	test.strategy = test.model_module.parseStrategy(test.strategy_str)
+
+	if test.strategy is None:
+		usermsgs.print_error(f'Cannot parse strategy {test.strategy_str} in file {test.rel_filename}.')
+		return False
+
 	return True
 
 
-def _parse_opaque(test, opaque_str):
-	if opaque_str:
-		test.opaque    = opaque_str.split(',')
+def _parse_formula(test):
+	if test.formula_str is None:
+		return True
+
+	test.formula, test.ftype = test.parser.parse(test.formula_str)
+	test.labels = test.parser.labels
+
+	if test.formula is None or test.ftype == 'invalid':
+		usermsgs.print_error(f'Bad formula {test.formula_str} in file {test.rel_filename}.')
+		return False
+
 	return True
 
 
-def _parse_formula(test, formula_str, parser):
-	if formula_str:
-		test.formula_str = formula_str
-		test.formula, test.ftype = parser.parse(formula_str)
-		test.labels = parser.labels
+def _filter_backends(backends, excluded):
+	"""Remove backends included in the excluded collection"""
 
-		if test.formula is None or test.ftype == 'invalid':
-			usermsgs.print_error(f'Bad formula {test.formula_str} in file {test.rel_filename}.')
-			return False
-	return True
+	if excluded:
+		return [(name, backend) for name, backend in backends if name not in excluded]
+	else:
+		return backends
+
+
+def _depends_on_vars(node, variables):
+	"""Whether the given variables occur at the given node"""
+
+	for value in node.values():
+		if isinstance(value, str) and any([f'${var}' in value for var in variables]):
+			return True
+	return False
+
+
+class ParameterSet:
+	"""Assignement to parameters to be replaced on test attributes"""
+
+	def __init__(self, dic, is_subs=None):
+		# Dictionary with the parameter assignments
+		self.dic = dic
+		# Remove the __line__ mark if present (YAML)
+		if '__line__' in dic:
+			dic.pop('__line__')
+		# Whether this is a substitution
+		self.is_substitution = self._is_substitution() if is_subs is None else is_subs
+
+	def _is_substitution(self):
+		"""Decides whether this a substitution or includes alternatives values for each variable"""
+
+		return all((not isinstance(val, list) for val in self.dic.values()))
+
+	@classmethod
+	def combine(cls, parent, child):
+		"""Combine two parameter sets"""
+
+		if child is None:
+			return parent
+		elif parent is None:
+			return cls(child)
+		else:
+			return cls({**parent.dic, **child})
+
+	def apply(self, text):
+		"""Replace the parameters in a given string"""
+
+		# Only substitutions can be properly applied
+		if not self.is_substitution:
+			return text
+
+		for var, value in self.dic.items():
+			if f'${var}' in text:
+				text = text.replace(f'${var}', str(value))
+
+		return text
+
+	def instances(self):
+		"""Generate the substitutions for all possible combinations of the parameter values"""
+
+		return map(lambda vls: ParameterSet(dict(zip(self.dic.keys(), vls)), is_subs=True),
+		           itertools.product(*self.dic.values()))
+
+	@property
+	def variables(self):
+		"""Variables included in this parameter set"""
+
+		return set(self.dic.keys())
+
+	def __repr__(self):
+		return repr(self.dic)
+
+
+# Fields admitted by the test specification format
+# (some others keys are admitted but treated apart)
+#
+# They consists of a name, a type, the function that need to be called for
+# parsing them, and the arguments that must be reparsed because of it.
+
+TEST_FIELDS = {
+	'module':	(str, _parse_module, {'update-parser', 'initial', 'strategy', 'formula'}),
+	'metamodule':	(str, _parse_metamodule, {'update-parser', 'initial', 'strategy', 'formula'}),
+	'initial':	(str, _parse_initial, set()),
+	'strategy':	(str, _parse_strategy, set()),
+	'formula':	(str, _parse_formula, set()),
+	'opaque':	(list, None, {'update-parser'}),
+	'result':	(bool, None, set()),
+	'exclude':	(list, None, set())
+}
+
+# Order to parse case elements
+# (the last three can be permuted at choice)
+PARSING_ORDER = ('module', 'metamodule', 'update-parser', 'initial', 'strategy', 'formula')
 
 
 def read_cases(filename, source, parser):
 	"""Generator that reads the test cases for each file"""
 
-	source_cases = source.get('cases', None)
-	rel_filename = source['file']
+	# A stack is used to explore the tree of cases. It consists of the
+	# parent test object, an iterator to the case subtree, the current
+	# case subtree and an iterator to the pending substitutions.
+	test_stack = [(None, iter([source]), None, itertools.repeat(None))]
 
-	if source_cases is None:
-		usermsgs.print_error(f'Expected cases for file {rel_filename}.')
-		return None
-
-	if not maude.load(filename):
-		usermsgs.print_error(f'Cannot load {rel_filename}.')
-		return None
-
-	test = TestCase(filename, rel_filename)
-
-	test.module_str = source.get('module')
-
-	# Get the current module if no module name is specified
-	test.module = maude.getModule(test.module_str) if test.module_str else maude.getCurrentModule()
-
-	if test.module is None:
-		if test.module_str:
-			usermsgs.print_error(f'Cannot find module {test.module_str} in file {rel_filename}.')
-		else:
-			usermsgs.print_error(f'No module found in file {rel_filename}.')
-
-		return None, None
-
-	# Metamodule
-	if not _parse_metamodule(test, source.get('metamodule')):
-		return None, None
-
-	parser.set_module(test.model_module,
-			  test.metamodule_term)
-
-	if not _parse_initial(test, source.get('initial')) or \
-	   not _parse_strategy(test, source.get('strategy')) or \
-	   not _parse_formula(test, source.get('formula'), parser) or \
-	   not _parse_opaque(test, source.get('opaque')):
-		return None, None
-
+	# Type of the last formula
 	oldftype = 'X'
 
-	for case in source_cases:
-		test2 = copy.copy(test)
-		test2.line_number = case['__line__']
+	while test_stack:
+		ptest, iterator, source, subs = test_stack.pop()
 
-		module_name = case.get('module')
-		metamodule  = case.get('metamodule')
-		initial     = case.get('initial')
-		strategy    = case.get('strategy')
-		formula     = case.get('formula')
-		opaque      = case.get('opaque')
+		# Copy the parent test object (because it may overwrite
+		# some attributes)
+		test = copy.copy(ptest)
 
-		# If the module or metamodule have been overwritten in the case,
-		# all other data inherited from the file level must be parsed
-		# again in the new module. Setting a module discards the metamodule
+		# Get the next substitution to try (if any)
+		substitution = next(subs, None)
+
+		# If there is no (more) substitutions, try to
+		# get the next test case (or arrangement)
+		if substitution is None:
+			source = next(iterator, None)
+
+		# If there is no (more) test cases, continue down the stack
+		if source is None:
+			continue
+
+		# Set of fields that will need to be parsed at this level
+		touched = set()
+
+		# Filenames are only allowed in the first level
+		if not test_stack:
+			rel_filename = source['file']
+
+			if not maude.load(filename):
+				usermsgs.print_error(f'Cannot load {rel_filename}.')
+				return None, None
+
+			test = TestCase(filename, rel_filename)
+			test.parser = parser
+			touched.update({'module', 'update-parser'})
+
+		elif 'file' in source:
+			usermsgs.print_warning('Filenames not allowed in nested case specifications. Ignoring.')
+
+		# Get the test case line (not currently available for JSON)
+		test.line_number = source.get('__line__', 0)
+
+		# Handle parameters
+		# (when substitution is None, because otherwise they have already been handled)
+
+		if substitution is None:
+			# Get the parameter annotation at the current level
+			parameter = source.get('parameter')
+
+			if parameter is not None and not isinstance(parameter, dict):
+				usermsgs.print_error('The parameter value must be a dictionary.')
+				return None, None
+
+			# Combine the parameters bindings of the parent node if any
+			parameter = ParameterSet.combine(test.parameter, parameter)
+
+			if parameter is not None:
+				# Set the parameter attribute of the test
+				test.parameter = parameter
+
+				# If the parameter is a substitution, it will be applied,
+				# but otherwise we have to generate the substitutions by
+				# combination if they are actually used at this level
+
+				if not parameter.is_substitution and \
+				   _depends_on_vars(source, parameter.variables):
+					subs = parameter.instances()
+					substitution = next(subs, None)
+
+					if substitution is None:
+						usermsgs.print_error('Parameter defined with a empty range.')
+						return None, None
+
+					test.parameter = substitution
+
+		else:
+			test.parameter = substitution
+
+		#
+		# Process fields
+		#
+
+		for key, value in source.items():
+			# These are handled elsewhere
+			if key in {'file', '__line__', 'cases', 'parameter'}:
+				continue
+
+			# Get the type and instruction of what we have to do with this field
+			etype, parse_fn, deps = TEST_FIELDS.get(key, (None,) * 3)
+
+			if etype is None:
+				usermsgs.print_warning(f'Ignoring unknown key {key} in case at line {source["__line__"]}.')
+				continue
+
+			# Rudimentary type checking
+
+			if etype is list and not isinstance(value, list):
+				# Single elements are upgraded to lists
+				value = [value]
+
+			elif etype is str and isinstance(value, int) or isinstance(value, float):
+				# Something atomic and convertible to a string is
+				# admitted as string, but dictionaries and lists are not
+				value = str(value)
+
+			elif key == 'strategy' and value is None:
+				# Allowed to indicate that no strategy is used
+				pass
+
+			elif not isinstance(value, etype):
+				usermsgs.print_error(f'Unexpected value type for key {key} (expected {etype.__name__} '
+				                     f'but found {type(value).__name__}).')
+				return None, None
+
+			# Instantiate the raw values with the substitution (if any)
+			if test.parameter is not None and isinstance(value, str):
+				value = test.parameter.apply(value)
+
+			# Store the raw test case information
+			_store_value(test, key, value, parse_fn)
+
+			# Mark key and its dependencies as touched
+			touched.update(deps)
+			touched.add(key)
+
+		# Invalidates the metamodule if a module was given but not a metamodule,
+		# so that it gets reparsed. Setting a module discards the metamodule
 		# of the upper level, since this seems more natural.
+		if 'module' in source and 'metamodule' not in source:
+			test.metamodule_str = None
+			test.metamodule = None
 
-		parser2 = parser
+		# Update those fields in the test that are either new or need
+		# to be reparsed due changes in other fields on which they
+		# depend (essentially the module).
 
-		if module_name is not None or metamodule is not None:
+		for action in filter(lambda a: a in touched, PARSING_ORDER):
+			# Update the temporal formulae parser
+			if action == 'update-parser':
+				test.parser = copy.copy(test.parser)
+				test.parser.set_module(test.model_module,
+				                       test.metamodule_term)
 
-			if module_name is not None:
-				test2.module     = maude.getModule(module_name)
-				test2.module_str = module_name
+			# Otherwise, a field of the problem is to be parsed
+			else:
+				parse_fn = TEST_FIELDS.get(action)[1]
 
-				if test2.module is None:
-					usermsgs.print_error(f'Cannot find module {test.module_str} in file {rel_filename}.')
+				if not parse_fn(test):
 					return None, None
 
-			# Discard the metamodule (if any) and set the current module
+		# The case may be a leaf node, which must provide all required
+		# information for the model checking problem, or it may contain
+		# nested cases, which inherit their fields from this
+		source_cases = source.get('cases', None)
 
-			test2.metamodule      = None
-			test2.metamodule_str  = None
-			test2.metamodule_term = None
-
-			if not _parse_metamodule(test2, metamodule):
+		if source_cases is None:
+			# Check whether all required information is available
+			if test.initial is None or test.formula is None:
+				usermsgs.print_error((f'Missing initial state or formula for a test case in file {test.rel_filename}'
+				                      f'(line {test.line_number}).') if len(test_stack) > 0 else
+				                      f'Expected cases for file {test.rel_filename}.')
 				return None, None
 
-			parser2 = copy.copy(parser)
+			# Whether the model has changed
+			changed_model = not touched.isdisjoint({'module', 'metamodule', 'initial', 'strategy', 'opaque'}) \
+			                or test.ftype[0] != oldftype[0]
 
-			parser2.set_module(test.module if test.metamodule is None else test.metamodule,
-					   test.metamodule_term)
+			test_stack.append((ptest, iterator, source, subs))
+			yield test, changed_model
 
-			# Invalidate all that has been calculated with the previous module
-			# (and reparse it if not overwritten in the case)
-
-			test2.initial = None
-			if test2.initial_str is not None and initial is None and \
-			   not _parse_initial(test2, test2.initial_str):
-				return None, None
-
-			test2.strategy = None
-			if test2.strategy_str is not None and strategy is None and \
-			   not _parse_strategy(test2, test2.strategy_str):
-				return None, None
-
-			test2.formula = None
-			if test2.formula_str is not None and formula is None and \
-			   not _parse_formula(test2, test2.formula_str, parser2):
-				return None, None
-
-		if not _parse_initial(test2, initial) or \
-		   not _parse_strategy(test2, strategy) or \
-		   not _parse_formula(test2, formula, parser2) or \
-		   not _parse_opaque(test2, opaque):
-			return None, None
-
-		if test2.initial is None or test2.formula is None:
-			usermsgs.print_error(f'Missing initial state or formula for a test case in file {rel_filename}.')
-			return None, None
-
-		test2.expected = case.get('result')
-
-		# Whether the model has changed
-		changed_model = {None} != {module_name, metamodule, initial, strategy, opaque} or test2.ftype[0] != oldftype[0]
-
-		yield test2, changed_model
+		else:
+			# Keep exploring the siblings of the current node later
+			test_stack.append((ptest, iterator, source, subs))
+			# First explore the children of the current node
+			test_stack.append((test, iter(source_cases), None, itertools.repeat(None)))
 
 
 def _run_backend(name, backend, case, args):
+	"""Run the test case in the given model-checking backend"""
+
 	aprops = set()
 	collect_aprops(case.formula, aprops)
 
 	return backend.check(module=case.model_module,
-			     module_str=case.module_str,
-			     metamodule_str=case.metamodule_str,
-			     term=case.initial,
-			     term_str=case.initial_str,
-			     strategy=case.strategy,
-			     strategy_str=case.strategy_str,
-			     opaque=case.opaque,
-			     full_matchrew=False,
-			     formula=case.formula,
-			     formula_str=case.formula_str,
-			     logic=case.ftype,
-			     labels=case.labels,
-			     filename=case.filename,
-			     aprops=aprops,
-			     purge_fails=args.purge_fails,
-			     merge_states=args.merge_states,
-			     get_graph=False,
-			     extra_args=args.extra_args)
+	                     module_str=case.module_str,
+	                     metamodule_str=case.metamodule_str,
+	                     term=case.initial,
+	                     term_str=case.initial_str,
+	                     strategy=case.strategy,
+	                     strategy_str=case.strategy_str,
+	                     opaque=case.opaque,
+	                     full_matchrew=False,
+	                     formula=case.formula,
+	                     formula_str=case.formula_str,
+	                     logic=case.ftype,
+	                     labels=case.labels,
+	                     filename=case.filename,
+	                     aprops=aprops,
+	                     purge_fails=args.purge_fails,
+	                     merge_states=args.merge_states,
+	                     get_graph=False,
+	                     extra_args=args.extra_args)
+
 
 def run_tests(suite, backends, args, only_file=None, only_logic=None):
+	"""Run the tests in the suite with the first backend available"""
+
 	for source, cases in suite:
 		if source is None:
 			return 1
@@ -354,11 +556,14 @@ def run_tests(suite, backends, args, only_file=None, only_logic=None):
 			if only_logic and not case.ftype.lower() in only_logic:
 				continue
 
-			name, backend = backend_for(backends, case.ftype)
+			# Filter backends with the excluded attribute
+			filtered_backends = _filter_backends(backends, case.exclude)
+
+			name, backend = backend_for(filtered_backends, case.ftype)
 
 			if name is None:
-				usermsgs.print_warning(f'No supported backend for {case.ftype} formulae.'
-						       f'Skipping {case.formula_str} in {source}.')
+				usermsgs.print_warning(f'No supported backend for {case.ftype} formulae. '
+				                       f'Skipping {case.formula_str} in {source}.')
 				continue
 
 			result, stats = _run_backend(name, backend, case, args)
@@ -375,7 +580,10 @@ def run_tests(suite, backends, args, only_file=None, only_logic=None):
 	return 0
 
 
-def benchmark_tests(suite, backends, args, only_file=None, only_logic=None, out_file='test.csv'):
+def benchmark_tests(suite, backends, args, only_file=None, only_logic=None, out_file='test.csv', repeats=1):
+	"""Benchmark the model checkers with the test suite"""
+
+	# A CSV file is written with a row for each test case and backend
 	with open(out_file, 'w') as logfile:
 		log = csv.writer(logfile)
 
@@ -403,49 +611,57 @@ def benchmark_tests(suite, backends, args, only_file=None, only_logic=None, out_
 				if only_logic and not case.ftype.lower() in only_logic:
 					continue
 
-				for name, backend in backends:
+				# Filter backends with the excluded attribute
+				filtered_backends = _filter_backends(backends, case.exclude)
+
+				for name, backend in filtered_backends:
 					if case.ftype not in supported_logics[name]:
 						continue
 
-					# Measure time
-					start_time = time.perf_counter_ns()
-					result, stats = _run_backend(name, backend, case, args)
-					end_time = time.perf_counter_ns()
+					print('  ', case.formula_str, 'on', case.initial_str, 'with', name)
 
-					if result is not None:
-						log.writerow([
-							case.rel_filename,
-							case.module,
-							case.initial_str,
-							case.formula_str,
-							case.strategy_str,
-							' '.join(case.opaque),
-							case.expected,
-							case.ftype,
-							name,
-							result,
-							stats.get('states'),
-							stats.get('buchi'),
-							(end_time - start_time) / 1e6
-						])
+					for rtp in range(repeats):
+
+						# Measure time
+						start_time = time.perf_counter_ns()
+						result, stats = _run_backend(name, backend, case, args)
+						end_time = time.perf_counter_ns()
+
+						if result is not None:
+							log.writerow([
+								case.rel_filename,
+								case.module,
+								case.initial_str,
+								case.formula_str,
+								case.strategy_str,
+								' '.join(case.opaque),
+								case.expected,
+								case.ftype,
+								name,
+								result,
+								stats.get('states'),
+								stats.get('buchi'),
+								(end_time - start_time) / 1e6
+							])
 
 
 def test(args):
-	"""Test subcommand"""
-	maude.init(advise=False)
+	"""Entry point for the test subcommand"""
+
+	maude.init(advise=args.advise)
 
 	try:
 		# These are filter that limit which case are checked based on filenames or logics
-		only_file  = re.compile(args.only_file) if args.only_file else None
+		only_file = re.compile(args.only_file) if args.only_file else None
 		only_logic = args.only_logic.lower().split(',') if args.only_logic else None
 
 		backends, unavailable = get_backends(args.backend)
 		if len(unavailable) > 0:
 			usermsgs.print_warning('The following backends have not been found: '
-				+ ' '.join((name for name, backend in unavailable)))
+			                       + ' '.join((name for name, backend in unavailable)))
 
 		if args.benchmark:
-			return benchmark_tests(read_suite(args.file), backends, args, only_file, only_logic)
+			return benchmark_tests(read_suite(args.file), backends, args, only_file, only_logic, repeats=args.repeats)
 		else:
 			return run_tests(read_suite(args.file), backends, args, only_file, only_logic)
 

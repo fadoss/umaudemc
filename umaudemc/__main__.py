@@ -62,12 +62,12 @@ def add_backend_arg(parser):
 
 	parser.add_argument(
 		'--backend',
-		help='comma-separated prioritized list of model-checking backends (among maude, ltsmin, pymc, nusmv, builtin)',
-		default='maude,ltsmin,pymc,nusmv,builtin'
+		help='comma-separated prioritized list of model-checking backends (among maude, ltsmin, pymc, nusmv, spot, builtin)',
+		default='maude,ltsmin,pymc,nusmv,spot,builtin'
 	)
 
 
-parser     = argparse.ArgumentParser(description='Maude model checker helper utility')
+parser = argparse.ArgumentParser(description='Maude model checker helper utility')
 subparsers = parser.add_subparsers(help='Program options')
 
 #
@@ -76,7 +76,7 @@ subparsers = parser.add_subparsers(help='Program options')
 
 parser.add_argument(
 	'--no-advise',
-	help='suppress debug messages (internal use)',
+	help='suppress debug messages from Maude',
 	dest='advise',
 	action='store_false'
 )
@@ -140,11 +140,21 @@ parser_check.add_argument('strategy', help='strategy expression', nargs='?')
 
 add_initial_data_args(parser_check)
 parser_check.add_argument(
+	'-k', '--kleene-iteration',
+	help='makes the iteration semantics coincide with that of the Kleene star',
+	action='store_true'
+)
+parser_check.add_argument(
 	'--show-strat',
 	help='shows the next strategy to be executed for each state in the counterexample',
 	action='store_true'
 )
 add_backend_arg(parser_check)
+parser_check.add_argument(
+	'-c', '--counterexample',
+	help='reorder the backends to favor those providing counterexamples',
+	action='store_true'
+)
 add_label_format_args(parser_check)
 parser_check.add_argument(
 	'-f', '--format',
@@ -213,6 +223,12 @@ parser_test.add_argument(
 	action='store_true'
 )
 parser_test.add_argument(
+	'--repeats',
+	help='Repeat benchmark tests a number of times (by default 1)',
+	type=int,
+	default=1
+)
+parser_test.add_argument(
 	'--purge-fails', help='remove states where the strategy has failed from the model',
 	choices=['default', 'yes', 'no'],
 	default='default'
@@ -248,12 +264,12 @@ args.extra_args = extra_args
 if args.version:
 	print('Unified Maude model-checking tool ' + __version__)
 
-	dependencies = {'maude', 'pyModelChecking', 'gi', 'yaml'}
-	available     = {dep for dep in dependencies if importlib.util.find_spec(dep) is not None}
+	dependencies = {'maude', 'pyModelChecking', 'gi', 'yaml', 'spot'}
+	available = {dep for dep in dependencies if importlib.util.find_spec(dep) is not None}
 
-	print('\nInstalled dependencies: ' + ' '.join(available))
+	print('\nInstalled dependencies: ' + ' '.join(sorted(available)))
 	if available != dependencies:
-		print('Missing dependencies: ' + ' '.join(dependencies - available))
+		print('Missing dependencies: ' + ' '.join(sorted(dependencies - available)))
 
 	sys.exit(0)
 
@@ -264,12 +280,12 @@ if sys.platform == 'win32':
 	# -11 is standard output, 4 is ENABLE_VIRTUAL_TERMINAL_PROCESSING
 	kernel32.SetConsoleMode(kernel32.GetStdHandle(-11), 4)
 
-has_gtk   = importlib.util.find_spec('gi')
+has_gtk = importlib.util.find_spec('gi')
 has_maude = importlib.util.find_spec('maude')
 
 if not has_maude:
 	usermsgs.print_error('The maude Python package is not available.\n'
-			     'It can be installed with "pip install maude".')
+	                     'It can be installed with "pip install maude".')
 	sys.exit(1)
 
 # GUI interface subcommand

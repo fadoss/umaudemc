@@ -9,7 +9,7 @@
 
 import importlib.resources as pkg_resources
 
-from . import data	# Import the data directory as a package
+from . import data  # Import the data directory as a package
 
 
 def get_resource_path(name):
@@ -20,6 +20,7 @@ def get_resource_path(name):
 def get_resource_content(name):
 	"""Get the string content of a given named resource"""
 	return pkg_resources.read_text(data, name)
+
 
 def get_resource_binary(name):
 	"""Get the string content of a given named resource"""

@@ -29,7 +29,7 @@ negation symbol `~` to indicate its complement.
 Dependencies
 ------------
 
-The `umaudemc` tool requires the [`maude`](https://pypi.org/pkg/maude) package
+The `umaudemc` tool requires the [`maude`](https://pypi.org/project/maude) package
 and Python 3.7 or newer. This provides support for LTL, CTL and μ-calculus
 model checking. However, other external backends can be installed:
 
@@ -50,18 +50,21 @@ Python model-checking library. It can be installed with
 * [NuSMV](http://nusmv.fbk.eu/). The environment variable should be set to
 the path where the `NuSMV` binary is available (if not already in the system
 path).
+* [Spot](https://spot.lrde.epita.fr/) is a platform for LTL and ω-automata
+manipulation. Its Python library should be installed as explained in its
+webpage.
 * The `umaudemc` tool includes a built-in μ-calculus implementation based on
 the procedure described [here](https://doi.org/10.1007/978-3-319-10575-8_26)
 and Zielonka's algorithm.
 
 The following table shows the temporal logics supported by each of them:
 
-| Logic      | `maude`     | `ltsmin`    | `pymc`   | `nusmv`  | `builtin` |
-| ---------- | ----------- | ----------- | -------- | -------- | --------- |
-| LTL        | on-the-fly  | on-the-fly  | tableau  | tableau  |           |
-| CTL        |             | ✓           | ✓        | ✓        | ✓         |
-| CTL*       |             | ✓           | ✓        |          |           |
-| μ-calculus |             | ✓           |          |          | ✓         |
+| Logic      | `maude`     | `ltsmin`    | `pymc`   | `nusmv`  | `spot`   | `builtin` |
+| ---------- | ----------- | ----------- | -------- | -------- | -------- | --------- |
+| LTL        | on-the-fly  | on-the-fly  | tableau  | tableau  | automata |           |
+| CTL        |             | ✓           | ✓        | ✓        |          | ✓         |
+| CTL*       |             | ✓           | ✓        |          |          |           |
+| μ-calculus |             | ✓           |          |          |          | ✓         |
 
 The first available and compatible backend in the order above will be used to
 model check the given formula. The default order can be overwritten using the

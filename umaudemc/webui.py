@@ -17,6 +17,7 @@ from . import mproc, usermsgs, resources
 
 ROOT_DIR = os.path.dirname(os.path.realpath(__file__))
 DATA_DIR = 'data'
+ADDRESS_REGEX = re.compile('([a-zA-Z0-9.]*):([0-9]+)')
 
 #
 # Handle the path explorer of the graphical interface
@@ -66,7 +67,7 @@ class PathHandler:
 	def translate_path(self, path):
 		# If no path was given, the default is used
 		if not path:
-			full_path     = self.default
+			full_path = self.default
 			relative_path = full_path.relative_to(self.root) if self.root is not None else full_path
 
 		elif self.root is None:
@@ -100,14 +101,15 @@ class PathHandler:
 		# If the path points to a file, assume it refers to the enclosing directory
 		elif not full_path.is_dir():
 			full_path = full_path.parent
-			out_path  = out_path.parent
+			out_path = out_path.parent
 
 		out_path = self.PATH_BASE / out_path.as_posix()
 
-		return out_path.as_posix(), \
-		       out_path.parent.as_posix(), \
-		       [f.name for f in os.scandir(full_path) if f.is_dir() and f.name[0] != '.'], \
-		       [f.name for f in os.scandir(full_path) if f.is_file() and f.name[0] != '.' and f.name.endswith('.maude')]
+		return (out_path.as_posix(),
+		        out_path.parent.as_posix(),
+		        [f.name for f in os.scandir(full_path) if f.is_dir() and f.name[0] != '.'],
+		        [f.name for f in os.scandir(full_path) if f.is_file()
+		         and f.name[0] != '.' and f.name.endswith('.maude')])
 
 
 class WinPathHandler(PathHandler):
@@ -121,7 +123,7 @@ class WinPathHandler(PathHandler):
 
 		drives = []
 		bitmask = windll.kernel32.GetLogicalDrives()
-		for letter in string.uppercase:
+		for letter in string.ascii_uppercase:
 			if bitmask & 1:
 				drives.append(f'{letter}:')
 			bitmask >>= 1
@@ -138,21 +140,18 @@ class WinPathHandler(PathHandler):
 		else:
 			return super().browse_dir(path + '/')
 
-#
-# Persistent server information
-#
 
 class ConnectionInfo:
+	"""Persisent server information"""
+
 	def __init__(self):
 		self.path_handler = WinPathHandler() if sys.platform == 'win32' else PathHandler()
 		self.remote = None
 		self.problem_data = {}
 
-#
-# Object charged of handling the requests
-#
 
 class RequestHandler(http.server.BaseHTTPRequestHandler):
+	"""Object charged of handling the requests"""
 
 	STATIC_FILES = {
 		'/'		: ('select.htm', 'text/html; charset=utf-8'),
@@ -176,11 +175,11 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
 
 	def do_POST(self):
 		form = cgi.FieldStorage(fp=self.rfile, headers=self.headers,
-					environ={'REQUEST_METHOD': 'POST',
-					'CONTENT_TYPE': self.headers['Content-Type']})
+		                        environ={'REQUEST_METHOD': 'POST',
+		                                 'CONTENT_TYPE': self.headers['Content-Type']})
 
 		question = form.getvalue('question')
-		url      = form.getvalue('url', None)
+		url = form.getvalue('url', None)
 
 		if question == 'ls':
 			base, parent, dirs, files = self.server.info.path_handler.browse_dir(url)
@@ -317,7 +316,6 @@ def run(args):
 	"""Run the web interface"""
 
 	# Use given address and port number
-	ADDRESS_REGEX = re.compile('([a-zA-Z0-9.]*):([0-9]+)')
 	server_address = ('127.0.0.1', 8000)
 
 	if args.address is not None:

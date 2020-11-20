@@ -101,7 +101,6 @@ class Banner(Gtk.Bin):
 
 		self.grid.show_all()
 
-
 	def __set_current(self, widget):
 		"""Set the current widget in the banner"""
 
@@ -115,7 +114,7 @@ class Banner(Gtk.Bin):
 
 		# Displayed signature
 		composed = escape(signature[0]) if len(signature) == 1 else \
-			  '{}({})'.format(escape(signature[0]), ', '.join(signature[1:]))
+			'{}({})'.format(escape(signature[0]), ', '.join(signature[1:]))
 
 		return f'<a href="#{prefix}:{escape(signature[0])}:{len(signature) - 1}">{composed}</a>'
 
@@ -124,7 +123,7 @@ class Banner(Gtk.Bin):
 
 		if not info['valid']:
 			self.label.set_label(f'<big>{MODULE_TYPE_NAMES[info["type"]]}  {info["name"]}</big>'
-					     '\n\nNot valid for model checking')
+			                     '\n\nNot valid for model checking')
 
 			self.__set_current(self.label)
 		else:
@@ -137,14 +136,14 @@ class Banner(Gtk.Bin):
 			# State sort subtypes
 			self.sort_value.set_label(' '.join(info['state']))
 
-			# Atomic propositons
-			if info['prop'] != []:
+			# Atomic propositions
+			if info['prop']:
 				self.props_value.set_label(' '.join(map(lambda x: self.composeSignature('p', x), info['prop'])))
 			else:
 				self.props_value.set_label('none')
 
 			# Strategies
-			if info['strat'] != []:
+			if info['strat']:
 				self.strats_value.set_label(' '.join(map(lambda x: self.composeSignature('s', x), info['strat'])))
 				self.strats_value.set_visible(True)
 				self.strats_label.set_visible(True)
@@ -195,7 +194,7 @@ class Banner(Gtk.Bin):
 			self.canvas = WebKit2.WebView.new()
 			# Enable inspector (for debugging purposes)
 			self.canvas.get_settings().props.enable_developer_extras = True
-			# Resolve files with the umaudem scheme to static resources
+			# Resolve files with the umaudemc scheme to static resources
 			self.canvas.get_context().register_uri_scheme('umaudemc', self.get_webview_resource, None)
 			self.html_load_id = self.canvas.connect('load-changed', self.html_load, f'initCanvas({js_result})')
 			# Load the input data page
@@ -255,7 +254,7 @@ class ModelCheckerWindow(Gtk.ApplicationWindow):
 	}
 
 	def __init__(self):
-		Gtk.Window.__init__(self, title='Maude strategy-aware model checker')
+		super().__init__(title='Maude strategy-aware model checker')
 		self.connect('delete-event', self.destroyed)
 		self.set_border_width(6)
 		self.resize(800, 600)
@@ -310,19 +309,19 @@ class ModelCheckerWindow(Gtk.ApplicationWindow):
 
 		# Widgets lists (for doing actions on all of them)
 		self.entry_widgets = [self.openbutton, self.module, self.initial,
-				      self.formula, self.sexpr, self.opaques]
+		                      self.formula, self.sexpr, self.opaques]
 		self.text_widgets = [self.initial, self.formula, self.sexpr, self.opaques]
 
 		# Whether widgets are editable (not blocked by other operation)
 		self.editable = True
-		# A connection to an interruptible Maude session
+		# A connection to an interruptable Maude session
 		self.maude_session = mproc.MaudeRemote()
 
 	def signal_entry_error(self, entry, value):
 		"""Mark a entry widget with a warning in case of syntax error"""
 
 		entry.set_icon_from_icon_name(Gtk.EntryIconPosition.SECONDARY,
-					      'dialog-warning' if value else None)
+		                              'dialog-warning' if value else None)
 
 	def add_labeled_widget(self, container, label, widget, expand=True):
 		"""Add a widget together with a label to a container"""
@@ -336,8 +335,8 @@ class ModelCheckerWindow(Gtk.ApplicationWindow):
 		"""Build the Maude file open dialog"""
 
 		opendialog = Gtk.FileChooserDialog(title='Choose a Maude file',
-			parent=self,
-			action=Gtk.FileChooserAction.OPEN)
+		                                   parent=self,
+		                                   action=Gtk.FileChooserAction.OPEN)
 
 		opendialog.add_button(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL)
 		opendialog.add_button(Gtk.STOCK_OPEN, Gtk.ResponseType.OK)
@@ -371,6 +370,7 @@ class ModelCheckerWindow(Gtk.ApplicationWindow):
 		if not self.maude_session.load(filename):
 			self.notify_error(f'Error loading the file {filename}.')
 		else:
+			last_id = None
 			for name, mtype in self.maude_session.getModules():
 				self.module.append(name, f'{name} ({mtype})')
 				last_id = name
@@ -464,11 +464,10 @@ class ModelCheckerWindow(Gtk.ApplicationWindow):
 		"""Notify an error to the user (with a dialog)"""
 
 		dialog = Gtk.MessageDialog(text=text,
-					  buttons=Gtk.ButtonsType.OK,
-					  message_type=Gtk.MessageType.ERROR)
+		                           buttons=Gtk.ButtonsType.OK,
+		                           message_type=Gtk.MessageType.ERROR)
 		dialog.run()
 		dialog.destroy()
-
 
 	def set_editable(self, value):
 		"""Enable or disable the active components of the window"""
@@ -507,17 +506,17 @@ class ModelCheckerWindow(Gtk.ApplicationWindow):
 		self.thread.join(2)
 
 		holds = result['holds']
-		hasCounterexample = result['hasCounterexample']
+		has_counterexample = result['hasCounterexample']
 
-		if not hasCounterexample or holds:
+		if not has_counterexample or holds:
 			# InfoBar will look more like the web version
 			dialog = Gtk.MessageDialog(text=('✔ The property holds.' if holds else '✗ The property does not hold.'),
-						   buttons=Gtk.ButtonsType.OK)
+			                           buttons=Gtk.ButtonsType.OK)
 			dialog.run()
 			dialog.destroy()
 
 		bg = self.get_style_context().get_background_color(self.get_state())
-		if hasCounterexample:
+		if has_counterexample:
 			self.banner.show_counterexample(result, background=bg)
 		self.set_editable(True)
 

@@ -83,7 +83,7 @@ _mucalc_translation = {
 
 # Arbitrary atomic propositions in Maude may contain characters not admitted
 # in LTSmin state label identifiers (parentheses, commas, space...) unless
-# escaped with a backslash. According to lstmin-lib/ltsmin-syntax.c, these are
+# escaped with a backslash. According to ltsmin-lib/ltsmin-syntax.c, these are
 # the admitted alphabet and the list of keywords that must also be escaped.
 
 _ltsmin_keyword = {'begin', 'end', 'state', 'edge', 'init', 'trans', 'sort', 'map'}
@@ -102,7 +102,7 @@ def _escape_to_admitted(aprop):
 def _translate_aprop(aprop):
 	"""Translate an atomic proposition to the format admitted by LTSmin"""
 
-	# According to lstmin-lib/ltsmin-syntax.c's fprint_ltsmin_ident function
+	# According to ltsmin-lib/ltsmin-syntax.c's fprint_ltsmin_ident function
 	return ('\\' + aprop) if aprop in _ltsmin_keyword else _escape_to_admitted(aprop)
 
 
@@ -118,7 +118,7 @@ def _has_edge_labels(form):
 		return any(map(_has_edge_labels, rest))
 
 
-def _preprocess_formula(formula, skip=[]):
+def _preprocess_formula(formula, skip=()):
 	"""Preprocess a formula to remove unsupported operators and simplify others"""
 	head, *rest = formula
 
@@ -142,7 +142,7 @@ def _special_mu(form, trsymb, prio):
 	"""Handle the special operators for the LTSmin's mu syntax (mu, nu)"""
 	head, var, arg = form
 	return trsymb.format(var[1], _make_ltsmin_formula(arg, _mu_translation,
-							 prio, _special_mu))
+	                                                  prio, _special_mu))
 
 
 def _special_mucalc(form, trsymb, prio):
@@ -151,7 +151,7 @@ def _special_mucalc(form, trsymb, prio):
 
 	if head in {'mu_._', 'nu_._'}:
 		return trsymb.format(rest[0][1],
-				_make_ltsmin_formula(rest[1], _mucalc_translation, prio, _special_mucalc))
+		                     _make_ltsmin_formula(rest[1], _mucalc_translation, prio, _special_mucalc))
 	elif head in ['<_>_', '`[_`]_']:
 		# LTSmin's mucalc formulae only admit one action per modality,
 		# so a conjunction or disjunction has to be built to support multiple actions.
@@ -174,7 +174,7 @@ def _make_ltsmin_ctl(form):
 
 def _make_ltsmin_mu(form):
 	return _make_ltsmin_formula(form, _mu_translation,
-		special_op=_special_mu)
+	                            special_op=_special_mu)
 
 
 def _make_ltsmin_mucalc(form, labels):
@@ -185,7 +185,7 @@ def _make_ltsmin_mucalc(form, labels):
 	_mucalc_translation['`[.`]_'] = ' && '.join([f'([ "{label}" ] {{0}})' for label in labels]), 6
 
 	return _make_ltsmin_formula(form, _mucalc_translation,
-		special_op=_special_mucalc)
+	                            special_op=_special_mucalc)
 
 
 def _make_ltsmin_formula(form, translation, out_prio=80, special_op=None):
@@ -221,12 +221,12 @@ class LTSmin:
 
 	def __init__(self):
 		# Dictionary of LTSmin commands paths
-		self.pins2lts       = {}
+		self.pins2lts = {}
 		# Path of the Maude plugin
-		self.maudemc        = None
+		self.maudemc = None
 		# Paths of other related programs
 		self.ltsmin_convert = None
-		self.pbespgsolve    = None
+		self.pbespgsolve = None
 
 	def find(self, with_mucalc=False):
 		"""Find the LTSmin binary and Maude module"""
@@ -277,7 +277,7 @@ class LTSmin:
 		if ltsmin_path is not None:
 			self.ltsmin_convert = self.find_tool(ltsmin_paths, 'ltsmin-convert')
 			if self.ltsmin_convert is not None:
-					self.pbespgsolve = self.find_tool(ltsmin_paths, 'pbespgsolve')
+				self.pbespgsolve = self.find_tool(ltsmin_paths, 'pbespgsolve')
 
 		if self.ltsmin_convert is None:
 			self.ltsmin_convert = shutil.which('ltsmin-convert')
@@ -306,14 +306,14 @@ class LTSmin:
 		"""Create a new instance or session of LTSmin"""
 		return LTSminRunner(self)
 
-	def check(self, filename=None, module_str=None, metamodule_str=None, labels=[],
-		  formula=None, logic=None, aprops=None, full_matchrew=False, opaque=[],
-		  strategy_str=None, term_str=None, merge_states='default',
-		  purge_fails='default', timeout=None, extra_args=[], **kwargs):
+	def check(self, filename=None, module_str=None, metamodule_str=None, labels=(),
+	          formula=None, logic=None, aprops=None, full_matchrew=False, opaque=(),
+	          strategy_str=None, term_str=None, merge_states='default',
+	          purge_fails='default', timeout=None, extra_args=(), **kwargs):
 		"""Check a model-checking problem directly with LTSmin"""
 
 		purge_fails, merge_states = default_model_settings(logic, purge_fails, merge_states,
-								   strategy_str, tableau=False)
+		                                                   strategy_str, tableau=False)
 
 		if aprops is None:
 			aprops = set()
@@ -325,20 +325,20 @@ class LTSmin:
 		runner.add_formula(formula, logic, aprops)
 
 		return runner.run(filename, term_str, strategy_str,
-				  biased_matchrew=not full_matchrew,
-				  opaque_strats=opaque,
-				  extra_args=extra_args,
-				  purge_fails=purge_fails == 'yes',
-				  merge_states=merge_states,
-				  timeout=timeout)
+		                  biased_matchrew=not full_matchrew,
+		                  opaque_strats=opaque,
+		                  extra_args=extra_args,
+		                  purge_fails=purge_fails == 'yes',
+		                  merge_states=merge_states,
+		                  timeout=timeout)
 
 
 class LTSminRunner:
 	"""Runs LTSmin"""
 
-	STATS_REGEX   = re.compile(br'maude-mc: (\d+) system states explored, (\d+) rewrites')
-	RESULT_REGEX  = re.compile(br'^pins2lts-[^:]+: Formula')
-	BUCHI_REGEX   = re.compile(br'^pins2lts-seq: buchi has (\d)+ states')
+	STATS_REGEX = re.compile(br'maude-mc: (\d+) system states explored, (\d+) rewrites')
+	RESULT_REGEX = re.compile(br'^pins2lts-[^:]+: Formula')
+	BUCHI_REGEX = re.compile(br'^pins2lts-seq: buchi has (\d)+ states')
 	CONVERT_REGEX = re.compile(br'^ltsmin-convert: Number of states: (\d+)')
 
 	def __init__(self, installation):
@@ -347,17 +347,17 @@ class LTSminRunner:
 		# The name of the module and the term of the metamodule
 		# (if metamodule is present, module is the name of the
 		#  module where the metamodule is expressed)
-		self.module         = None
-		self.metamodule     = None
+		self.module = None
+		self.metamodule = None
 		# Labels of the rules in the module
-		self.labels         = None
+		self.labels = None
 		# List of formulae to be checked (only one is supported now)
-		self.formulae       = []
+		self.formulae = []
 		# Type of the formulae
-		self.ftype          = None
-		self.aprops         = set()
+		self.ftype = None
+		self.aprops = set()
 
-	def set_module(self, module, metamodule=None, labels=[]):
+	def set_module(self, module, metamodule=None, labels=()):
 		"""
 		Set the Maude module of the model-checking problem.
 		:param module: Name of the module.
@@ -461,18 +461,18 @@ class LTSminRunner:
 			if match:
 				stats['game'] = int(match.group(1))
 
-	def run(self, filename, initial, strategy, biased_matchrew=True, opaque_strats=[],
-		merge_states='state', purge_fails=True, extra_args=[], raw=False, verbose=False,
-		no_advise=False, depth=0, timeout=None):
+	def run(self, filename, initial, strategy, biased_matchrew=True, opaque_strats=(),
+	        merge_states='state', purge_fails=True, extra_args=(), raw=False, verbose=False,
+	        no_advise=False, depth=0, timeout=None):
 		"""Run LTSmin to model check temporal formulae"""
 
 		if merge_states == 'no':
 			merge_states = 'none'
 
 		# Arguments to be passed to LTSmin
-		args = extra_args + [
-			'--loader='       + self.ltsmin.maudemc,
-			'--initial='      + initial,
+		args = list(extra_args) + [
+			'--loader=' + self.ltsmin.maudemc,
+			'--initial=' + initial,
 			'--merge-states=' + merge_states,
 			filename,
 		]
@@ -494,7 +494,7 @@ class LTSminRunner:
 		if biased_matchrew:
 			args.append('--biased-matchrew')
 
-		if opaque_strats != []:
+		if opaque_strats:
 			args.append('--opaque-strats=' + ','.join(opaque_strats))
 
 		if strategy is not None:
@@ -537,15 +537,15 @@ class LTSminRunner:
 		maude_lib_ltsmin = os.getenv('MAUDE_LIB_LTSMIN')
 		new_maude_lib = os.getenv('MAUDE_LIB', '') if maude_lib_ltsmin is None else maude_lib_ltsmin
 		new_maude_lib = ('' if new_maude_lib == '' else new_maude_lib + os.pathsep) \
-				  + os.path.dirname(filename)
+		                + os.path.dirname(filename)
 
 		if raw:
 			os.execve(self.ltsmin.pins2lts[variant], [self.ltsmin.pins2lts[variant]] + args,
-				  env=dict(os.environ, MAUDE_LIB=new_maude_lib))
+			          env=dict(os.environ, MAUDE_LIB=new_maude_lib))
 		else:
 			# Run the LTSmin tool with the arguments prepared above
 			status = subprocess.run([self.ltsmin.pins2lts[variant]] + args, capture_output=True,
-						env=dict(os.environ, MAUDE_LIB=new_maude_lib), timeout=timeout)
+			                        env=dict(os.environ, MAUDE_LIB=new_maude_lib), timeout=timeout)
 
 			if verbose:
 				print(status.stderr[:-1].decode('utf-8'))
@@ -553,14 +553,14 @@ class LTSminRunner:
 			# 1 is returned when there is an error or when pins2lts-sym finds a counterexample
 			if status.returncode > 1:
 				usermsgs.print_error('An error has been produced while running LTSmin:\n'
-						     + _ansi_escape.sub(b'', status.stderr[:-1]).decode('utf-8'))
+				                     + _ansi_escape.sub(b'', status.stderr[:-1]).decode('utf-8'))
 				return (None,) * 2
 
 			holds, stats = self._read_pins2lts_output(status.stderr)
 
 			if holds is None and self.ftype != 'mucalc':
 				usermsgs.print_error('An error has been produced while running LTSmin:\n'
-						     + _ansi_escape.sub(b'', status.stderr[:-1]).decode('utf-8'))
+				                     + _ansi_escape.sub(b'', status.stderr[:-1]).decode('utf-8'))
 				return (None,) * 2
 
 			if self.ftype == 'mucalc':
@@ -580,7 +580,7 @@ class LTSminRunner:
 				convert_status = subprocess.run([self.ltsmin.ltsmin_convert, '--rdwr', tempdir, pgname], capture_output=True)
 				if convert_status.returncode != 0:
 					usermsgs.print_error('Error while generating the parity game with ltsmin-convert:'
-							     + convert_status.stderr.decode('utf-8'))
+					                     + convert_status.stderr.decode('utf-8'))
 					return (None,) * 3
 
 				self._read_convert_output(convert_status.stderr, stats)

@@ -5,23 +5,25 @@
 from .backend.pymc import PyModelChecking
 from .backend.nusmv import NuSMV
 from .backend.ltsmin import LTSmin
+from .backend.spot import SpotBackend
 from .backend.bmcalc import BuiltinBackend
 from .common import *
 
 supported_logics = {
-	'maude':	{'propLogic', 'LTL'},
-	'ltsmin':	{'propLogic', 'LTL', 'CTL', 'CTL*', 'Mucalc'},
-	'pymc':		{'propLogic', 'LTL', 'CTL', 'CTL*'},
-	'nusmv':	{'propLogic', 'LTL', 'CTL'},
-	'builtin':	{'propLogic', 'CTL', 'Mucalc'}
+	'maude':   {'propLogic', 'LTL'},
+	'ltsmin':  {'propLogic', 'LTL', 'CTL', 'CTL*', 'Mucalc'},
+	'pymc':    {'propLogic', 'LTL', 'CTL', 'CTL*'},
+	'nusmv':   {'propLogic', 'LTL', 'CTL'},
+	'spot':    {'propLogic', 'LTL'},
+	'builtin': {'propLogic', 'CTL', 'Mucalc'}
 }
 
 
 STATS_FORMAT = {
-	'states'	: '{} system state',
-	'rewrites'	: '{} rewrite',
-	'game'		: '{} game state',
-	'buchi'		: '{} Büchi state'
+	'states':   '{} system state',
+	'rewrites': '{} rewrite',
+	'game':     '{} game state',
+	'buchi':    '{} Büchi state'
 }
 
 
@@ -32,8 +34,7 @@ class MaudeBackend:
 		return True
 
 	def check(self, module=None, graph=None, formula_str=None, term=None,
-		  strategy=None, opaque=[], full_matchrew=False, get_graph=False,
-		  **kwargs):
+	          strategy=None, opaque=(), full_matchrew=False, get_graph=False, **kwargs):
 		"""Check an LTL formula using the Maude LTL model checker"""
 
 		formula = module.parseTerm(formula_str)
@@ -79,6 +80,8 @@ def get_backend(backend):
 		return PyModelChecking()
 	elif backend == 'nusmv':
 		return NuSMV()
+	elif backend == 'spot':
+		return SpotBackend()
 	elif backend == 'builtin':
 		return BuiltinBackend()
 
@@ -100,21 +103,32 @@ def get_backends(backend_arg):
 	return available, unavailable
 
 
-def backend_for(backends, logic):
+def backend_for(backends, logic, use_kleene_semantics=False):
 	"""First supported backend for the given logic"""
 
 	valid = ((name, handle) for name, handle in backends
-				if logic in supported_logics[name])
+	         if logic in supported_logics[name]
+	         and not use_kleene_semantics or name == 'spot')
 	return next(valid, (None, None))
+
+
+def advance_counterexample(backends):
+	"""Advance backends that provide counterexamples"""
+
+	provides_counter = {'maude', 'nusmv', 'spot'}
+
+	return ([b for b in backends if b[0] in provides_counter] +
+	        [b for b in backends if b[0] not in provides_counter])
+
 
 def format_statistics(stats):
 	"""Format the statistics provided by the backends"""
 
 	# Format the integral statistic messages
 	params = [msg.format(stats[key]) + ('s' if stats[key] > 1 else '')
-		  for key, msg in STATS_FORMAT.items() if key in stats]
+	          for key, msg in STATS_FORMAT.items() if key in stats]
 
-	sset   = stats.get('sset')
+	sset = stats.get('sset')
 	states = stats.get('states')
 
 	if sset is not None:

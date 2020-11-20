@@ -16,7 +16,7 @@ from . import usermsgs
 
 if hasattr(maude, 'StateTransitionGraph'):
 	usermsgs.print_warning('Version 0.3 of the maude package contains bugs related to model checking.\n'
-			       'Please update.')
+	                       'Please update.')
 
 	# Anyhow, allow using it at their own risk, for which some adaptations are needed
 	maude.RewriteGraph = maude.StateTransitionGraph
@@ -26,12 +26,14 @@ if hasattr(maude, 'StateTransitionGraph'):
 
 if not hasattr(maude, 'Hook'):
 	usermsgs.print_warning('Version 0.5 of the maude package adds some useful features for this program.\n'
-			       'Please update.')
+	                       'Please update.')
 
 	maude.RewriteGraph.getNrRewrites = lambda: 0
 	maude.StrategyRewriteGraph.getNrRewrites = lambda: 0
 	maude.ModelCheckResult.nrBuchiStates = 0
 	maude.downModule = lambda term: term.symbol().getModule().downModule(term)
+	maude.Sort.__le__ = lambda self, other: self.leq(other)
+	maude.Term.__eq__ = lambda self, other: self.equal(other)
 
 
 class InitialData:
@@ -70,7 +72,7 @@ def find_maude_file(filename):
 		paths += maudelib.split(os.pathsep)
 
 	for path in paths:
-		abspath  = os.path.join(path, filename)
+		abspath = os.path.join(path, filename)
 		fullname = find_maude_file_abs(abspath)
 		if fullname is not None:
 			return fullname
@@ -114,14 +116,14 @@ def parse_initial_data(args):
 	# Loads a metamodule (if required)
 
 	if args.metamodule is not None:
-		mt = maude.parseTerm(args.metamodule)
+		mt = data.module.parseTerm(args.metamodule)
 
 		if mt is None:
 			usermsgs.print_error('Bad parse for metamodule term.')
 			return None
 
 		data.metamodule = mt
-		data.module = data.module.downModule(mt)
+		data.module = maude.downModule(mt)
 
 		if data.module is None:
 			usermsgs.print_error('Bad metamodule.')
@@ -184,10 +186,10 @@ def default_model_settings(logic, purge_fails, merge_states, strategy, tableau=F
 	if strategy is None:
 		if merge_states not in {'default', 'no'}:
 			usermsgs.print_warning('Merging states does not make sense without a strategy. '
-					       'Ignoring --merge-states value.')
+			                       'Ignoring --merge-states value.')
 		if purge_fails not in {'default', 'no'}:
 			usermsgs.print_warning('Failed states do no make sense without a strategy. '
-					       'Ignoring --purge-fails flag.')
+			                       'Ignoring --purge-fails flag.')
 
 		return 'no', 'no'
 

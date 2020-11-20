@@ -1,0 +1,769 @@
+***
+*** Operational semantics of the Maude strategy language
+***
+*** Combines parts of various files that are distributed separately
+*** as stratKit.maude, opsem.maude, and opsem-kleene.maude.
+***
+
+***
+*** stratKit.maude
+
+fmod STKIT-SUBSTITUTION is
+	protecting META-STRATEGY .
+
+	var  Cnt        : Constant .
+	vars C          : Condition .
+	var  Cond SCond : EqCondition .
+	var  X          : Variable .
+	vars P T L R    : Term .
+	vars Sb ISb SSb : Substitution .
+	var  Q          : Qid .
+	var  TL         : TermList .
+	var  NeTL       : NeTermList .
+	vars S S1 S2 S3 : Strategy .
+	var  SL         : StrategyList .
+	var  VSP        : UsingPair .
+	var  VSL        : UsingPairSet .
+	var  Ctx        : Context .
+	var  NeCTL      : NeCTermList .
+	var  GTL        : GTermList .
+
+	***
+	*** Substitution on terms
+
+	op applySubs : Term Substitution -> Term .
+	op applySubs : TermList Substitution -> TermList .
+
+	eq applySubs(T, none)        = T .
+	eq applySubs(Cnt, Sb)        = Cnt .
+	eq applySubs(X, X <- T ; Sb) = T .
+	eq applySubs(X, Sb) = X [owise] .
+	eq applySubs(Q[TL], Sb)      = Q[applySubs(TL, Sb)] .
+	eq applySubs((T, NeTL), Sb)  = applySubs(T, Sb), applySubs(NeTL, Sb) .
+	eq applySubs((empty).TermList, Sb) = empty .
+
+	***
+	*** Context fill
+
+	op putInContext : Term Context -> Term .
+	op putInContext : Term TermList -> TermList .
+
+	eq putInContext(T, []) = T .
+	eq putInContext(T, P) = P .
+	eq putInContext(T, Q[GTL]) = Q[putInContext(T, GTL)] .
+	eq putInContext(T, (P, NeCTL)) = P, putInContext(T, NeCTL) .
+	eq putInContext(T, (Ctx, NeTL)) = putInContext(T, Ctx), NeTL .
+
+	***
+	*** Substitution on substitutions
+
+	op applySubs : Substitution Substitution -> Substitution .
+
+	eq applySubs(none, Sb)         = none .
+	eq applySubs(X <- T ; ISb, Sb) = X <- applySubs(T, Sb) ; applySubs(ISb, Sb) .
+
+	***
+	*** Substitution on conditions
+
+	op applySubs : Condition Substitution -> Condition .
+
+	eq applySubs(nil, Sb) = nil .
+	eq applySubs(L = R /\ C, Sb)      = applySubs(L, Sb) = applySubs(R, Sb)  /\ applySubs(C, Sb) .
+	eq applySubs(L := R /\ C, Sb)     = applySubs(L, Sb) := applySubs(R, Sb) /\ applySubs(C, Sb) .
+	eq applySubs(L => R /\ C, Sb)     = applySubs(L, Sb) => applySubs(R, Sb) /\ applySubs(C, Sb) .
+	eq applySubs(T : S:Sort /\ C, Sb) = applySubs(T, Sb) : S:Sort            /\ applySubs(C, Sb) .
+
+	***
+	*** Substitution on strategies
+
+	op applySubs : Strategy Substitution -> Strategy .
+	op applySubs : StrategyList Substitution -> StrategyList .
+	op applySubs : UsingPairSet Substitution -> UsingPairSet .
+
+	eq applySubs(Q[ISb]{SL}, Sb)         = Q[applySubs(ISb, Sb)]{applySubs(SL, Sb)} .
+	eq applySubs(match P s.t. Cond, Sb)  = match applySubs(P, Sb) s.t. applySubs(Cond, Sb) .
+	eq applySubs(xmatch P s.t. Cond, Sb) = xmatch applySubs(P, Sb) s.t. applySubs(Cond, Sb) .
+	eq applySubs(amatch P s.t. Cond, Sb) = amatch applySubs(P, Sb) s.t. applySubs(Cond, Sb) .
+	ceq applySubs(S1 | S2, Sb)           = applySubs(S1, Sb) | applySubs(S2, Sb) if S1 =/= fail /\ S2 =/= fail .
+	ceq applySubs(S1 ; S2, Sb)           = applySubs(S1, Sb) ; applySubs(S2, Sb) if S1 =/= idle /\ S2 =/= idle .
+	eq applySubs(S1 ? S2 : S3, Sb)       = applySubs(S1, Sb) ? applySubs(S2, Sb) : applySubs(S3, Sb) .
+	eq applySubs(S1 or-else S2, Sb)      = applySubs(S1, Sb) or-else applySubs(S2, Sb) .
+	eq applySubs(S *, Sb)                = applySubs(S, Sb) * .
+	eq applySubs(S +, Sb)                = applySubs(S, Sb) + .
+	eq applySubs(S !, Sb)                = applySubs(S, Sb) ! .
+	eq applySubs(one(S), Sb)             = one(applySubs(S, Sb)) .
+	eq applySubs(not(S), Sb)             = not(applySubs(S, Sb)) .
+	eq applySubs(try(S), Sb)             = try(applySubs(S, Sb)) .
+	eq applySubs(top(S), Sb)             = top(applySubs(S, Sb)) .
+	eq applySubs(Q[[TL]], Sb)            = Q[[applySubs(TL, Sb)]] .
+
+	*** Applying a substitution to a matchrew operator must not be
+	*** a direct instantiation of variables, since those signaling
+	*** subterms to which strategies are applied cannot be vanished
+	*** because that reference will be lost. Instead, an equality
+	*** condition is added to the matchrew expression.
+	***
+	*** splitSubs, defined at the end the module, separates the part
+	*** of the given substitution that can be applied safely, and
+	*** builds the equational condicion for the rest of the bindings.
+
+	ceq applySubs(matchrew P s.t. Cond by VSL, Sb) = matchrew applySubs(P, SSb)
+		s.t. SCond /\ applySubs(Cond, SSb) by applySubs(VSL, Sb)
+		if { SSb ; SCond } := splitSubs(Sb, VSL) .
+	ceq applySubs(xmatchrew P s.t. Cond by VSL, Sb) = xmatchrew applySubs(P, SSb)
+		s.t. SCond /\ applySubs(Cond, SSb) by applySubs(VSL, Sb)
+		if { SSb ; SCond } := splitSubs(Sb, VSL) .
+	ceq applySubs(amatchrew P s.t. Cond by VSL, Sb) = amatchrew applySubs(P, SSb)
+		s.t. SCond /\ applySubs(Cond, SSb) by applySubs(VSL, Sb)
+		if { SSb ; SCond } := splitSubs(Sb, VSL) .
+
+
+	*** In any other case (id, fail, all), the original term is not changed
+	eq applySubs(S, Sb) = S [owise] .
+
+
+	*** Substitution on strategy lists
+	eq applySubs((empty).StrategyList, Sb) = empty .
+	ceq applySubs(S, SL, Sb)               = applySubs(S, Sb), applySubs(SL, Sb) if SL =/= empty .
+
+	*** Substitution on variable-to-strategy lists
+	eq applySubs(X using S, Sb)  = X using applySubs(S, Sb) .
+	eq applySubs((VSP, VSL), Sb) = applySubs(VSP, Sb), applySubs(VSL, Sb) .
+
+	*** splitSubs definition (a simple pair operator is required)
+
+	sort SplitSubs .
+	op {_;_} : Substitution EqCondition -> SplitSubs [ctor] .
+	op extend : SplitSubs EqCondition -> SplitSubs .
+	eq extend({ Sb ; Cond }, SCond) = { Sb ; Cond /\ SCond } .
+
+	op splitSubs : Substitution UsingPairSet -> SplitSubs .
+
+	eq splitSubs(X <- T ; Sb, X using S)        = { Sb ; X = T } .
+	eq splitSubs(Sb, X using S)                 = { Sb ; nil } [owise] .
+	eq splitSubs(X <- T ; Sb, (X using S, VSL)) = extend(splitSubs(Sb, VSL), X = T) .
+	eq splitSubs(Sb, (X using S, VSL))          = splitSubs(Sb, VSL) .
+endfm
+
+view Strategy from TRIV to META-STRATEGY is
+	sort Elt to Strategy .
+endv
+
+fmod STKIT-EXECUTION is
+	protecting STKIT-SUBSTITUTION .
+	protecting META-LEVEL .
+	protecting (SET * (op empty to nostrat, op _,_ to _$_)){Strategy} .
+
+	var  M      : Module .
+	var  N      : Nat .
+	var  CS     : CallStrategy .
+	vars CT Lhs : Term .
+	var  C      : EqCondition .
+	var  D      : Strategy .
+	var  Sb     : Substitution .
+	var  Sdcls  : StratDeclSet .
+	var  Sds    : StratDefSet .
+	var  TL     : TermList .
+	var  Ty	    : Type .
+	var  TyL    : TypeList .
+	var  Attrs  : AttrSet .
+	var  Q      : Qid .
+
+	*** All matching definitions
+
+	op allDefs : StratModule CallStrategy -> Set{Strategy} .
+	op allDefs : StratModule Term StratDefSet -> Set{Strategy} .
+	op allDefs : StratModule Term Term EqCondition Strategy Nat -> Set{Strategy} .
+
+	eq allDefs(M, CS) = allDefs(extendStratMod(M), callToTerm(CS), getSds(M)) .
+	eq allDefs(M, CT, none) = nostrat .
+	eq allDefs(M, CT, sd CS := D [Attrs] . Sds) =
+		allDefs(M, CT, callToTerm(CS), nil, D, 0) $ allDefs(M, CT, Sds) .
+	eq allDefs(M, CT, csd CS := D if C [Attrs] . Sds) =
+		allDefs(M, CT, callToTerm(CS), C, D, 0) $ allDefs(M, CT, Sds) .
+
+	ceq allDefs(M, CT, Lhs, C, D, N) = nostrat
+		if metaMatch(M, Lhs, CT, C, N) = noMatch .
+	ceq allDefs(M, CT, Lhs, C, D, N) = applySubs(D, Sb) $ allDefs(M, CT, Lhs, C, D, s(N))
+		if Sb := metaMatch(M, Lhs, CT, C, N) .
+
+	*** Temporary extension of a module with an operator for each strategy declaration
+	*** (useful for matching, imports will be ignored)
+
+	op extendStratMod : StratModule -> StratModule .
+	op extendStratMod : StratDeclSet -> OpDeclSet .
+
+	eq extendStratMod(M) = smod qid(string(getName(M)) + "-4STRAT") is
+		getImports(M)
+		sorts getSorts(M) ; '%Strategy .
+		getSubsorts(M)
+		getOps(M)
+		extendStratMod(getStrats(M))
+		getMbs(M)
+		getEqs(M)
+		getRls(M)
+		getStrats(M)
+		getSds(M)
+	endsm .
+
+	eq extendStratMod(none) = none .
+	eq extendStratMod(strat Q : TyL @ Ty [Attrs] . Sdcls) =
+		op Q : TyL -> '%Strategy [none] . extendStratMod(Sdcls) .
+
+	op callToTerm : CallStrategy -> Term .
+	eq callToTerm(Q[[empty]]) = qid(string(Q) + ".%Strategy") .
+	eq callToTerm(Q[[TL]]) = Q[TL] [owise] .
+endfm
+
+
+***
+*** opsem.maude
+
+fmod EX-STATE is
+	protecting META-STRATEGY .
+	protecting STKIT-SUBSTITUTION .
+
+	sort ExState ExStatePart SubtermSoup SolutionSoup CtxStack .
+	subsort Term < ExStatePart .
+	subsort SolutionSoup < SubtermSoup .
+
+	subsort Strategy < CtxStack .
+	op ctx : Substitution -> CtxStack [ctor] .
+
+	op eps : -> CtxStack [ctor] .
+	op __  : CtxStack CtxStack -> CtxStack [ctor assoc id: eps] .
+
+	op _@_ : ExStatePart CtxStack -> ExState [ctor] .
+	op subterm : SubtermSoup Term -> ExStatePart [ctor] .
+	op rewc : Term ExState Substitution Condition StrategyList CtxStack Term Context Term -> ExStatePart [ctor frozen] .
+
+	op _:_ : Variable ExState -> SubtermSoup [ctor] .
+	op _,_ : SubtermSoup SubtermSoup -> SubtermSoup [ctor assoc] .
+	op _,_ : SolutionSoup SolutionSoup -> SolutionSoup [ctor ditto] .
+
+	var T   : Term .
+	var S   : Strategy .
+	var C   : CtxStack .
+	var X   : ExState .
+	var V   : Variable .
+	var Sb  : Substitution .
+	var SbS : SubtermSoup .
+
+	mb (V : T @ eps) : SolutionSoup .
+	eq ctx(none) = eps .
+
+	*** Current variable context
+	op vctx : CtxStack -> CtxStack .
+
+	eq vctx(eps) = eps .
+	eq vctx(S C) = vctx(C) .
+	eq vctx(ctx(Sb) C) = ctx(Sb) .
+
+	*** Variable context substitution
+	op vsubs : CtxStack -> Substitution .
+
+	eq vsubs(eps) = none .
+	eq vsubs(S C) = vsubs(C) .
+	eq vsubs(ctx(Sb) C) = Sb .
+
+	*** Current term
+	op cterm : ExState -> Term .
+
+	eq cterm(T @ C) = T .
+	eq cterm(rewc(V, X, Sb, C:Condition, SL:StrategyList, Th:CtxStack, R:Term, Ctx:Context, T) @ C) =  T .
+	eq cterm(subterm(SbS, T) @ C) = applySubs(T, ctermSubs(SbS)) .
+
+	op ctermSubs : SubtermSoup -> Substitution .
+
+	eq ctermSubs(V : X) = V <- cterm(X) .
+	eq ctermSubs((V : X), SbS) = ctermSubs(V : X) ; ctermSubs(SbS) .
+endfm
+
+fmod META-LEVEL-AUX is
+	protecting META-LEVEL .
+	protecting EX-STATE . *** separar en dos módulos
+	protecting STKIT-EXECUTION .
+
+	var  M         : Module .
+	var  P T CT    : Term .
+	var  C         : Condition .
+	var  Q         : Qid .
+	var  Sb Sb'    : Substitution .
+	var  SL        : StrategyList .
+	vars S S1 S2 D : Strategy .
+	var  CS        : CallStrategy .
+	var  UPS       : UsingPairSet .
+	var  B         : Bound .
+	var  N         : Nat .
+	var  Attrs     : AttrSet .
+	var  Sds       : StratDefSet .
+	var  SO        : SrewriteOption .
+	var  Ctx       : Context .
+	var  MPS       : MatchPairSet .
+
+	*** Decide if a given strategy metaterm is a conjunction (or idle)
+	op isConjunction : Strategy -> Bool .
+
+	eq isConjunction(S1 ; S2) = (S1 == idle) == (S2 == idle) .
+	eq isConjunction(S) = false [owise] .
+
+	*** Decide if a given strategy metaterm is a disjunction (or fail)
+	op isDisjunction : Strategy -> Bool .
+
+	eq isDisjunction(S1 | S2) = (S1 == fail) == (S2 == fail) [owise] .
+	eq isDisjunction(S) = false [owise] .
+
+	*** Derived strategies are reduced to equivalent expressions,
+	*** and this may cause a performance penalty
+	eq S + = S ; S * .
+	eq S1 or-else S2 = S1 ? idle : S2 .
+	eq S ! = S * ; not(S) .
+	eq not(S) = S ? fail : idle .
+	eq test(S) = not(not(S)) .
+	eq try(S) = S ? idle : idle .
+
+	*** Matching strategy calls to strategy definitions
+	sort CtxStackSet .
+	subsort CtxStack < CtxStackSet .
+	op none : -> CtxStackSet [ctor] .
+	op _|>_ : CtxStackSet CtxStackSet -> CtxStackSet [ctor assoc comm id: none] .
+
+	op metaStratDefs : Module CallStrategy -> CtxStackSet .
+	op metaStratDefs : Module Term StratDefSet -> CtxStackSet .
+	op metaStratDefs : Module Term Term EqCondition Strategy Nat -> CtxStackSet .
+
+	eq metaStratDefs(M, CS) = metaStratDefs(extendStratMod(M), callToTerm(CS), getSds(M)) .
+	eq metaStratDefs(M, CT, none) = none .
+	eq metaStratDefs(M, CT, sd CS := D [Attrs] . Sds) =
+		metaStratDefs(M, CT, callToTerm(CS), nil, D, 0) |> metaStratDefs(M, CT, Sds) .
+	eq metaStratDefs(M, CT, csd CS := D if C [Attrs] . Sds) =
+		metaStratDefs(M, CT, callToTerm(CS), C, D, 0) |> metaStratDefs(M, CT, Sds) .
+
+	ceq metaStratDefs(M, CT, T, C, D, N) = none
+		if metaMatch(M, T, CT, C, N) = noMatch .
+	ceq metaStratDefs(M, CT, T, C, D, N) = D ctx(Sb) |> metaStratDefs(M, CT, T, C, D, s(N))
+		if Sb := metaMatch(M, T, CT, C, N) .
+
+	*** Matching and obtaining the matches as a set
+	sort MatchPairSet .
+	subsort MatchPair < MatchPairSet .
+
+	op none : -> MatchPairSet [ctor] .
+	op _|>_ : MatchPairSet MatchPairSet -> MatchPairSet [ctor assoc comm id: none] .
+
+	op metaMatch : Module Term Term Condition Substitution -> MatchPairSet .
+	op metaXmatch : Module Term Term Condition Substitution Bound -> MatchPairSet .
+
+	op metaMatchAux : Module Term Term Condition Nat -> MatchPairSet .
+	op metaXmatchAux : Module Term Term Condition Bound Nat -> MatchPairSet .
+
+	eq metaMatch(M, P, T, C, none) = metaMatchAux(M, P, T, C, 0) .
+	eq metaMatch(M, P, T, C, Sb) = appendSubs(metaMatchAux(M, applySubs(P, Sb), T, applySubs(C, Sb), 0), Sb) [owise] .
+
+	eq metaMatchAux(M, P, T, C, N) = if metaMatch(M, P, T, C, N) == noMatch then
+			none
+		else
+			{metaMatch(M, P, T, C, N), []} |> metaMatchAux(M, P, T, C, s(N))
+		fi
+	.
+
+	eq metaXmatch(M, P, T, C, none, B) = metaXmatchAux(M, P, T, C, B, 0) .
+	eq metaXmatch(M, P, T, C, Sb, B) = appendSubs(metaXmatchAux(M, applySubs(P, Sb), T, applySubs(C, Sb), B, 0), Sb) .
+
+	eq metaXmatchAux(M, P, T, C, B, N) = if metaXmatch(M, P, T, C, 0, B, N) == noMatch then
+			none
+		else
+			metaXmatch(M, P, T, C, 0, B, N) |> metaXmatchAux(M, P, T, C, B, s(N))
+		fi
+	.
+
+	*** Merge a substitution with a set of matching substitutions
+	op appendSubs : MatchPairSet Substitution -> MatchPairSet .
+
+	eq appendSubs(none, Sb) = none .
+	eq appendSubs({Sb', Ctx} |> MPS, Sb) = {Sb ; Sb', Ctx} |> appendSubs(MPS, Sb) .
+
+	*** Applying rules and obtaining the possible results as a set
+	sort TermSet .
+	subsort Term < TermSet .
+	op noterm : -> TermSet [ctor] .
+	op _|>_ : TermSet TermSet -> TermSet [ctor assoc comm id: noterm] .
+
+	op metaXapply : Module Term Qid Substitution -> TermSet .
+	op metaApply : Module Term Qid Substitution -> TermSet .
+
+	op metaXapplyAux : Module Term Qid Substitution Nat -> TermSet .
+	op metaApplyAux : Module Term Qid Substitution Nat -> TermSet .
+
+	eq metaXapply(M, T, Q, Sb) = metaXapplyAux(M, T, Q, Sb, 0) .
+	eq metaXapplyAux(M, T, Q, Sb, N) = if metaXapply(M, T, Q, Sb, 0, unbounded, N) == failure then
+			noterm
+		else
+			getTerm(metaXapply(M, T, Q, Sb, 0, unbounded, N)) |> metaXapplyAux(M, T, Q, Sb, s(N))
+		fi
+	.
+
+	eq metaApply(M, T, Q, Sb) = metaApplyAux(M, T, Q, Sb, 0) .
+	eq metaApplyAux(M, T, Q, Sb, N) = if metaApply(M, T, Q, Sb, N) == failure then
+			noterm
+		else
+			getTerm(metaApply(M, T, Q, Sb, N)) |> metaApplyAux(M, T, Q, Sb, s(N))
+		fi
+	.
+
+	op metaSrewrite : Module Term Strategy SrewriteOption -> TermSet .
+	op metaSrewriteAux : Module Term Strategy SrewriteOption Nat -> TermSet .
+
+	eq metaSrewrite(M, T, S, SO) = metaSrewriteAux(M, T, S, SO, 0) .
+	eq metaSrewriteAux(M, T, S, SO, N) = if metaSrewrite(M, T, S, SO, N) == failure then
+			noterm
+		else
+			getTerm(metaSrewrite(M, T, S, SO, N)) |> metaSrewriteAux(M, T, S, SO, s(N))
+		fi
+	.
+
+endfm
+
+fth MODULE is
+	protecting META-MODULE .
+	op M : -> Module .
+endfth
+
+mod NOP-RULES{X :: MODULE} is
+	protecting EX-STATE .
+	protecting META-LEVEL-AUX .
+
+	vars T T' ST L R RL RR P : Term .
+	var  S CS      : CtxStack .
+	var  Sb Sb' Th : Substitution .
+	vars A B G D   : Strategy .
+	var  C         : Condition .
+	var  C0        : EqCondition .
+	var  X Y       : ExState .
+	var  Q         : Qid .
+	var  TL        : TermList .
+	var  NeTL      : NeTermList .
+	var  UPS       : UsingPairSet .
+	var  SlS       : SolutionSoup .
+	var  SL        : StrategyList .
+	var  CSS       : CtxStackSet .
+	vars V W       : Variable .
+	vars Ctx Ctx'  : Context .
+	var  MPS       : MatchPairSet .
+	var  TS        : TermSet .
+	var  N         : Nat .
+	var  Attrs     : AttrSet .
+	var  Rl        : Rule .
+	var  Rls       : RuleSet .
+
+	rl  [ctl] : T @ idle S => T @ S .
+	rl  [ctl] : T @ ctx(Sb) S => T @ S .
+	crl [ctl] : T @ (A ; B) S => T @ A B S if not isConjunction(A) /\ B =/= idle .
+	crl [ctl] : T @ (A | B) S => T @ A S if not isDisjunction(A) /\ B =/= fail .
+	rl  [ileave] : T @ (A *) S => T @ S .
+	rl  [ienter] : T @ (A *) S => T @ A (A *) S .
+
+	crl [ctl] : T @ (match P s.t. C) S => T @ S
+	 if metaMatch(M, applySubs(P, vsubs(S)), T, applySubs(C, vsubs(S)), 0) :: Substitution .
+	crl [ctl] : T @ (xmatch P s.t. C) S => T @ S
+	 if metaXmatch(M, applySubs(P, vsubs(S)), T, applySubs(C, vsubs(S)), 0, 0, 0) :: MatchPair .
+	crl [ctl] : T @ (amatch P s.t. C) S => T @ S
+	 if metaXmatch(M, applySubs(P, vsubs(S)), T, applySubs(C, vsubs(S)), 0, unbounded, 0) :: MatchPair .
+
+	rl  [ctl]  : T @ (A ? B : G) S => T @ A B S .
+	crl [else] : T @ (A ? B : G) S => T @ G S if T @ A vctx(S) => X [nonexec] .
+
+	crl [call] : T @ Q[[TL]] S => T @ CS S
+	 if CS |> CSS := metaStratDefs(M, Q[[reduced(applySubs(TL, vsubs(S)))]]) .
+
+	*** tail-recursive call optimization
+	eq ctx(Sb) ctx(Th) = ctx(Sb) .
+
+	crl [ctl] : T @ (matchrew P s.t. C by UPS) S
+	         => subterm(subtermSoup(UPS, Sb), putInContext(applySubs(P, removeVarsFromSb(Sb, UPS)), Ctx)) @ S
+	if {Sb, Ctx} |> MPS := metaMatch(M, P, T, C, vsubs(S)) .
+
+	crl [ctl] : T @ (xmatchrew P s.t. C by UPS) S
+	         => subterm(subtermSoup(UPS, Sb), putInContext(applySubs(P, removeVarsFromSb(Sb, UPS)), Ctx)) @ S
+	if {Sb, Ctx} |> MPS := metaXmatch(M, P, T, C, vsubs(S), 0) .
+
+	crl [ctl] : T @ (amatchrew P s.t. C by UPS) S
+	         => subterm(subtermSoup(UPS, Sb), putInContext(applySubs(P, removeVarsFromSb(Sb, UPS)), Ctx)) @ S
+	if {Sb, Ctx} |> MPS := metaXmatch(M, P, T, C, vsubs(S), unbounded) .
+
+
+	*** Subterms are rewritten automatically by the semantics of rewriting logic
+
+	rl [ctl] : subterm(SlS, T) @ S => reduced(applySubs(T, ctermSubs(SlS))) @ S .
+
+	crl [ctl] : rewc(P, T @ eps, Sb, C0 /\ L => R /\ C, (S, SL), CS, RR, Ctx, ST)
+	         => rewc(applySubs(R, Sb'), applySubs(L, Sb') @ S CS, Sb', C, SL, CS, RR, Ctx, ST)
+	if {Sb', Ctx'} |> MPS := metaMatch(M, P, T, C0, Sb) .
+
+	crl [rewc] : rewc(P, X, Sb, C, SL, CS, RR, Ctx, ST) =>
+	    rewc(P, Y, Sb, C, SL, CS, RR, Ctx, ST) if X => Y .
+
+
+	***
+	*** System transitions
+
+	crl [sys] : T @ Q[Sb]{empty} S => T' @ S
+	 if T' |> TS := metaXapply(M, T, Q, reduced(applySubs(Sb, vsubs(S)))) .
+	crl [sys] : T @ top(Q[Sb]{empty}) S => T' @ S
+	 if T' |> TS := metaApply(M, T, Q, reduced(applySubs(Sb, vsubs(S)))) .
+
+	crl [ctl] : T @ Q[Sb]{G, SL} S
+	         => rewc(applySubs(R, Sb'), applySubs(L, Sb') @ G vctx(S), Sb', C, SL, vctx(S), RR, Ctx, T) @ S
+	if crl RL => RR if C0 /\ L => R /\ C  [label(Q) Attrs] . Rls := findRules(Q, s(size(SL)))
+	/\ {Sb', Ctx} |> MPS := metaXmatch(M, RL, T, C0, Sb, unbounded) .
+
+	crl [ctl] : T @ top(Q[Sb]{G, SL}) S
+	         => rewc(applySubs(R, Sb'), applySubs(L, Sb') @ G vctx(S), Sb', C, SL, vctx(S), RR, Ctx, T) @ S
+	if crl RL => RR if C0 /\ L => R /\ C  [label(Q) Attrs] . Rls := findRules(Q, s(size(SL)))
+	/\ {Sb', Ctx} |> MPS := metaMatch(M, RL, T, C0, Sb) .
+
+	crl [sys] : rewc(P, T @ eps, Sb, C0, (S, SL), CS, RR, Ctx, ST) @ S
+	         => putInContext(applySubs(RR, Sb'), Ctx) @ S
+	 if {Sb', Ctx'} |> MPS := metaMatch(M, P, T, C0, Sb) .
+
+	*** The strategy all is evaluated using the builtin strategy language, which may
+	*** be seen as cheating. However, metaApply and metaXApply cannot be used for
+	*** unlabelled rules, and metaRewrite does not tell whether a rule has been
+	*** actually applied. The alternative would be programming rule application
+	*** at the metalevel using metaXmatch, etc.
+	crl [sys] : T @ all S => T' @ S if T' |> TS := metaSrewrite(M, T, all, breadthFirst) .
+	crl [sys] : T @ top(all) S => T' @ S if T' |> TS := metaSrewrite(M, T, top(all), breadthFirst) .
+
+	***
+	*** Opaque strategies
+
+	crl [opaque] : T @ G S => T' @ S if T @ G => T' @ eps .
+
+
+	*** We are transforming a set into a list
+	op subtermSoup : UsingPairSet Substitution -> SubtermSoup .
+	eq subtermSoup(V using G, Sb) = V : applySubs(V, Sb) @ G ctx(Sb) .
+	eq subtermSoup((V using G, UPS), Sb) = subtermSoup(V using G, Sb), subtermSoup(UPS, Sb) .
+
+	*** Remove variables from the substitution that are rewritten
+	op removeVarsFromSb : Substitution UsingPairSet -> Substitution .
+	eq removeVarsFromSb(none, UPS) = none .
+	eq removeVarsFromSb(V <- T ; Sb, V using G) = Sb .
+	eq removeVarsFromSb(V <- T ; Sb, (V using G, UPS)) = removeVarsFromSb(Sb, UPS) .
+	eq removeVarsFromSb(V <- T ; Sb, UPS) = V <- T ; removeVarsFromSb(Sb, UPS) [owise] .
+
+	*** Get the rules with a given label and number of rewriting conditions
+	op findRules : Qid Nat -> RuleSet .
+	op findRules : RuleSet Qid Nat -> RuleSet .
+
+	eq findRules(Q, N) = findRules(getRls(M), Q, N) .
+	eq findRules(none, Q, N) = none .
+	eq findRules(crl L => R if C [label(Q) Attrs] . Rls, Q, N) =
+		if nrewc(C) == N then crl L => R if C [label(Q) Attrs] .
+		else none fi
+		findRules(Rls, Q, N) .
+	eq findRules(Rl Rls, Q, N) = findRules(Rls, Q, N) [owise] .
+
+	*** Number of rewriting conditions
+	op nrewc : Condition -> Nat .
+
+	eq nrewc(C0) = 0 .
+	eq nrewc(C0 /\ L => R /\ C) = s(nrewc(C)) .
+
+	*** Size of strategy list
+	op size : StrategyList -> Nat .
+
+	eq size((empty).StrategyList) = 0 .
+	eq size((G, SL)) = s(size(SL)) .
+
+	*** Auxiliary function to reduce terms
+	op reduced : Term -> Term .
+	op reduced : TermList -> TermList .
+
+	eq reduced(T) = getTerm(metaReduce(M, T)) .
+	eq reduced(empty) = empty .
+	eq reduced((T, NeTL)) = reduced(T), reduced(NeTL) .
+
+	op reduced : Substitution -> Substitution .
+
+	eq reduced((none).Substitution) = none .
+	eq reduced(V <- T ; Sb) = V <- reduced(T) ; reduced(Sb) .
+endm
+
+mod NOP-PREDS{X :: MODULE} is
+	protecting NOP-RULES{X} .
+	including SATISFACTION .
+
+	subsort ExState < State .
+
+	op prop : Term -> Prop [ctor] .
+
+	var XS : ExState .
+	var P  : Term .
+
+	eq XS |= prop(P) = getTerm(metaReduce(M, '_|=_[cterm(XS), P])) == 'true.Bool .
+endm
+
+smod NOP-SEMANTICS{X :: MODULE} is
+	protecting NOP-RULES{X} .
+
+	var T   : Term .
+	var Q   : Qid .
+	var QS  : QidSet .
+	var TL  : TermList .
+	var X   : Variable .
+	var XS  : ExState .
+	var S   : CtxStack .
+	var Sbs : SubtermSoup .
+
+	*** Operational semantic relations
+	strat ->s ->c ->sc ->> opsem opsem-sc @ ExState .
+
+	sd ->> := ->c * ; ->s .
+	sd ->sc := ->s | ->c .
+	sd ->c := ctl | ienter | ileave | else{not(opsem-sc)} | rewc{->sc} | call .
+	sd ->s := sys .
+
+	sd opsem := test(->c * ; match T @ eps) | (->> ; opsem) .
+	sd opsem-sc := (match T @ eps) ? idle : (->sc ; opsem-sc) .
+
+	*** The relation ->> above may apply ->c transitions to different
+	*** substates of a subterm state, generating potentially more
+	*** execution states than needed. The ->>e strategy concentrates
+	*** all the rewrites at each step in a single substate.
+	strat ->>e opsem-e @ ExState .
+
+	sd ->>e := match subterm(Sbs, T)
+		? (matchrew subterm(((X : XS), Sbs), T) by X using ->>e)
+		: (->s | ->c ; ->>e) .
+
+	sd opsem-e := test(->c * ; match T @ eps) | (->>e ; opsem-e) .
+
+	*** Operational semantics relations with opaque strategies
+	strat ->>o ->co ->so opsemo : QidSet @ ExState .
+
+	sd ->co(QS) := ctl | ienter | ileave | else{not(opsem-sc)} | rewc{->sc}
+		| amatchrew XS s.t. T @ Q[[TL]] S := XS /\ not(Q in QS) by XS using call .
+	sd ->so(QS) := sys
+		| amatchrew XS s.t. T @ Q[[TL]] S := XS /\ Q in QS by XS using opaque{opsem-sc} .
+	sd ->>o(QS) := ->co(QS) * ; ->so(QS) .
+	sd opsemo(QS) := test(->c * ; match T @ eps) | (->>o(QS) ; opsemo(QS)) .
+endsm
+
+
+***
+*** opsem-kleene.maude
+
+smod NOP-KLEENE-SEMANTICS{X :: MODULE} is
+	protecting NOP-RULES{X} .
+
+	sorts WraptState FullContext ActionTag ActionTags .
+	subsort CtxStack < FullContext .
+
+	*** Extended contexts stack with subterm variables
+	op sub : Variable -> FullContext [ctor] .
+	op __  : FullContext CtxStack -> FullContext [ditto] .
+	op __  : CtxStack FullContext -> FullContext [ditto] .
+
+
+	***
+	*** Action tags
+
+	*** Entering an iteration
+	op enter : FullContext -> ActionTag [ctor format (y o)] .
+	*** Leaving an iteration
+	op leave : FullContext -> ActionTag [ctor format (y o)] .
+	*** Calling a function
+	op call : FullContext -> ActionTag [ctor format (y o)] .
+
+	subsort ActionTag < ActionTags .
+	op none : -> ActionTags [ctor] .
+	op __ : ActionTags ActionTags -> ActionTags [ctor assoc comm id: none] .
+
+	*** Wrapped state
+	op wrap : ExState ActionTags -> WraptState [ctor frozen(2)] .
+
+
+	***
+	*** Rules
+
+	vars XS XS1 XS2 : ExState .
+	var  X          : Variable .
+	var  T          : Term .
+	var  TL         : TermList .
+	var  Sbs        : SubtermSoup .
+	var  A          : ActionTag .
+	vars As As'     : ActionTags .
+	var  C          : CtxStack .
+	vars FC FC'     : FullContext .
+	var  Q          : Qid .
+	var  QS         : QidSet .
+
+	*** Discard the actions of the previous step
+	rl [discardTags] : wrap(XS, As) => wrap(XS, none) [nonexec] .
+
+	*** Explore a substate recursively
+	crl [recurseSubterm] : wrap(subterm(((X : XS1), Sbs), T) @ C, As)
+	                    => wrap(XS, As extendActionTags(As', sub(X) C))
+	 if wrap(XS1, none) => wrap(XS2, As') [nonexec] .
+
+	*** Add a tag to the tag record
+	rl [addTag] : As => A As [nonexec] . *** Falta una A
+
+	op extendActionTags : ActionTags FullContext -> ActionTags .
+	op extendActionTag : ActionTag FullContext -> ActionTag .
+
+	eq extendActionTags(none, FC) = none .
+	eq extendActionTags(A As, FC) = extendActionTag(A, FC) extendActionTags(As, FC) .
+
+	eq extendActionTag(enter(FC'), FC) = enter(FC' FC) .
+	eq extendActionTag(leave(FC'), FC) = leave(FC' FC) .
+	eq extendActionTag(call(FC'), FC) = call(FC' FC) .
+
+
+	***
+	*** Strategies
+
+	*** When searching solutions the original relations are fine
+	strat ->c ->s ->sc opsem-sc @ ExState .
+
+	sd ->sc := ->s | ->c .
+	sd ->c := ctl | ienter | ileave | else{not(opsem-sc)} | rewc{->sc} | call .
+	sd ->s := sys .
+	sd opsem-sc := (match T @ eps) ? idle : (->sc ; opsem-sc) .
+
+	*** Strategies for getting track of relevant actions
+	strat ->> ->>r ->cw opsem @ WraptState .
+
+	sd ->> := discardTags ; ->>r .
+	sd ->>r := match subterm(Sbs, T)
+		? recurseSubterm{->>r}
+		: (->s | ->cw ; ->>r) .
+
+	sd ->cw := (ctl | else{not(opsem-sc)} | rewc{->sc})
+		| (matchrew wrap(XS, As) s.t. T @ C := XS by XS using ienter, As using addTag[A <- enter(C)])
+		| (matchrew wrap(XS, As) s.t. T @ C := XS by XS using ileave, As using addTag[A <- leave(C)])
+		| (matchrew wrap(XS, As) s.t. T @ C := XS by XS using call, As using addTag[A <- call(C)])
+	.
+
+	sd opsem := test(matchrew wrap(XS, As) by XS using (->c * ; match T @ eps)) | (->> ; opsem) .
+
+	*** Operational semantics relations with opaque strategies
+	strat ->>o ->>ro ->co ->so ->cwo opsemo : QidSet @ WraptState .
+
+	sd ->>o(QS) := discardTags ; ->>ro(QS) .
+	sd ->>ro(QS) := match subterm(Sbs, T)
+		? recurseSubterm{->>ro(QS)}
+		: (->so(QS) | ->cwo(QS) ; ->>ro(QS)) .
+
+	sd ->cwo(QS) := (ctl | else{not(opsem-sc)} | rewc{->sc})
+		| (matchrew wrap(XS, As) s.t. T @ C := XS by XS using ienter, As using addTag[A <- enter(C)])
+		| (matchrew wrap(XS, As) s.t. T @ C := XS by XS using ileave, As using addTag[A <- leave(C)])
+		| (matchrew wrap(XS, As) s.t. T @ Q[[TL]] C := XS /\ not(Q in QS) by XS using call, As using addTag[A <- call(C)])
+	.
+
+	sd ->so(QS) := sys
+		| matchrew XS s.t. T @ Q[[TL]] C := XS /\ Q in QS by XS using opaque{opsem-sc} .
+
+	sd opsemo(QS) := test(matchrew wrap(XS, As) by XS using (->c * ; match T @ eps)) | (->>o(QS) ; opsemo(QS)) .
+endsm

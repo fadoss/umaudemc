@@ -70,7 +70,7 @@ def parse_state_format(sformat, strategy):
 
 	fstring += sformat[j:]
 
-	# Spare term, strategy and idnex templates are replaced too
+	# Spare term, strategy and index templates are replaced too
 
 	fstring, tused = re.subn(r'%(.\d+)?t', r'{term:\1}', fstring)
 
@@ -81,8 +81,8 @@ def parse_state_format(sformat, strategy):
 
 	fstring = re.sub(r'%(.\d+)?i', r'{index}', fstring)
 
-	return (lambda graph, index: apply_state_format(graph, index,
-					fstring, terms, tused > 0, sused > 0))
+	return (lambda graph, index: apply_state_format(graph, index, fstring, terms,
+	                                                tused > 0, sused > 0))
 
 
 def apply_edge_format(graph, origin, dest, eformat):
@@ -193,7 +193,7 @@ def print_transition_strat_label(graph, origin, dest):
 def get_formatters(sspec, espec, withStrategy, only_labels=False):
 	"""Get state and edge label formatter functions from format specifications"""
 	edefault = (print_transition_strat_label if withStrategy else print_transition_label) if only_labels \
-		   else (print_transition_strat if withStrategy else print_transition)
+		else (print_transition_strat if withStrategy else print_transition)
 
 	slabel = parse_state_format(sspec, withStrategy) if sspec is not None else print_term
 	elabel = parse_edge_format(espec, withStrategy) if espec is not None else edefault

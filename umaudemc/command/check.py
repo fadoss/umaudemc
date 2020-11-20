@@ -6,16 +6,15 @@
 import os.path
 import sys
 
-from ..common import default_model_settings, parse_initial_data, usermsgs, maude
-from ..backends import supported_logics, get_backends, backend_for, LTSmin, format_statistics
+from ..common import parse_initial_data, usermsgs
+from ..backends import supported_logics, get_backends, backend_for, format_statistics, advance_counterexample
 from ..counterprint import SimplePrinter, JSONPrinter, HTMLPrinter, DOTPrinter, print_counterexample
-from ..wrappers import wrapGraph
 from ..formulae import Parser, collect_aprops
 from ..formatter import get_formatters
 
 
 # Emphasized text to be used when printing the model-checking result
-_itis  = '\033[1;32mis\033[0m'
+_itis = '\033[1;32mis\033[0m'
 _isnot = '\033[1;91mis not\033[0m'
 
 
@@ -47,7 +46,7 @@ def get_printer(args):
 
 	except OSError as fnfe:
 		usermsgs.print_warning(f'Output file cannot be written: {str(fnfe)}. '
-			               'Writing to the terminal.')
+		                       'Writing to the terminal.')
 		ofile = sys.stdout
 
 	if oformat == 'text':
@@ -87,24 +86,25 @@ def generic_check(data, args, formula, logic, backend, handle):
 	# Call the selected backend
 	# (many arguments to satisfy the requirements of all of them)
 	holds, stats = handle.check(module=data.module,
-				    module_str=args.module,
-				    metamodule_str=args.metamodule,
-				    term=data.term,
-				    term_str=args.initial,
-				    strategy=data.strategy,
-				    strategy_str=args.strategy,
-				    opaque=data.opaque,
-				    full_matchrew=data.full_matchrew,
-				    formula=formula,
-				    formula_str=args.formula,
-				    logic=logic,
-				    labels=data.labels,
-				    filename=args.file,
-				    aprops=aprops,
-				    purge_fails=args.purge_fails,
-				    merge_states=args.merge_states,
-				    get_graph=True,
-				    extra_args=args.extra_args)
+	                            module_str=args.module,
+	                            metamodule_str=args.metamodule,
+	                            term=data.term,
+	                            term_str=args.initial,
+	                            strategy=data.strategy,
+	                            strategy_str=args.strategy,
+	                            opaque=data.opaque,
+	                            full_matchrew=data.full_matchrew,
+	                            formula=formula,
+	                            formula_str=args.formula,
+	                            logic=logic,
+	                            labels=data.labels,
+	                            filename=args.file,
+	                            aprops=aprops,
+	                            purge_fails=args.purge_fails,
+	                            merge_states=args.merge_states,
+	                            get_graph=True,
+	                            kleene_iteration=args.kleene_iteration,
+	                            extra_args=args.extra_args)
 
 	if holds is None:
 		return 4
@@ -118,6 +118,26 @@ def generic_check(data, args, formula, logic, backend, handle):
 	return 0
 
 
+def check_kleene_semantics(ftype, backends, args):
+	"""Check whether the Kleene star semantics of the iteration is used in the appropriate context"""
+
+	if not args.kleene_iteration:
+		return False
+
+	if args.strategy is None:
+		usermsgs.print_warning(
+			'The Kleene iteration flags does not make sense when no strategy is used. '
+			'It will be ignored.')
+		return False
+
+	if ftype not in supported_logics['spot'] or 'spot' not in [name for name, handle in backends]:
+		usermsgs.print_warning(
+			'The Kleene star semantics of the iteration is currently only available '
+			'for LTL properties using the Spot backend.')
+
+	return True
+
+
 def suggest_install(backends, ftype):
 	"""Suggest installing the first backend that supports the given formula"""
 
@@ -127,6 +147,7 @@ def suggest_install(backends, ftype):
 		usermsgs.print_error(
 			'pyModelChecking cannot be found.\n'
 			'It can be installed with pip install pyModelChecking.')
+
 	elif backend == 'ltsmin':
 		if not handler.find_ltsmin():
 			usermsgs.print_error(
@@ -137,7 +158,7 @@ def suggest_install(backends, ftype):
 
 		if not handler.find_maudemc():
 			usermsgs.print_error(
-				f'The Maude plugin for LTSmin cannot be found (libmaudemc{LTSmin.module_suffix}).\n'
+				f'The Maude plugin for LTSmin cannot be found (libmaudemc{handler.module_suffix}).\n'
 				'Setting the environment variable MAUDEMC_PATH to its location helps.\n'
 				'It can be downloaded from http://maude.ucm.es/strategies/#downloads.')
 
@@ -145,6 +166,11 @@ def suggest_install(backends, ftype):
 		usermsgs.print_error(
 			'NuSMV cannot be found (after searching in the system path and the NUSMV_PATH variable).\n'
 			'It can be downloaded from http://nusmv.fbk.eu.')
+
+	elif backend == 'spot':
+		usermsgs.print_error(
+			'Spot cannot be found as a Python library.\n'
+			'It can be downloaded from https://spot.lrde.epita.fr/.')
 
 
 def check(args):
@@ -171,9 +197,20 @@ def check(args):
 	if formula is None:
 		return 2
 
-	# Get the first available backend for the given formula
+	# Get the available backends
 	backends, unavailable = get_backends(args.backend)
-	name, handle = backend_for(backends, ftype)
+
+	# Check whether the Kleene semantics of the iteration has been
+	# enabled in an inappropriate context
+	use_kleene_semantics = check_kleene_semantics(ftype, backends, args)
+
+	# If the counterexample flag is set, advance maude, nusmv and spot
+	# in the list of backends
+	if args.counterexample:
+		backends = advance_counterexample(backends)
+
+	# Get the first available backend for the given formula
+	name, handle = backend_for(backends, ftype, use_kleene_semantics)
 
 	if name is not None:
 		return generic_check(data, args, formula, ftype, name, handle)
