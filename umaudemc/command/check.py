@@ -5,17 +5,22 @@
 
 import os.path
 import sys
+import tempfile
 
+from .. import resources
 from ..common import parse_initial_data, usermsgs
-from ..backends import supported_logics, get_backends, backend_for, format_statistics, advance_counterexample
+from ..backends import kleene_backends, get_backends, backend_for, format_statistics,\
+	advance_counterexample, advance_kleene
 from ..counterprint import SimplePrinter, JSONPrinter, HTMLPrinter, DOTPrinter, print_counterexample
-from ..formulae import Parser, collect_aprops
+from ..formulae import Parser, collect_aprops, add_path_premise, formula_list2str
 from ..formatter import get_formatters
-
+from ..wrappers import FailFreeGraph
+from ..opsem import OpSemKleeneInstance, KleeneMergedGraph, OpSemGraph
+from ..terminal import terminal as tmn
 
 # Emphasized text to be used when printing the model-checking result
-_itis = '\033[1;32mis\033[0m'
-_isnot = '\033[1;91mis not\033[0m'
+_itis = f'{tmn.bold}{tmn.green}is{tmn.reset}'
+_isnot = f'{tmn.bold}{tmn.bright_red}is not{tmn.reset}'
 
 
 def get_printer(args):
@@ -30,11 +35,11 @@ def get_printer(args):
 	# Otherwise take the extension of the output file as reference
 	if oformat is None and args.o is not None:
 		oformat = {
-			'.txt'	: 'text',
-			'.htm'	: 'html',
-			'.html'	: 'html',
-			'.json'	: 'json',
-			'.dot'	: 'dot'
+			'.txt': 'text',
+			'.htm': 'html',
+			'.html': 'html',
+			'.json': 'json',
+			'.dot': 'dot'
 		}[os.path.splitext(args.o)[1]]
 
 	elif oformat is None:
@@ -75,13 +80,13 @@ def generic_check(data, args, formula, logic, backend, handle):
 	aprops = set()
 	collect_aprops(formula, aprops)
 
-	# Print the input data if the version option is set
+	# Print the input data if the verbose option is set
 	if args.verbose:
 		msg = ['Model checking', logic_name(logic), 'property', args.formula, 'from', data.term] + \
 		      (['using', data.strategy] if data.strategy is not None else []) + \
 		      ['in module', data.module]
 
-		print(*msg)
+		usermsgs.print_info(' '.join(map(str, msg)))
 
 	# Call the selected backend
 	# (many arguments to satisfy the requirements of all of them)
@@ -98,12 +103,13 @@ def generic_check(data, args, formula, logic, backend, handle):
 	                            formula_str=args.formula,
 	                            logic=logic,
 	                            labels=data.labels,
-	                            filename=args.file,
+	                            filename=data.filename,
 	                            aprops=aprops,
 	                            purge_fails=args.purge_fails,
 	                            merge_states=args.merge_states,
 	                            get_graph=True,
 	                            kleene_iteration=args.kleene_iteration,
+	                            verbose=args.verbose,
 	                            extra_args=args.extra_args)
 
 	if holds is None:
@@ -114,6 +120,102 @@ def generic_check(data, args, formula, logic, backend, handle):
 
 	if 'counterexample' in stats:
 		print_counterexample(stats['graph'], stats['counterexample'], get_printer(args))
+
+	return 0
+
+
+def kleene_check(data, args, formula, logic, backend, handle):
+	"""Check a model-checking problem under the Kleene semantics using the given backend"""
+
+	# Instantiate the Kleene-aware operational semantics with the given problem
+	instance = OpSemKleeneInstance.make_instance(data.module, data.metamodule)
+	# Build the rewriting graph for these semantics
+	graph = instance.make_graph(data.term, data.strategy, data.opaque)
+	# Remove failed states in any case (there may be fewer iterations)
+	graph = FailFreeGraph(graph)
+	graph.expand()
+	# Generate the path-filtering premise
+	premise = instance.make_graph_premise(graph)
+	# Transform the formula to the metalevel
+	new_formula = add_path_premise(instance.make_formula(formula), premise, logic)
+
+	# Calculates the atomic propositions in the formula
+	aprops = set()
+	collect_aprops(new_formula, aprops)
+
+	# Print the input data if the verbose option is set
+	if args.verbose:
+		usermsgs.print_info(f'Model checking {logic_name(logic)} property {args.formula} '
+		                    f'from {data.term} using {data.strategy} in module {data.module} '
+		                    'under the Kleene star semantics.')
+
+	if data.full_matchrew:
+		usermsgs.print_warning('Full matchrew is always enabled when using the Kleene-star semantics.')
+
+	# The initial term of the operational semantics model is required later
+	initial_term = graph.getStateTerm(0)
+
+	# Since we are producing new modules to instantiate the operational semantics,
+	# a file including them needs to be supplied to LTSmin.
+	if backend == 'ltsmin':
+		# This cannot be solved without the collaboration of the language plugin
+		if logic == 'CTL*':
+			usermsgs.print_warning('States are not properly merged with '
+			                       'the Kleene-star semantics and LTSmin.')
+
+		# The file loads the original problem source, copies the opsem file, and
+		# ends with the instantiation modules
+		with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.maude') as tmpfile:
+			tmpfile.write(f'sload {os.path.abspath(data.filename)}\n')
+			tmpfile.write(resources.get_resource_content('opsem.maude') + '\n')
+			tmpfile.write(instance.get_instantiation(data.module, data.metamodule))
+			tmpfile.flush()
+
+		# Call LTSmin
+		holds, stats = handle.check(module=initial_term.symbol().getModule(),
+		                            module_str=str(instance.osmod),
+		                            term=initial_term,
+		                            term_str=str(initial_term),
+		                            strategy_str='opsem',
+		                            opaque=['->>'],
+		                            formula=new_formula,
+		                            formula_str=formula_list2str(new_formula),
+		                            logic=logic,
+		                            labels=data.labels,
+		                            filename=tmpfile.name,
+		                            aprops=aprops,
+		                            purge_fails=args.purge_fails,
+		                            merge_states=args.merge_states,
+		                            extra_args=args.extra_args)
+
+		os.remove(tmpfile.name)
+
+	else:
+		# States should be merged as usual for branching-time properties
+		if logic == 'CTL*' and args.merge_states != 'no':
+			graph = KleeneMergedGraph(graph, instance)
+
+		# Call the selected backend
+		holds, stats = handle.check(graph=graph,
+		                            module=initial_term.symbol().getModule(),
+		                            formula=new_formula,
+		                            formula_str=formula_list2str(new_formula),
+		                            logic=logic,
+		                            labels=data.labels,
+		                            aprops=aprops,
+		                            get_graph=True,
+		                            extra_args=args.extra_args)
+
+	if holds is None:
+		return 4
+
+	print(f'The property {_itis if holds else _isnot} satisfied in the initial state '
+	      f'({format_statistics(stats)})')
+
+	if 'counterexample' in stats:
+		wgraph = OpSemGraph(stats['graph'], instance)
+		printer, sformat, eformat = get_printer(args)
+		print_counterexample(wgraph, stats['counterexample'], (printer, sformat, lambda *largs: ''))
 
 	return 0
 
@@ -130,10 +232,11 @@ def check_kleene_semantics(ftype, backends, args):
 			'It will be ignored.')
 		return False
 
-	if ftype not in supported_logics['spot'] or 'spot' not in [name for name, handle in backends]:
+	if ftype == 'Mucalc':
 		usermsgs.print_warning(
-			'The Kleene star semantics of the iteration is currently only available '
-			'for LTL properties using the Spot backend.')
+			'The Kleene star semantics of the iteration is currently not available '
+			'for the μ-calculus. It will be ignored.')
+		return False
 
 	return True
 
@@ -192,7 +295,7 @@ def check(args):
 	parser.set_module(data.module, data.metamodule)
 	data.labels = parser.labels
 
-	formula, ftype = parser.parse(args.formula)
+	formula, ftype = parser.parse(args.formula, opaques=data.opaque)
 
 	if formula is None:
 		return 2
@@ -208,12 +311,22 @@ def check(args):
 	# in the list of backends
 	if args.counterexample:
 		backends = advance_counterexample(backends)
+	if use_kleene_semantics:
+		backends = advance_kleene(backends)
+		# CTL formulae are transformed to CTL* for the Kleene-star semantics
+		if ftype == 'CTL':
+			ftype = 'CTL*'
 
 	# Get the first available backend for the given formula
-	name, handle = backend_for(backends, ftype, use_kleene_semantics)
+	name, handle = backend_for(backends, ftype)
 
 	if name is not None:
-		return generic_check(data, args, formula, ftype, name, handle)
+		check_function = kleene_check if use_kleene_semantics and name not in kleene_backends else generic_check
+		try:
+			return check_function(data, args, formula, ftype, name, handle)
+		except KeyboardInterrupt:
+			print('Interrupted by the user.')
+			return 3
 
 	usermsgs.print_error('No compatible backend for the given formula.')
 	suggest_install(unavailable, ftype)

@@ -67,12 +67,16 @@ _mu_translation = {
 	'nu_._'		: ('nu {} . {}',	6)
 }
 
+# Although the ltsmin-mucalc manpage say that the priority
+# of the conjunction is higher than that of the disjunction,
+# this does not work in reality
+
 _mucalc_translation = {
 	'True'		: ('true',		0),
 	'False'		: ('false',		0),
 	'~_'		: ('! {}',		1),
 	'_/\\_'		: ('{} && {}',		2),
-	'_\\/_'		: ('{} || {}',		3),
+	'_\\/_'		: ('{} || {}',		2),
 	'nu_._'		: ('nu {} . {}',	4),
 	'mu_._'		: ('mu {} . {}',	5),
 	'`[.`]_'	: (None,		6),
@@ -104,6 +108,13 @@ def _translate_aprop(aprop):
 
 	# According to ltsmin-lib/ltsmin-syntax.c's fprint_ltsmin_ident function
 	return ('\\' + aprop) if aprop in _ltsmin_keyword else _escape_to_admitted(aprop)
+
+
+def _translate_label(label):
+	"""Translate a rule or strategy label as action label"""
+
+	# It may be an ['opaque', name] list or simply a rule name
+	return f'opaque_{label[1]}' if label[0] == 'opaque' else label
 
 
 def _has_edge_labels(form):
@@ -160,7 +171,7 @@ def _special_mucalc(form, trsymb, prio):
 		# Parentheses are added when logical connectors are introduced (the priority changes)
 		if len(rest[0]) > 1:
 			trsymb = '(' + trsymb + ')'
-		clauses = [trsymb.format(str(action), child) for action in rest[0]]
+		clauses = [trsymb.format(_translate_label(action), child) for action in rest[0]]
 		return connector.join(clauses)
 
 
@@ -213,7 +224,7 @@ def _make_ltsmin_formula(form, translation, out_prio=80, special_op=None):
 			newargs = [_make_ltsmin_formula(f, translation, prio, special_op) for f in rest]
 			result = trsymb.format(*newargs)
 
-	return '(' + result + ')' if out_prio < prio else result
+	return '(' + result + ')' if out_prio <= prio else result
 
 
 class LTSmin:
@@ -309,7 +320,7 @@ class LTSmin:
 	def check(self, filename=None, module_str=None, metamodule_str=None, labels=(),
 	          formula=None, logic=None, aprops=None, full_matchrew=False, opaque=(),
 	          strategy_str=None, term_str=None, merge_states='default',
-	          purge_fails='default', timeout=None, extra_args=(), **kwargs):
+	          purge_fails='default', timeout=None, extra_args=(), verbose=False, **kwargs):
 		"""Check a model-checking problem directly with LTSmin"""
 
 		purge_fails, merge_states = default_model_settings(logic, purge_fails, merge_states,
@@ -321,7 +332,7 @@ class LTSmin:
 
 		# Create a instance of LTSmin and run it
 		runner = self.new_runner()
-		runner.set_module(module_str, metamodule_str, labels)
+		runner.set_module(module_str, metamodule_str, labels, opaque)
 		runner.add_formula(formula, logic, aprops)
 
 		return runner.run(filename, term_str, strategy_str,
@@ -330,13 +341,14 @@ class LTSmin:
 		                  extra_args=extra_args,
 		                  purge_fails=purge_fails == 'yes',
 		                  merge_states=merge_states,
+		                  verbose=verbose,
 		                  timeout=timeout)
 
 
 class LTSminRunner:
 	"""Runs LTSmin"""
 
-	STATS_REGEX = re.compile(br'maude-mc: (\d+) system states explored, (\d+) rewrites')
+	STATS_REGEX = re.compile(br'maude-mc: (\d+) system states explored(?: \((\d+) real\))?, (\d+) rewrites')
 	RESULT_REGEX = re.compile(br'^pins2lts-[^:]+: Formula')
 	BUCHI_REGEX = re.compile(br'^pins2lts-seq: buchi has (\d)+ states')
 	CONVERT_REGEX = re.compile(br'^ltsmin-convert: Number of states: (\d+)')
@@ -357,7 +369,7 @@ class LTSminRunner:
 		self.ftype = None
 		self.aprops = set()
 
-	def set_module(self, module, metamodule=None, labels=()):
+	def set_module(self, module, metamodule=None, labels=(), opaque_strats=()):
 		"""
 		Set the Maude module of the model-checking problem.
 		:param module: Name of the module.
@@ -368,11 +380,13 @@ class LTSminRunner:
 		:type metamodule: str
 		:param labels: Edge labels of that module.
 		:type labels: collection of str
+		:param opaque_strats: Opaque strategy names.
+		:type opaque_strats: collection of str
 		:returns: r:...
 		"""
 		self.module = module
 		self.metamodule = metamodule
-		self.labels = labels
+		self.labels = labels + [f'opaque_{name}' for name in opaque_strats]
 
 	def add_formula(self, formula, ftype, aprops):
 		"""
@@ -438,7 +452,8 @@ class LTSminRunner:
 			match = self.STATS_REGEX.match(line)
 			if match:
 				stats['states'] = int(match.group(1))
-				stats['rewrites'] = int(match.group(2))
+				stats['real_states'] = int(match.group(2)) if match.group(2) else None
+				stats['rewrites'] = int(match.group(3))
 			elif witness == 0:
 				if self.RESULT_REGEX.match(line):
 					holds = line.find(b'does not hold') < 0
@@ -544,8 +559,13 @@ class LTSminRunner:
 			          env=dict(os.environ, MAUDE_LIB=new_maude_lib))
 		else:
 			# Run the LTSmin tool with the arguments prepared above
-			status = subprocess.run([self.ltsmin.pins2lts[variant]] + args, capture_output=True,
-			                        env=dict(os.environ, MAUDE_LIB=new_maude_lib), timeout=timeout)
+			try:
+				status = subprocess.run([self.ltsmin.pins2lts[variant]] + args, capture_output=True,
+							env=dict(os.environ, MAUDE_LIB=new_maude_lib), timeout=timeout)
+
+			except subprocess.TimeoutExpired:
+				usermsgs.print_error(f'LTSmin execution timed out after {timeout} seconds.')
+				return (None,) * 2
 
 			if verbose:
 				print(status.stderr[:-1].decode('utf-8'))

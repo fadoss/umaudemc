@@ -4,9 +4,9 @@
 
 import maude
 
-from .resources import get_resource_path
 from . import usermsgs
-
+from .resources import get_resource_path
+from .wrappers import WrappedGraph, MergedGraph
 
 #
 # View to instantiate the small-step operational semantics with a given
@@ -20,7 +20,7 @@ INSTANTIATION = '''view OpSem-{instance_label} from MODULE to META-LEVEL is
 endv
 
 smod OPSEM-MAIN-{instance_label} is
-	protecting NOP-PREDS{{OpSem-{instance_label}}} .
+	protecting {preds_module}{{OpSem-{instance_label}}} .
 	protecting {semantics_module}{{OpSem-{instance_label}}} .
 	protecting LEXICAL .
 	including STRATEGY-MODEL-CHECKER .
@@ -30,8 +30,9 @@ endsm'''
 class OpSemInstance:
 	"""Instance of the operational semantics for a module"""
 
-	# Default module name for the semantics
+	# Default module name for the semantics and predicates
 	SEMANTICS_MODULE = 'NOP-SEMANTICS'
+	PREDS_MODULE = 'NOP-PREDS'
 
 	def __init__(self, osmod, targetmod):
 		# Module of the operational semantics
@@ -63,12 +64,31 @@ class OpSemInstance:
 		self.stack_state = self.osmod.findSymbol('_@_', [expart_kind, strategy_kind], exstate_kind)
 
 	@classmethod
-	def make_instance(cls, module, metamodule=None, semantics_module=None):
-		"""Make an instance of the semantics for the given problem"""
+	def get_instantiation(cls, module, metamodule=None, semantics_module=None, preds_module=None):
+		"""Get the Maude code to instantiate the sematnics for the given problem"""
 
-		# Use the default semantics module if not specified
+		# Use the default semantics and predicates module if not specified
 		if semantics_module is None:
 			semantics_module = cls.SEMANTICS_MODULE
+		if preds_module is None:
+			preds_module = cls.PREDS_MODULE
+
+		return INSTANTIATION.format(
+			instance_label=hash(metamodule) if metamodule is not None else str(module),
+			target_module=metamodule if metamodule is not None else f"upModule('{module}, true)",
+			semantics_module=semantics_module,
+			preds_module=preds_module
+		)
+
+	@classmethod
+	def make_instance(cls, module, metamodule=None, semantics_module=None, preds_module=None):
+		"""Make an instance of the semantics for the given problem"""
+
+		# Use the default semantics and predicates module if not specified
+		if semantics_module is None:
+			semantics_module = cls.SEMANTICS_MODULE
+		if preds_module is None:
+			preds_module = cls.PREDS_MODULE
 
 		# Load the opsem.maude file if not already done
 		if maude.getModule(semantics_module) is None:
@@ -79,11 +99,7 @@ class OpSemInstance:
 					return None
 
 		# Instantiate the semantics for the given module
-		maude.input(INSTANTIATION.format(
-			instance_label=hash(metamodule) if metamodule is not None else str(module),
-			target_module=metamodule if metamodule is not None else f"upModule('{module}, true)",
-			semantics_module=semantics_module
-		))
+		maude.input(cls.get_instantiation(module, metamodule, semantics_module, preds_module))
 		osmod = maude.getCurrentModule()
 
 		if osmod is None:
@@ -129,12 +145,29 @@ class OpSemInstance:
 		t.reduce()
 		return self.targetmod.downTerm(t)
 
+	def make_formula(self, formula):
+		"""Pass the atomic propositions in the formula to the metalevel"""
+
+		head, *rest = formula
+
+		if head == 'Prop':
+			term = self.targetmod.parseTerm(rest[0])
+			metaterm = self.osmod.upTerm(term)
+			return [head, f'prop({metaterm})']
+
+		elif head == 'Var':
+			return formula
+
+		else:
+			return [head] + [self.make_formula(arg) for arg in rest]
+
 
 class OpSemKleeneInstance(OpSemInstance):
 	"""Instance of the operational semantics with support for the Kleene semantics of the iteration"""
 
-	# Default module name for the semantics
+	# Default module name for the semantics and predicates
 	SEMANTICS_MODULE = 'NOP-KLEENE-SEMANTICS'
+	PREDS_MODULE = 'NOP-KLEENE-PREDS'
 
 	def __init__(self, targetmod, osmod):
 		super().__init__(targetmod, osmod)
@@ -171,6 +204,13 @@ class OpSemKleeneInstance(OpSemInstance):
 
 		return next(wst.arguments())
 
+	def get_metaterm(self, xst):
+		"""Get the current term in the execution state at the metalevel"""
+
+		metaterm = self.cterm(next(xst.arguments()))
+		metaterm.reduce()
+		return metaterm
+
 	def get_tags(self, xst):
 		"""Get the tags associated to an execution state"""
 
@@ -191,3 +231,80 @@ class OpSemKleeneInstance(OpSemInstance):
 
 		return [(next(tag.arguments()), str(tag.symbol()) == 'enter') for tag in tags if
 		        str(tag.symbol()) in ['enter', 'leave']]
+
+	def make_graph_premise(self, graph):
+		"""Build a formula satisfied by a path iff it iterates finitely"""
+		contexts = set()
+
+		pending = [0]
+		seen = {0}
+
+		while pending:
+			state = pending.pop()
+			term = graph.getStateTerm(state)
+			contexts.update({tag for tag, flag in self.extract_tags(term)})
+
+			for next_state in graph.getNextStates(state):
+				if next_state not in seen:
+					seen.add(next_state)
+					pending.append(next_state)
+
+		# If there is no iterations, the premise is True
+		if not contexts:
+			return ['True']
+
+		# Clauses of the Streett-like condition in LTL/CTL*
+		clauses = [['_\\/_', ['<>_', ['`[`]_', ['~_', ['Prop', f'@enter({fc})']]]],
+		            ['`[`]_', ['<>_', ['Prop', f'@leave({fc})']]]]
+		           for fc in contexts]
+
+		return clauses[0] if len(contexts) == 1 else (['_/\\_'] + clauses)
+
+
+class KleeneMergedGraph(MergedGraph):
+	"""Wrapped graph that merges states for the Kleene semantics of the iteration"""
+
+	def __init__(self, graph, instance):
+		super().__init__(graph)
+		self.instance = instance
+
+	def getNextStates(self, stateNr):
+		next_table = {}
+
+		# This is exactly as in StateMergedGraph except that we merge
+		# by the cterm and not by whole term.
+
+		for state in self.states[stateNr]:
+			for next_state in self.graph.getNextStates(state):
+				# This is the only line that changes
+				next_state_id = str(self.instance.get_metaterm(self.graph.getStateTerm(next_state)))
+				print('\t', next_state_id)
+				succ_set = next_table.setdefault(next_state_id, set())
+
+				succ_set.add(next_state)
+
+		# Then, the sets in next_table are the successors of the merged
+		# state, and they are added to the graph if not already included
+
+		for term, states in next_table.items():
+			frozen_key = frozenset(states)
+			index = self.table.get(frozen_key, None)
+
+			if index is None:
+				index = len(self.states)
+				self.table[frozen_key] = index
+				self.states.append(frozen_key)
+
+			yield index
+
+
+class OpSemGraph(WrappedGraph):
+	"""Wrapped graph for the small-step operational semantics"""
+
+	def __init__(self, graph, instance):
+		super().__init__(graph)
+		self.instance = instance
+
+	def getStateTerm(self, stateNr):
+		term = self.graph.getStateTerm(stateNr)
+		return self.instance.get_cterm(term)

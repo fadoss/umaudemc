@@ -179,6 +179,12 @@ parser_graph.add_argument('initial', help='initial term')
 parser_graph.add_argument('strategy', help='strategy expression', nargs='?')
 
 add_initial_data_args(parser_graph)
+parser_graph.add_argument(
+	'--format',
+	help='select the output format',
+	choices=['default', 'dot', 'tikz', 'nusmv'],
+	default='default'
+)
 parser_graph.add_argument('-o', help='output to a file', metavar='FILENAME')
 add_label_format_args(parser_graph)
 parser_graph.add_argument(
@@ -218,6 +224,11 @@ parser_test.add_argument(
 	action='store_true'
 )
 parser_test.add_argument(
+	'--memory',
+	help='Measure memory comsumption by each backend (incompatible with benchmark)',
+	action='store_true'
+)
+parser_test.add_argument(
 	'--fatal-errors',
 	help='Stop when the first error is discovered',
 	action='store_true'
@@ -225,8 +236,7 @@ parser_test.add_argument(
 parser_test.add_argument(
 	'--repeats',
 	help='Repeat benchmark tests a number of times (by default 1)',
-	type=int,
-	default=1
+	default='1'
 )
 parser_test.add_argument(
 	'--purge-fails', help='remove states where the strategy has failed from the model',
@@ -238,6 +248,37 @@ parser_test.add_argument(
 	help='avoid artificial branching due to strategies by merging states',
 	choices=['default', 'state', 'edge', 'no'],
 	default='default'
+)
+parser_test.add_argument(
+	'-o',
+	help='select the name of the CSV file where benchmark results are saved'
+)
+parser_test.add_argument(
+	'--from',
+	help='start executing the test cases from a given file and case (file:case index)',
+	dest='fromcase'
+)
+parser_test.add_argument(
+	'--timeout',
+	help='timeout for test case executions',
+	type=int,
+	default=0
+)
+parser_test.add_argument(
+	'--no-resume',
+	help='do not resume the execution of the test suite after a timeout',
+	dest='resume',
+	action='store_false'
+)
+parser_test.add_argument(
+	'--memory-method',
+	help='choose the method for measuring memory usage (they are not equivalent)',
+	choices=['memusage', 'psutil'],
+	default='memusage'
+)
+parser_test.add_argument(
+	'--maudebin',
+	help='measure the memory usage of an external Maude binary rather than the builtin maude backend'
 )
 
 parser_test.set_defaults(mode='test')
@@ -273,7 +314,7 @@ if args.version:
 
 	sys.exit(0)
 
-# Enable colored output (by enable ANSI escape sequence processing) in Windows
+# Enable colored output (by enabling ANSI escape sequence processing) in Windows
 if sys.platform == 'win32':
 	import ctypes
 	kernel32 = ctypes.windll.kernel32

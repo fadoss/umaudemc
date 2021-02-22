@@ -96,6 +96,9 @@ by the statement the caused the transition, by its label, and by the string
 * The model adaptations for branching-time logics `--purge-fails` and
 `--merge-states` are chosen automatically by the tool depending on the input
 formulae. However, they can be manually overwritten.
+* The option `--kleene-iteration` or `-k` in `check` when checking properties
+on strategy-controlled specifications makes the iteration strategy be
+interpreted as the Kleene star (i.e. infinite iterations are discarded).
 
 More details about the integration of the external model checkers can be found
-in [*Strategies, model checking and branching-time properties in Maude*](http://wrla2020.webs.upv.es/pre-proceedings.pdf#page=179).
+in [*Strategies, model checking and branching-time properties in Maude*](https://doi.org/10.1007/978-3-030-63595-4_9).

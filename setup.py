@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
 	name				= 'umaudemc',
-	version				= '0.3',
+	version				= '0.4',
 	author				= 'ningit',
 	author_email			= 'ningit@users.noreply.github.com',
 	description			= 'Unified Maude model-checking utility',

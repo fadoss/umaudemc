@@ -2,12 +2,14 @@
 # Spot backend for umaudemc
 #
 
+import time
+
 import buddy
 import spot
 
 from ..formulae import collect_aprops
-from ..wrappers import WrappedGraph, create_graph
-from ..opsem import OpSemKleeneInstance
+from ..opsem import OpSemKleeneInstance, OpSemGraph
+from ..wrappers import create_graph
 
 
 class SpotModelBuilder:
@@ -177,7 +179,7 @@ class KleeneModelBuilder(SpotModelBuilder):
 						acc_index = len(self.iter_map)
 						self.iter_map[tag] = acc_index
 
-					acc_set.append(acc_index + 0 if enter else 1)
+					acc_set.append(2 * acc_index + (0 if enter else 1))
 
 				twa.new_edge(state_spot, next_state_spot,
 				             self._state_label(next_state_term),
@@ -188,22 +190,11 @@ class KleeneModelBuilder(SpotModelBuilder):
 		# Set the acceptance condition
 		acc_condition = ' & '.join([f'(Fin({2 * n}) | Inf({2 * n + 1}))'
 		                            for n in range(len(self.iter_map))])
+
 		if acc_condition != '':
 			twa.set_acceptance(2 * len(self.iter_map), acc_condition)
 
 		return twa
-
-
-class OpSemGraph(WrappedGraph):
-	"""Wrapped graph for the small-step operational semantics"""
-
-	def __init__(self, graph, instance):
-		super().__init__(graph)
-		self.instance = instance
-
-	def getStateTerm(self, stateNr):
-		term = self.graph.getStateTerm(stateNr)
-		return self.instance.get_cterm(term)
 
 
 # Define the translations to the different formulae
@@ -258,7 +249,7 @@ class SpotBackend:
 		# Create the graph if not provided by the caller
 		if graph is None:
 			graph = create_graph(logic='LTL', term=term, strategy=strategy,
-			                     metamodule_str=metamodule_str, **kwargs)
+			                     metamodule_str=metamodule_str, opaque=opaque, **kwargs)
 
 		# Reparse the atomic propositions
 		if aprop_terms is None:
@@ -280,6 +271,9 @@ class SpotBackend:
 
 		model_automaton = model_builder.build()
 
+		# Record the time when Spot actually starts model checking
+		start_time = time.perf_counter_ns()
+
 		# Model check them, i.e. find whether the intersection is empty
 		run = model_automaton.intersecting_run(formula_automaton)
 
@@ -288,8 +282,12 @@ class SpotBackend:
 		stats = {
 			'states': model_builder.graph.getNrStates(),
 			'rewrites': model_builder.getNrRewrites(),
-			'buchi': formula_automaton.num_states()
+			'buchi': formula_automaton.num_states(),
+			'backend_start_time': start_time
 		}
+
+		if graph.strategyControlled:
+			stats['real_states'] = model_builder.graph.getNrRealStates()
 
 		if not holds:
 			stats['counterexample'] = model_builder.extract_counterexample(run, model_automaton)

@@ -31,12 +31,16 @@ def apply_state_format(graph, index, sformat, terms, use_term=False, use_strat=F
 	module = graph.getStateTerm(0).symbol().getModule()
 
 	if use_term or len(terms) > 0:
-		args['term'] = str(graph.getStateTerm(index))
+		reusable_term = graph.getStateTerm(index)
+		args['term'] = str(reusable_term)
+		reusable_term = reusable_term.prettyPrint(maude.PRINT_WITH_PARENS)
 	if use_strat:
 		args['strat'] = str(graph.getStateStrategy(index)) if graph.strategyControlled else ''
 
 	for i, preterm in enumerate(terms):
-		term = module.parseTerm(preterm.replace('%t', args['term']))
+		# The term replaced in the term pattern cannot be the formatted
+		# term, but a surely unambiguous term representation.
+		term = module.parseTerm(preterm.replace('%t', reusable_term))
 		term.reduce()
 		args[f't{i}'] = str(term)
 

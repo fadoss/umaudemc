@@ -21,12 +21,70 @@ def collect_aprops(form, aprops):
 			collect_aprops(arg, aprops)
 
 
+def _add_path_premise_ctl(form, premise):
+	"""Add a premise to every path quantification in CTL* formulae""" 
+	head, *rest = form
+
+	if head == 'A_' or head == 'E_':
+		return [head, ['_->_', premise, _add_path_premise_ctl(rest[0], premise)]]
+
+	elif head == 'Prop':
+		return form
+
+	else:
+		return [head] + [_add_path_premise_ctl(subf, premise) for subf in rest]
+
+
+def add_path_premise(form, premise, logic):
+	"""Add a premise that limits the paths under consideration"""
+
+	if logic == 'LTL':
+		return ['_->_', premise, form]
+
+	elif logic.startswith('CTL'):
+		return _add_path_premise_ctl(form, premise)
+
+	else:
+		return form
+
+
+def formula_list2str(formula):
+	"""Convert a formula given as a Python list to a string"""
+
+	head, *rest = formula
+
+	if head == 'Prop':
+		return rest[0]
+	elif head == 'Var':
+		return rest[0]
+	else:
+		rest_str = [f' ({formula_list2str(arg)}) ' for arg in rest]
+		rest_it = iter(rest_str)
+		g = ''
+
+		if head == '_\\/_' or head == '_/\\_':
+			g = head.replace('_', '').join(rest_str)
+
+		else:
+			for ch in head:
+				if ch == '_':
+					g += next(rest_it)
+				elif ch != '`':
+					g += ch
+
+		return g
+
+
 def _actionParse(aprop):
 	"""Convert an action to string removing the type annotation"""
-	text = str(aprop)
-	type_annot = text.find(').@ActionList@')
+	is_opaque = aprop.symbol().arity() > 0 and str(aprop.symbol()) == 'opaque'
 
-	return text[1:type_annot] if text[0] == '(' and type_annot > 0 else text
+	text = str(next(aprop.arguments()) if is_opaque else aprop)
+	type_annot = text.find(').@Action@')
+
+	clean_name = text[1:type_annot] if text[0] == '(' and type_annot > 0 else text
+
+	return ['opaque', clean_name] if is_opaque else clean_name
 
 
 def _actionSpecParse(acspec, labels):
@@ -52,7 +110,7 @@ def _formula2List(form, *extra_args):
 	elif form.getSort() <= variable_sort:
 		return ['Var', str(form)]
 
-	elif str(form.symbol()) in ['<_>_', '`[_`]_']:
+	elif str(form.symbol()) in ('<_>_', '`[_`]_'):
 		symbol_args = list(form.arguments())
 		args = [_actionSpecParse(symbol_args[0], labels), _formula2List(symbol_args[1], *extra_args)]
 
@@ -60,6 +118,35 @@ def _formula2List(form, *extra_args):
 		args = [_formula2List(x, *extra_args) for x in form.arguments()]
 
 	return [str(form.symbol())] + args
+
+
+def _reviewOpaqueActions(form, rule_labels, opaque_labels):
+	"""Check whether opaque is being misused for rule labels and mark strategy labels with opaque"""
+	head = form[0]
+	first_argument = 1
+
+	if head in ('<_>_', '`[_`]_'):
+		# The list is modified in place
+		label_spec = form[1]
+
+		for k in range(len(label_spec)):
+			# Misused opaque wrappers are removed
+			if label_spec[k][0] == 'opaque':
+				if label_spec[k][1] not in opaque_labels:
+					label_spec[k] = label_spec[k][1]
+					usermsgs.print_warning(f'Label {label_spec[k]} does not refer to an opaque strategy. '
+							               'It will be interpreted as a rule label.')
+
+			# Opaque labels are normalized to the opaque wrapper
+			elif label_spec[k] not in rule_labels:
+				label_spec[k] = ['opaque', label_spec[k]]
+
+		first_argument = 2
+
+	# Continue reviewing recursively
+	if head not in ('Prop', 'Var'):
+		for subform in form[first_argument:]:
+			_reviewOpaqueActions(subform, rule_labels, opaque_labels)
 
 
 class Parser:
@@ -77,7 +164,6 @@ class Parser:
 		self.get_templog()
 
 		self.labels = None
-		self.rule_labels = None
 		self.base_module = None
 
 	def is_ok(self):
@@ -92,8 +178,6 @@ class Parser:
 		# (opaque strategies are not being considered)
 		self.labels = [rl.getLabel() for rl in module.getRules()
 		               if rl.getLabel() is not None]
-		self.rule_labels = ' '.join([f"'{label}" for label in self.labels]) \
-				   if self.labels != [] else '(nil).QidList'
 
 		# Store the module as a metaterm in templog
 		self.base_module = self.templog.parseTerm(f"upModule('{str(module)}, false)"
@@ -164,14 +248,20 @@ class Parser:
 
 		return str(formulaLogic)
 
-	def parse(self, formula):
+	def parse(self, formula, opaques=()):
 		"""Parse a temporal formula from LTL to mu-calculus"""
+
+		# Makes a list of all rules to be parsed
+		if len(self.labels) + len(opaques) > 0:
+			all_labels = ' '.join([f"'{label}" for label in set(self.labels).union(set(opaques))])
+		else:
+			all_labels = '(nil).QidList'
 
 		# Make a module where to parse the temporal formula
 		parser_metamod = self.makeParserModule(
 			self.base_module,
 			self.templog.parseTerm('tokenize("{}")'.format(formula.replace('"', '\"'))),
-			self.templog.parseTerm(self.rule_labels)
+			self.templog.parseTerm(all_labels)
 		)
 		parser_metamod.reduce()
 		extmod = maude.downModule(parser_metamod)
@@ -199,4 +289,8 @@ class Parser:
 			                     'Check the templog.maude file.')
 			return None, None
 
-		return _formula2List(parsed_formula, prop_sort, mcvariable_sort, set(self.labels)), logic
+		# Convert the formula the internal list format and normalize μ-calculus actions
+		formula_as_list = _formula2List(parsed_formula, prop_sort, mcvariable_sort, set(self.labels))
+		_reviewOpaqueActions(formula_as_list, self.labels, opaques)
+
+		return formula_as_list, logic

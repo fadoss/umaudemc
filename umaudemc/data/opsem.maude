@@ -657,24 +657,24 @@ endsm
 smod NOP-KLEENE-SEMANTICS{X :: MODULE} is
 	protecting NOP-RULES{X} .
 
-	sorts WraptState FullContext ActionTag ActionTags .
-	subsort CtxStack < FullContext .
+	sorts WraptState PartialContext ActionTag ActionTags .
+	subsort CtxStack < PartialContext .
 
 	*** Extended contexts stack with subterm variables
-	op sub : Variable -> FullContext [ctor] .
-	op __  : FullContext CtxStack -> FullContext [ditto] .
-	op __  : CtxStack FullContext -> FullContext [ditto] .
+	op sub : Variable -> PartialContext [ctor] .
+	op __  : PartialContext CtxStack -> PartialContext [ditto] .
+	op __  : CtxStack PartialContext -> PartialContext [ditto] .
 
 
 	***
 	*** Action tags
 
 	*** Entering an iteration
-	op enter : FullContext -> ActionTag [ctor format (y o)] .
+	op enter : PartialContext -> ActionTag [ctor format (y o)] .
 	*** Leaving an iteration
-	op leave : FullContext -> ActionTag [ctor format (y o)] .
+	op leave : PartialContext -> ActionTag [ctor format (y o)] .
 	*** Calling a function
-	op call : FullContext -> ActionTag [ctor format (y o)] .
+	op call : PartialContext -> ActionTag [ctor format (y o)] .
 
 	subsort ActionTag < ActionTags .
 	op none : -> ActionTags [ctor] .
@@ -695,7 +695,7 @@ smod NOP-KLEENE-SEMANTICS{X :: MODULE} is
 	var  A          : ActionTag .
 	vars As As'     : ActionTags .
 	var  C          : CtxStack .
-	vars FC FC'     : FullContext .
+	vars PC PC'     : PartialContext .
 	var  Q          : Qid .
 	var  QS         : QidSet .
 
@@ -708,17 +708,17 @@ smod NOP-KLEENE-SEMANTICS{X :: MODULE} is
 	 if wrap(XS1, none) => wrap(XS2, As') [nonexec] .
 
 	*** Add a tag to the tag record
-	rl [addTag] : As => A As [nonexec] . *** Falta una A
+	rl [addTag] : As => A As [nonexec] .
 
-	op extendActionTags : ActionTags FullContext -> ActionTags .
-	op extendActionTag : ActionTag FullContext -> ActionTag .
+	op extendActionTags : ActionTags PartialContext -> ActionTags .
+	op extendActionTag : ActionTag PartialContext -> ActionTag .
 
-	eq extendActionTags(none, FC) = none .
-	eq extendActionTags(A As, FC) = extendActionTag(A, FC) extendActionTags(As, FC) .
+	eq extendActionTags(none, PC) = none .
+	eq extendActionTags(A As, PC) = extendActionTag(A, PC) extendActionTags(As, PC) .
 
-	eq extendActionTag(enter(FC'), FC) = enter(FC' FC) .
-	eq extendActionTag(leave(FC'), FC) = leave(FC' FC) .
-	eq extendActionTag(call(FC'), FC) = call(FC' FC) .
+	eq extendActionTag(enter(PC'), PC) = enter(PC' PC) .
+	eq extendActionTag(leave(PC'), PC) = leave(PC' PC) .
+	eq extendActionTag(call(PC'), PC) = call(PC' PC) .
 
 
 	***
@@ -766,4 +766,28 @@ smod NOP-KLEENE-SEMANTICS{X :: MODULE} is
 		| matchrew XS s.t. T @ Q[[TL]] C := XS /\ Q in QS by XS using opaque{opsem-sc} .
 
 	sd opsemo(QS) := test(matchrew wrap(XS, As) by XS using (->c * ; match T @ eps)) | (->>o(QS) ; opsemo(QS)) .
+endsm
+
+smod NOP-KLEENE-PREDS{X :: MODULE} is
+	protecting NOP-KLEENE-SEMANTICS{X} .
+	including SATISFACTION .
+
+	subsort WraptState < State .
+
+	op prop : Term -> Prop [ctor] .
+
+	op @enter : PartialContext -> Prop [ctor] .
+	op @leave : PartialContext -> Prop [ctor] .
+
+	var XS : ExState .
+	var PC : PartialContext .
+	var As : ActionTags .
+	var P  : Term .
+
+	eq wrap(XS, As) |= prop(P) = getTerm(metaReduce(M, '_|=_[cterm(XS), P])) == 'true.Bool .
+
+	eq wrap(XS, enter(PC) As) |= @enter(PC) = true .
+	eq wrap(XS, As) |= @enter(PC) = false [owise] .
+	eq wrap(XS, leave(PC) As) |= @leave(PC) = true .
+	eq wrap(XS, As) |= @leave(PC) = false [owise] .
 endsm

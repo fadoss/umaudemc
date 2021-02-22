@@ -8,11 +8,11 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 
 from ..common import usermsgs
-from ..wrappers import create_graph
 from ..formulae import collect_aprops
-
+from ..wrappers import create_graph
 
 # Translation to NuSMV's CTL syntax
 # (the priorities may not be completely accurate)
@@ -123,9 +123,17 @@ class NuSMV:
 			print(('SPEC ' if ftype == 'CTL' else 'LTLSPEC ') + smv_formula, file=tmpfile)
 			tmpfile.flush()
 
+		# Record the time when the actual backend has been run
+		start_time = time.perf_counter_ns()
+
 		# NuSMV is called on the generated file
-		status = subprocess.run([self.nusmv, tmpfile.name] + list(extra_args),
-		                        capture_output=not raw, timeout=timeout)
+		try:
+			status = subprocess.run([self.nusmv, tmpfile.name] + list(extra_args),
+						capture_output=not raw, timeout=timeout)
+
+		except subprocess.TimeoutExpired:
+			usermsgs.print_error(f'NuSMV execution timed out after {timeout} seconds.')
+			return (None,) * 2
 
 		if status.returncode != 0:
 			usermsgs.print_error('An error was produced while running NuSMV:\n'
@@ -135,8 +143,12 @@ class NuSMV:
 		else:
 			stats = {
 				'states': graph.getNrStates(),
-				'rewrites': grapher.getNrRewrites() + graph.getNrRewrites()
+				'rewrites': grapher.getNrRewrites() + graph.getNrRewrites(),
+				'backend_start_time': start_time
 			}
+
+			if graph.strategyControlled:
+				stats['real_states'] = graph.getNrRealStates()
 
 			# Parse the NuSMV output to obtain the binary result of the check and
 			# the counterexample in such case.
@@ -159,14 +171,16 @@ class NuSMV:
 					match = _COUNTER_REGEX.match(line)
 					if match:
 						counterexample[counter_part].append(int(match.group(2)))
-					else:
-						if _LOOP_REGEX.match(line):
-							counter_part += 1
+
+					elif _LOOP_REGEX.match(line) and counter_part == 0:
+						# When the loop is a self loop of the last state, NuSMV
+						# prints "loop starts here" twice, we ignore the second.
+						counter_part = 1
 
 			# Add the counterexample to the statistics
 			if counterexample != ([], []):
 				# NuSMV includes the start of the loop twice, unlike Maude
-				if counterexample[1]:
+				if len(counterexample[1]) > 1:
 					counterexample[1].pop()
 
 				stats['counterexample'] = counterexample
@@ -282,7 +296,7 @@ class NuSMVGrapher:
 		for state in range(max_state + 1):
 			# Write the label for each state before its entry (unless empty)
 			comment = self.slabel(graph, state)
-			if comment != '':
+			if str(comment) != '':
 				print(f'    -- {comment}', file=self.outfile)
 
 			# NuSMV requires the case distinction to be exhaustive in the integer

@@ -35,6 +35,9 @@ if not hasattr(maude, 'Hook'):
 	maude.Sort.__le__ = lambda self, other: self.leq(other)
 	maude.Term.__eq__ = lambda self, other: self.equal(other)
 
+if not hasattr(maude.StrategyRewriteGraph, 'getNrRealStates'):
+	maude.StrategyRewriteGraph.getNrRealStates = maude.StrategyRewriteGraph.getNrStates
+
 
 class InitialData:
 	"""Initial data of the model-checking problem"""

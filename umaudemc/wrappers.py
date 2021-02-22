@@ -53,8 +53,14 @@ class WrappedGraph:
 	def getNrStates(self):
 		return self.graph.getNrStates()
 
+	def getNrRealStates(self):
+		return self.graph.getNrRealStates()
+
 	def getNrRewrites(self):
 		return self.graph.getNrRewrites()
+
+	def modelCheck(self, *args):
+		return self.graph.modelCheck(*args)
 
 	@property
 	def strategyControlled(self):
@@ -137,6 +143,9 @@ class MergedGraph:
 
 	def getNrStates(self):
 		return self.graph.getNrStates()
+
+	def getNrRealStates(self):
+		return self.graph.getNrRealStates()
 
 	def getNrRewrites(self):
 		return self.graph.getNrRewrites()

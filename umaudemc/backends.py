@@ -2,13 +2,14 @@
 # Gather all backends and define functions to access them
 #
 
-from .backend.pymc import PyModelChecking
-from .backend.nusmv import NuSMV
-from .backend.ltsmin import LTSmin
-from .backend.spot import SpotBackend
 from .backend.bmcalc import BuiltinBackend
+from .backend.ltsmin import LTSmin
+from .backend.nusmv import NuSMV
+from .backend.pymc import PyModelChecking
+from .backend.spot import SpotBackend
 from .common import *
 
+# Logics supported by each backend
 supported_logics = {
 	'maude':   {'propLogic', 'LTL'},
 	'ltsmin':  {'propLogic', 'LTL', 'CTL', 'CTL*', 'Mucalc'},
@@ -17,6 +18,12 @@ supported_logics = {
 	'spot':    {'propLogic', 'LTL'},
 	'builtin': {'propLogic', 'CTL', 'Mucalc'}
 }
+
+# Backends that support the generation of counterexamples
+counterexample_backends = {'maude', 'nusmv', 'spot'}
+
+# Backend that directly support the Kleene star semantics of the iteration
+kleene_backends = {'spot'}
 
 
 STATS_FORMAT = {
@@ -61,6 +68,9 @@ class MaudeBackend:
 			'buchi': result.nrBuchiStates
 		}
 
+		if strategy:
+			stats['real_states'] = graph.getNrRealStates()
+
 		if get_graph:
 			stats['graph'] = graph
 
@@ -103,22 +113,26 @@ def get_backends(backend_arg):
 	return available, unavailable
 
 
-def backend_for(backends, logic, use_kleene_semantics=False):
+def backend_for(backends, logic):
 	"""First supported backend for the given logic"""
 
 	valid = ((name, handle) for name, handle in backends
-	         if logic in supported_logics[name]
-	         and not use_kleene_semantics or name == 'spot')
+	         if logic in supported_logics[name])
 	return next(valid, (None, None))
 
 
 def advance_counterexample(backends):
 	"""Advance backends that provide counterexamples"""
 
-	provides_counter = {'maude', 'nusmv', 'spot'}
+	return ([b for b in backends if b[0] in counterexample_backends] +
+	        [b for b in backends if b[0] not in counterexample_backends])
 
-	return ([b for b in backends if b[0] in provides_counter] +
-	        [b for b in backends if b[0] not in provides_counter])
+
+def advance_kleene(backends):
+	"""Advance backends that directly support the Kleene star iteration"""
+
+	return ([b for b in backends if b[0] in kleene_backends] +
+	        [b for b in backends if b[0] not in kleene_backends])
 
 
 def format_statistics(stats):

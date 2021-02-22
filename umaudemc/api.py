@@ -6,34 +6,17 @@ import sys
 
 import maude
 
-from . import formulae as _formulae
 from . import backends as _backends
-from . import usermsgs as _usermsgs
+from . import common as _common
 from . import counterprint as _counterprint
 from . import formatter as _formatter
-from . import wrappers as _wrappers
-from . import common as _common
+from . import formulae as _formulae
 from . import grapher as _grapher
-
+from . import usermsgs as _usermsgs
+from . import wrappers as _wrappers
 
 DEFAULT_BACKENDS = ('maude', 'ltsmin', 'pymc', 'nusmv', 'spot', 'builtin')
 
-
-def _formula_list2str(formula):
-	"""Convert a formula given as a Python list to a string"""
-
-	head, *rest = formula
-
-	if head == 'Prop':
-		return rest[0]
-	elif head == 'Var':
-		return rest[0]
-	else:
-		rest_str = [f' ({_formula_list2str(arg)}) ' for arg in rest]
-		rest_it = iter(rest_str)
-
-		g = ''.join([next(rest_it) if ch == '_' else ch for ch in head])
-		return g
 
 # The API allows providing terms as objects, and they may need to be passed to
 # LTSmin in the form of string. The mixfix representation of the terms may
@@ -229,7 +212,7 @@ class MaudeModel:
 		# Formula
 
 		if isinstance(formula, str):
-			pyformula, logic = self.parser.parse(formula)
+			pyformula, logic = self.parser.parse(formula, opaques=self.opaque)
 			formula_str = formula
 
 		elif isinstance(formula, maude.Term):
@@ -239,14 +222,13 @@ class MaudeModel:
 
 		elif isinstance(formula, list):
 			pyformula = formula
-			formula_str = formula_str if formula_str else _formula_list2str(formula)
+			formula_str = formula_str if formula_str else _formulae.formula_list2str(formula)
 
 			if logic is None:
 				raise ValueError('logic cannot be None is the formula is given a list')
 
 		else:
 			raise ValueError('formula as been given in an unknown format')
-
 
 		# Backends (LTSmin cannot be used if no filename is
 		# known, and depth excludes LTSmin and Maude)

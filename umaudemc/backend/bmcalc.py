@@ -23,6 +23,8 @@
 # iterative.
 #
 
+import time
+
 from ..common import maude
 from ..wrappers import create_graph
 
@@ -331,8 +333,10 @@ class MuMaudeGame(ParityGame):
 
 		if self.graph.strategyControlled:
 			transition = self.graph.getTransition(state, next_state)
-			return transition.getType() == maude.StrategyRewriteGraph.RULE_APPLICATION and \
-			       transition.getRule().getLabel() in labels
+			return (transition.getType() == maude.StrategyRewriteGraph.RULE_APPLICATION and
+			        transition.getRule().getLabel() in labels) or (
+			        transition.getType() == maude.StrategyRewriteGraph.OPAQUE_STRATEGY and
+			        ['opaque', transition.getStrategy().getName()] in labels)
 		else:
 			return self.graph.getRule(state, next_state).getLabel() in labels
 
@@ -496,13 +500,28 @@ class BuiltinBackend:
 
 	def run(self, graph, formula, logic):
 		"""Check a model-checking problem"""
+
 		if logic == 'CTL':
 			formula = self.ctl2mucalc(formula)
 
 		game = MuMaudeGame(graph, formula)
+
+		# Record the time when the Zielonka algorithm actually starts
+		start_time = time.perf_counter_ns()
+
 		result = game.solve_mucalc()
 
-		return result, {'states': graph.getNrStates(), 'rewrites': game.getNrRewrites(), 'game': len(game)}
+		stats = {
+			'states': graph.getNrStates(),
+			'rewrites': game.getNrRewrites(),
+			'backend_start_time': start_time,
+			'game': len(game)
+		}
+
+		if graph.strategyControlled:
+			stats['real_states'] = graph.getNrRealStates()
+
+		return result, stats
 
 	def check(self, graph=None, formula=None, logic=None, get_graph=False, **kwargs):
 		"""Check a model-checking problem"""

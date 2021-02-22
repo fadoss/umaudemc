@@ -179,15 +179,15 @@ class MaudeProcess:
 		# Parse the LTL formula
 		from .formulae import Parser
 
+		# Opaque strategies
+		opaques = data.get('opaques', [])
+
 		parser = Parser()
 		parser.set_module(mod)
-		formula, logic = parser.parse(data['formula'])
+		formula, logic = parser.parse(data['formula'], opaques=opaques)
 
 		if formula is None or logic == 'invalid':
 			return {'ok': False, 'cause': 'formula'}
-
-		# Opaque strategies
-		opaques = data.get('opaques', [])
 
 		# Find a backend for the given formula
 		name, handle = self.backend_for(self.backends, logic)

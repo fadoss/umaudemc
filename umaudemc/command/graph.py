@@ -2,17 +2,17 @@
 # Graph generation command
 #
 
-import os
 import contextlib
+import os
 import subprocess
 import sys
 from shutil import which
 
-from ..grapher import DOTGrapher
 from ..backend.nusmv import NuSMVGrapher
 from ..common import maude, usermsgs, default_model_settings, parse_initial_data, split_comma
-from ..wrappers import wrapGraph
 from ..formatter import get_formatters
+from ..grapher import DOTGrapher, TikZGrapher
+from ..wrappers import wrapGraph
 
 
 class ProcessStream:
@@ -46,6 +46,26 @@ def output_stream(filename, extra_args):
 		return open(filename, 'w')
 
 
+def deduce_format(oformat, ofile):
+	"""Deduce the output format of the graph"""
+
+	extension = os.path.splitext(ofile)[1] if ofile is not None else ''
+
+	if oformat == 'default':
+		if extension == '.smv':
+			return 'nusmv'
+		elif extension in ['.dot', '.pdf']:
+			return 'dot'
+		elif extension == '.tex':
+			return 'tikz'
+
+	elif extension == '.pdf' and oformat != 'dot':
+		usermsgs.print_warning('PDF output is only supported with DOT. Changing to DOT.')
+		return 'dot'
+
+	return oformat
+
+
 def graph(args):
 	"""Graph subcommand"""
 
@@ -56,9 +76,10 @@ def graph(args):
 
 	# Some relevant flags
 	with_strategy = args.strategy is not None
-	to_NuSMV = args.o is not None and os.path.splitext(args.o)[1] == '.smv'
-	purge_fails, merge_states = default_model_settings('CTL' if to_NuSMV else 'LTL', args.purge_fails,
-	                                                   args.merge_states, args.strategy, tableau=to_NuSMV)
+	oformat = deduce_format(args.format, args.o)
+	purge_fails, merge_states = default_model_settings('CTL' if oformat == 'nusmv' else 'LTL', args.purge_fails,
+	                                                   args.merge_states, args.strategy,
+	                                                   tableau=(oformat == 'nusmv'))
 
 	if not with_strategy:
 		rwgraph = maude.RewriteGraph(initial_data.term)
@@ -81,8 +102,10 @@ def graph(args):
 	slabel, elabel = get_formatters(args.slabel, args.elabel, with_strategy, only_labels=True)
 
 	with output_stream(args.o, args.extra_args) as outfile:
-		if to_NuSMV:
+		if oformat == 'nusmv':
 			grapher = NuSMVGrapher(outfile, slabel=slabel, elabel=elabel, aprops=aprops)
+		elif oformat == 'tikz':
+			grapher = TikZGrapher(outfile, slabel=slabel, elabel=elabel)
 		else:
 			grapher = DOTGrapher(outfile, slabel=slabel, elabel=elabel)
 

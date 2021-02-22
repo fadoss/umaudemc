@@ -2,7 +2,10 @@
 # pyModelChecking backend for umaudemc
 #
 
+import time
+
 import pyModelChecking
+
 from .. import usermsgs
 from ..formulae import collect_aprops
 from ..wrappers import create_graph
@@ -180,6 +183,8 @@ class PyModelChecking:
 		# pyModelChecking supports fairness constraints, but they are not used
 
 		try:
+			# Record the time when pyModelChecking actually starts
+			start_time = time.perf_counter_ns()
 			sset = modelcheck(kripke, pymc_formula)
 
 		except RuntimeError as re:
@@ -189,7 +194,7 @@ class PyModelChecking:
 		# The result of pyModelChecking's modelcheck function is the set of states
 		# in which the property holds. This is added to the statistics.
 
-		stats = {'sset': sset}
+		stats = {'sset': sset, 'backend_start_time': start_time}
 
 		return (0 in sset), stats
 
@@ -215,6 +220,8 @@ class PyModelChecking:
 
 		if holds is not None:
 			stats['states'] = graph.getNrStates()
+			if graph.strategyControlled:
+				stats['real_states'] = graph.getNrRealStates()
 			stats['rewrites'] = kbuilder.getNrRewrites()
 		if get_graph:
 			stats['graph'] = graph

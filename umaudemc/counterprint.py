@@ -2,24 +2,24 @@
 # Counterexample printers
 #
 
-import sys
 import json
+import sys
 from xml.sax.saxutils import escape
 
 from .common import maude
+from .terminal import terminal as tmn
 
 # Colored markers
 
-BAR         = '\033[1;31m|\033[0m'  # A bar in red
-ARROW       = '\033[1;31m∨\033[0m'  # An arrow head in red
-CYCLE_BAR   = '\033[1;31m| |\033[0m'  # Two bars in red
-CYCLE_ARR   = '\033[1;31m| ∨\033[0m'  # A bar and an arrow head in red
-CYCLE_END   = '\033[1;31m< ∨\033[0m'  # A loop of arrow heads in red
-SOLUTION    = '\033[1;32mX\033[0m'  # An X in green
-PREFIX      = '\033[1;36mO\033[0m'  # An O in cyan
-EDGE_FMT    = '\033[3m\033[36m'  # Format for edges
-PEND_FMT    = '\033[3m\033[35m'  # Format for pending strategies
-RESET_FMT   = '\033[0m'  # Reset format
+BAR         = f'{tmn.bold}{tmn.red}|{tmn.reset}'    # A bar in red
+ARROW       = f'{tmn.bold}{tmn.red}∨{tmn.reset}'    # An arrow head in red
+CYCLE_BAR   = f'{tmn.bold}{tmn.red}| |{tmn.reset}'  # Two bars in red
+CYCLE_ARR   = f'{tmn.bold}{tmn.red}| ∨{tmn.reset}'  # A bar and an arrow head in red
+CYCLE_END   = f'{tmn.bold}{tmn.red}< ∨{tmn.reset}'  # A loop of arrow heads in red
+SOLUTION    = f'{tmn.bold}{tmn.green}X{tmn.reset}'  # An X in green
+PREFIX      = f'{tmn.bold}{tmn.cyan}O{tmn.reset}'   # An O in cyan
+EDGE_FMT    = f'{tmn.italic}{tmn.cyan}'             # Format for edges
+PEND_FMT    = f'{tmn.italic}{tmn.magenta}'          # Format for pending strategies
 
 
 def print_smc_trans_type(trans):
@@ -164,7 +164,7 @@ class SimplePrinter:
 		# Print the transition description at the right of
 		# a sequence of arrow heads
 		for line in str(transition).split('\n'):
-			print(self.arrow, EDGE_FMT, line, RESET_FMT)
+			print(self.arrow, EDGE_FMT, line, tmn.reset)
 
 	def next_step_strat(self, first, pending, transition, second, **kwargs):
 		for line in str(first).split('\n'):
@@ -173,9 +173,9 @@ class SimplePrinter:
 		# ampersand following the term
 		if self.show_strat:
 			for line in str(pending).split('\n'):
-				print(self.bar, PEND_FMT, '@', line, RESET_FMT)
+				print(self.bar, PEND_FMT, '@', line, tmn.reset)
 		for line in str(transition).split('\n'):
-			print(self.arrow, EDGE_FMT, line, RESET_FMT)
+			print(self.arrow, EDGE_FMT, line, tmn.reset)
 
 	def last_state(self, state, prefix=False, **kwargs):
 		for line in str(state).split('\n'):

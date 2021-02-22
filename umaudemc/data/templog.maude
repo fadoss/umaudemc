@@ -30,8 +30,9 @@ fmod TEMPORAL-LOGIC is
 	op nu_._ : @MCVariable@ Formula -> Formula [ctor prec 64] .
 
 	*** Action list
-	sorts @ActionSpec@ @ActionList@ .
-	subsort @ActionList@ < @ActionSpec@ .
+	sorts @Action@ @ActionSpec@ @ActionList@ .
+	subsorts @Action@ < @ActionList@ < @ActionSpec@ .
+	op opaque : @Action@ -> @ActionList@ [ctor] .
 	op ~_ : @ActionList@ -> @ActionSpec@ [ctor prec 50] .
 	op __ : @ActionList@ @ActionList@ -> @ActionList@ [ctor assoc] .
 
@@ -130,7 +131,7 @@ fmod TEMPORAL-LOGIC-TYPE is
 	eq formulaElems(~ F) = formulaElems(F) .
 	eq formulaElems(F1 /\ F2) = formulaElems(F1) formulaElems(F2) .
 	eq formulaElems(F1 \/ F2) = formulaElems(F1) formulaElems(F2) .
-	eq formulaElems(O F) = formulaElems(F) .
+	eq formulaElems(O F) = temporalOp formulaElems(F) .
 	eq formulaElems(F1 U F2) = temporalOp formulaElems(F1) formulaElems(F2) .
 	eq formulaElems(F1 R F2) = temporalOp formulaElems(F1) formulaElems(F2) .
 	eq formulaElems(A O F) = ctlOp formulaElems(F) .
@@ -241,5 +242,5 @@ fmod TEMPORAL-LOGIC-META is
 	op declareActions : QidList -> OpDeclSet .
 
 	eq declareActions(nil) = none .
-	eq declareActions(Q QL) = op Q : nil -> '@ActionList@ [ctor] . declareActions(QL) .
+	eq declareActions(Q QL) = op Q : nil -> '@Action@ [ctor] . declareActions(QL) .
 endfm
