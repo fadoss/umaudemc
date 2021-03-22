@@ -278,7 +278,6 @@ class KleeneMergedGraph(MergedGraph):
 			for next_state in self.graph.getNextStates(state):
 				# This is the only line that changes
 				next_state_id = str(self.instance.get_metaterm(self.graph.getStateTerm(next_state)))
-				print('\t', next_state_id)
 				succ_set = next_table.setdefault(next_state_id, set())
 
 				succ_set.add(next_state)

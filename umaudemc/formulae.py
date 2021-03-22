@@ -3,7 +3,7 @@
 #
 
 from .common import usermsgs, maude
-from .resources import get_templog
+from .resources import get_resource_path
 
 
 def collect_aprops(form, aprops):
@@ -135,7 +135,7 @@ def _reviewOpaqueActions(form, rule_labels, opaque_labels):
 				if label_spec[k][1] not in opaque_labels:
 					label_spec[k] = label_spec[k][1]
 					usermsgs.print_warning(f'Label {label_spec[k]} does not refer to an opaque strategy. '
-							               'It will be interpreted as a rule label.')
+					                       'It will be interpreted as a rule label.')
 
 			# Opaque labels are normalized to the opaque wrapper
 			elif label_spec[k] not in rule_labels:
@@ -149,25 +149,56 @@ def _reviewOpaqueActions(form, rule_labels, opaque_labels):
 			_reviewOpaqueActions(subform, rule_labels, opaque_labels)
 
 
-class Parser:
-	"""
-	Parser of any temporal formula supported by umaudemc
+def _boundSpecParse(bound):
+	"""Parse a probability or steps bound"""
 
-	Since the parsing module depends on the formula itself, there is no
-	much we can catch between executions.
-	"""
+	symbol = str(bound.symbol())
 
-	def __init__(self):
+	if symbol in ('<_', '<=_', '>_', '>=_'):
+		value = float(next(bound.arguments()))
+		return [symbol.replace('_', ''), int(value) if value.is_integer() else value]
+
+	else:
+		return ['-'] + [float(arg) for arg in bound.arguments()]
+
+
+def _probFormula2List(form, prop_sort, aprops):
+	"""Convert the probabilistic formula parsed by Maude into an pure Python list"""
+
+	if form.getSort() <= prop_sort:
+		aprops.add(str(form))
+		return ['Prop', str(form)]
+
+	elif str(form.symbol()) in ('<>__', '`[`]__', 'P__'):
+		symbol_args = list(form.arguments())
+		args = [_boundSpecParse(symbol_args[0]), _probFormula2List(symbol_args[1], prop_sort, aprops)]
+
+	elif str(form.symbol()) in ('_U__', '_R__', '_W__'):
+		symbol_args = list(form.arguments())
+		args = [_boundSpecParse(symbol_args[1]),
+		        _probFormula2List(symbol_args[0], prop_sort, aprops),
+		        _probFormula2List(symbol_args[2], prop_sort, aprops)]
+
+	else:
+		args = [_probFormula2List(x, prop_sort, aprops) for x in form.arguments()]
+
+	return [str(form.symbol())] + args
+
+
+class BaseParser:
+	"""Base class for temporal formulae parsers in umaudemc"""
+
+	def __init__(self, parser_file, parser_module):
 		# The module with the parsing module generator
 		self.templog = None
 		self.makeParserModule = None
-		self.get_templog()
-
 		self.labels = None
 		self.base_module = None
 
+		self.get_templog(parser_file, parser_module)
+
 	def is_ok(self):
-		"""Whether the parser has been loaded succesfully"""
+		"""Whether the parser has been loaded successfully"""
 		return self.makeParserModule is not None
 
 	def set_module(self, module, metamodule=None):
@@ -183,10 +214,10 @@ class Parser:
 		self.base_module = self.templog.parseTerm(f"upModule('{str(module)}, false)"
 		                                          if metamodule is None else str(metamodule))
 
-	def get_templog(self):
+	def get_templog(self, parser_file, parser_module):
 		"""Set up the parse module generator"""
 
-		self.templog = maude.getModule('TEMPORAL-LOGIC-META')
+		self.templog = maude.getModule(parser_module)
 
 		# We load it if not already loaded
 		if not self.templog:
@@ -197,22 +228,22 @@ class Parser:
 				maude.load('model-checker')
 
 			# Loads the temporal logic parser
-			with get_templog() as templog_path:
+			with get_resource_path(parser_file) as templog_path:
 				if not maude.load(str(templog_path)):
-					usermsgs.print_error('Error loading temporal logic parser (templog.maude).')
+					usermsgs.print_error(f'Error loading temporal logic parser ({parser_file}).')
 					return False
 
-			self.templog = maude.getModule('TEMPORAL-LOGIC-META')
+			self.templog = maude.getModule(parser_module)
 
 			if not self.templog:
-				usermsgs.print_error('Error loading temporal logic parser (TEMPORAL-LOGIC-META module).')
+				usermsgs.print_error(f'Error loading temporal logic parser ({parser_module} module).')
 				return False
 
 		module_kind = self.templog.findSort('Module').kind()
 		qidlist_kind = self.templog.findSort('QidList').kind()
 
 		if not module_kind or not qidlist_kind:
-			usermsgs.print_error('Error loading temporal logic parser (bad TEMPORAL-LOGIC-META module).')
+			usermsgs.print_error(f'Error loading temporal logic parser (bad {parser_module} module).')
 			return False
 
 		self.makeParserModule = self.templog.findSymbol('makeParserModule',
@@ -221,6 +252,41 @@ class Parser:
 
 		if not self.makeParserModule:
 			usermsgs.print_error('Error loading temporal logic parser (missing makeParserModule operator).')
+
+	def parse_aux(self, formula, label_list):
+		"""Parse a temporal formulae using the makeParserModule procedure"""
+
+		# Make a module where to parse the temporal formula
+		parser_metamod = self.makeParserModule(
+			self.base_module,
+			self.templog.parseTerm('tokenize("{}")'.format(formula.replace('"', '\"'))),
+			self.templog.parseTerm(label_list)
+		)
+		parser_metamod.reduce()
+		extmod = maude.downModule(parser_metamod)
+
+		formula_kind = extmod.findSort('Formula').kind()
+
+		# Parses the temporal formula and deduces its type
+		parsed_formula = extmod.parseTerm(formula, formula_kind)
+		# a copy can be made to preserve the original
+
+		return parsed_formula, extmod
+
+
+class Parser(BaseParser):
+	"""
+	Parser of any exact temporal formula supported by umaudemc
+
+	Since the parsing module depends on the formula itself, there is no
+	much we can catch between executions.
+	"""
+
+	PARSER_FILE = 'templog.maude'
+	PARSER_MODULE = 'TEMPORAL-LOGIC-META'
+
+	def __init__(self):
+		super().__init__(self.PARSER_FILE, self.PARSER_MODULE)
 
 	def deduce_logic(self, extmod, formula):
 		"""Deduce the least-general logic a formula belongs to"""
@@ -257,20 +323,8 @@ class Parser:
 		else:
 			all_labels = '(nil).QidList'
 
-		# Make a module where to parse the temporal formula
-		parser_metamod = self.makeParserModule(
-			self.base_module,
-			self.templog.parseTerm('tokenize("{}")'.format(formula.replace('"', '\"'))),
-			self.templog.parseTerm(all_labels)
-		)
-		parser_metamod.reduce()
-		extmod = maude.downModule(parser_metamod)
-
-		formula_kind = extmod.findSort('Formula').kind()
-
-		# Parses the temporal formula and deduces its type
-		parsed_formula = extmod.parseTerm(formula, formula_kind)
-		# a copy can be made to preserve the original
+		# Parse the temporal formula with Maude
+		parsed_formula, extmod = self.parse_aux(formula, all_labels)
 
 		if parsed_formula is None:
 			usermsgs.print_error('The given temporal formula cannot be parsed.')
@@ -294,3 +348,38 @@ class Parser:
 		_reviewOpaqueActions(formula_as_list, self.labels, opaques)
 
 		return formula_as_list, logic
+
+
+class ProbParser(BaseParser):
+	""""Parser for probabilistic temporal formulae admitted by LTSmin"""
+
+	PARSER_FILE = 'problog.maude'
+	PARSER_MODULE = 'PROBABILISTIC-TEMPORAL-LOGIC-META'
+
+	def __init__(self):
+		super().__init__(self.PARSER_FILE, self.PARSER_MODULE)
+
+	def parse(self, formula):
+		"""Parse a probabilistic temporal formula"""
+
+		# Labels are not used in probabilistic formulae for the moment
+		all_labels = '(nil).QidList'
+
+		# Parse the temporal formula using Maude
+		parsed_formula, extmod = self.parse_aux(formula, all_labels)
+
+		if parsed_formula is None:
+			usermsgs.print_error('The given probabilistic temporal formula cannot be parsed.')
+			return None, None
+
+		prop_sort = extmod.findSort('Prop')
+
+		# Reduce the formula just in case it contains defined functions
+		parsed_formula.reduce()
+
+		# Convert the formula to the internal list-based format
+		# while collecting its atomic propositions
+		aprops = set()
+		formula_as_list = _probFormula2List(parsed_formula, prop_sort, aprops)
+
+		return formula_as_list, aprops

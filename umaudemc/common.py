@@ -38,6 +38,10 @@ if not hasattr(maude, 'Hook'):
 if not hasattr(maude.StrategyRewriteGraph, 'getNrRealStates'):
 	maude.StrategyRewriteGraph.getNrRealStates = maude.StrategyRewriteGraph.getNrStates
 
+# Extension to detect whether a term is a variable and extract its name
+if not hasattr(maude.Term, 'getVarName'):
+	maude.Term.getVarName = lambda self: str(self).split(':')[0] if self.symbol() == self.symbol().getModule().parseTerm(f'$$$:{self.getSort()}').symbol() else None
+
 
 class InitialData:
 	"""Initial data of the model-checking problem"""

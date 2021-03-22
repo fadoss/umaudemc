@@ -1,0 +1,423 @@
+#
+# PRISM probabilistic backend for umaudemc
+#
+
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+
+from .. import probabilistic as pbs
+from ..common import usermsgs
+from ..wrappers import create_graph
+
+# Result line printed by PRISM
+_RESULT_REGEX = re.compile(b'^Result: ([\\d.E-]+|Infinity|false|true)(.*)')
+# Errors are printed to standard output by PRISM
+_ERROR_REGEX = re.compile(b'^Error: (.*)')
+# Additional information on the result
+_MORE_RESULT_REGEX = re.compile(b' \\(\\+/- ([\\d.E-]+) .*; rel err ([\\d.E-]+)')
+
+# Translation of LTL, CTL and PCTL formulae
+
+_translation = {
+	'True':   ('true',        0, False),
+	'False':  ('false',       0, False),
+	'~_':     ('! ({})',      1, False),
+	'_/\\_':  ('{} & {}',     2, False),
+	'_\\/_':  ('{} | {}',     3, False),
+	'_<->_':  ('{} <=> {}',   4, False),
+	'_->_':   ('{} => {}',    5, False),
+	'_U_':    ('{} U {}',     6, False),
+	'_U__':   ('{} U{b} {}',  6, True),
+	'_R_':    ('{} R {}',     6, False),
+	'_R__':   ('{} R{b} {}',  6, True),
+	'_W_':    ('{} W {}',     6, False),
+	'_W__':   ('{} W{b} {}',  6, True),
+	'`[`]_':  ('G {}',        7, False),
+	'`[`]__': ('G{b} {}',     7, True),
+	'<>_':    ('F {}',        7, False),
+	'<>__':   ('F{b} {}',     7, True),
+	'O_':     ('X {}',        7, False),
+	'A_':     ('A [ {} ]',    8, False),
+	'E_':     ('E [ {} ]',    8, False),
+	'P__':    ('P{b} [ {} ]', 9, True),
+}
+
+
+def _preprocess_formula(formula):
+	"""Preprocess the formula, simplifying some operators"""
+	head, *rest = formula
+
+	if head == 'Prop':
+		return formula
+	elif head == '_R_' and rest[0] == ['False']:
+		return ['`[`]_', _preprocess_formula(rest[1])]
+	elif head == '_U_' and rest[0] == ['True']:
+		return ['<>_', _preprocess_formula(rest[1])]
+	elif head in ('<=', '<', '>=', '>', '-'):
+		return formula
+	else:
+		return [head] + [_preprocess_formula(arg) for arg in rest]
+
+
+def _make_bound(bound):
+	"""Format bound to be attached to a PRISM operator"""
+
+	if bound[0] != '-':
+		return bound[0] + str(bound[1])
+	else:
+		return f'[{bound[1]}, {bound[2]}]'
+
+
+def _translate_aprop(aprop):
+	"""Translate an atomic proposition to a PRISM label"""
+	return aprop.replace('"', '\\"').replace('(', '').replace(')', '')
+
+
+def _make_prism_formula(form, translation, out_prio=20):
+	"""Translate a formula to the PRISM format"""
+	head, *rest = form
+
+	if head == 'Prop':
+		result, prio = '"{}"'.format(_translate_aprop(rest[0])), 0
+	else:
+		trans, prio, has_bound = translation[head]
+		# Bound annotation are always the first entry in the argument list
+		if has_bound:
+			bound = _make_bound(rest[0])
+			rest.pop(0)
+		else:
+			bound = None
+		result = trans.format(*[_make_prism_formula(arg, translation, prio) for arg in rest], b=bound)
+
+	return '(' + result + ')' if out_prio <= prio else result
+
+
+def make_prism_formula(form):
+	"""Translate a formula to the PRISM format"""
+	return _make_prism_formula(_preprocess_formula(form), _translation)
+
+
+def _collect_raw_aprops(form, aprops):
+	"""Collect atomic propositions from raw formula"""
+
+	# The start of the last string, whether a escape character
+	# has been just seen, the algorithm state (out, string or braces),
+	# and the position where the current proposition starts
+	last, escaped, state, pos = 0, False, 'o', 0
+
+	# Walk through the formula accumulating the strings
+	# found, unless they are written between curly braces
+	for k, c in enumerate(form):
+		if c == '"' and not escaped and state != 'b':
+			if state == 'o':
+				state, pos = 's', k+1
+			else:
+				state = 'o'
+				aprops.add(form[pos:k])
+
+		# Reward names are written within curly braces
+		elif c == '{' and state == 'o':
+			state = 'b'
+
+		elif c == '}' and state == 'b':
+			state = 'o'
+
+		# Whether the next character is escaped
+		escaped = not escaped and (c == '\\')
+
+
+class PRISMBackend:
+	"""PRISM backend connector"""
+
+	def __init__(self):
+		self.prism = None
+
+	def find(self):
+		"""Tries to find PRISM"""
+
+		if os.getenv('PRISM_PATH') is not None:
+			prism_path = os.path.join(os.getenv('PRISM_PATH'), 'prism')
+
+			if os.path.isfile(prism_path) and os.access(prism_path, os.X_OK):
+				self.prism = prism_path
+
+		# Look for it in the system path
+		if not self.prism:
+			self.prism = shutil.which('prism')
+
+		return self.prism is not None
+
+	def run(self, graph, form, ftype, aprops, extra_args=(), raw=False, cost=False,
+	        formula_str=None, timeout=None, distrib=None, reward=None):
+		"""Run PRISM to solve the given problem"""
+
+		# If PRISM has not been found, end with None
+		if self.prism is None:
+			return None, None
+
+		# Translate the Maude-parsed formula (if not raw)
+		prism_formula = make_prism_formula(form) if form is not None else formula_str
+
+		# The model is written to a temporary file so that it can be read by PRISM.
+		# The procedure is explained in the NuSMV backend source.
+
+		with tempfile.NamedTemporaryFile(mode='w', delete=False) as tmpfile:
+			grapher = PRISMGenerator(tmpfile, aprops=aprops, distrib=distrib)
+
+			# Output the DTMC or MDP for the model
+			grapher.graph(graph, is_mdp=distrib.nondeterminism)
+			# Output the map of an user-specified reward
+			if reward is not None:
+				grapher.make_reward(graph, 'user', reward)
+
+			tmpfile.flush()
+
+		# Whether probability or rewards are to be calculated
+		query = 'R' if cost else ('P' if reward is None else 'R{"user"}')
+
+		# A raw formula has been given
+		if form is None:
+			args = ['-pf', formula_str]
+
+		# If the model is a DTMC, we calculate the probability
+		# (or reward expectation) that the property holds
+		elif not distrib.nondeterminism:
+			# However, if the head of the formula is a P operator,
+			# we prefer a Boolean result
+			if form[0] == 'P__':
+				args = ['-pf', prism_formula]
+			else:
+				args = ['-pf', f'{query}=? [ {prism_formula} ]']
+
+		# Otherwise, if the model is a MDP, we calculate the minimum
+		# and maximum probabilities for the formula
+		else:
+			# Multiple formulae are admitted separated by semicolon
+			args = ['-pf', f'{query}min=? [ {prism_formula} ] ; {query}max=? [ {prism_formula} ]']
+
+		# Record the time when the actual backend has been run for statistics
+		start_time = time.perf_counter_ns()
+
+		# PRISM is called on the generated file
+		try:
+			status = subprocess.run([self.prism, tmpfile.name] + args + list(extra_args),
+			                        capture_output=not raw, timeout=timeout)
+
+		except subprocess.TimeoutExpired:
+			# PRISM can handle timeouts by itself
+			usermsgs.print_error(f'PRISM execution timed out after {timeout} seconds.')
+			return (None,) * 2
+
+		# print(status.stdout.decode('utf-8'))
+
+		if status.returncode != 0:
+			usermsgs.print_error('An error was produced while running PRISM:\n'
+			                     + status.stdout[:-1].decode('utf-8'))
+			os.remove(tmpfile.name)
+			return None, None
+		else:
+			stats = {
+				'states': graph.getNrStates(),
+				'rewrites': grapher.getNrRewrites() + graph.getNrRewrites(),
+				'backend_start_time': start_time
+			}
+
+			if graph.strategyControlled:
+				stats['real_states'] = graph.getNrRealStates()
+
+			# Parse the PRISM output to obtain the result
+			result = None
+
+			for line in status.stdout.splitlines():
+				match = _RESULT_REGEX.match(line)
+				# The result can be true, false, or a probability
+				if match:
+					token = match.group(1)
+					extra = match.group(2)
+
+					if token == b'true':
+						result = pbs.QuantitativeResult.make_boolean(True)
+					elif token == b'false':
+						result = pbs.QuantitativeResult.make_boolean(False)
+					else:
+						# Additional information (relative error, ...) is parsed too
+						match = _MORE_RESULT_REGEX.match(extra)
+						extra = {}
+
+						if match:
+							extra['abs_error'] = float(match.group(1))
+							extra['rel_error'] = float(match.group(2))
+
+						# If this result is not the first one, we consider it is
+						# range (for the MDP case). Raw formulae may produce more
+						# results, but this is not supported.
+						if result is None:
+							result = pbs.QuantitativeResult.make_number(float(token), extra)
+						else:
+							result = pbs.QuantitativeResult.make_range(result, float(token), extra)
+
+				# Errors are printed by PRISM on the standard output
+				if line.startswith(b'Error: '):
+					usermsgs.print_error('Error: ' + line[7:].decode('utf-8'))
+
+			os.remove(tmpfile.name)
+			return result, stats
+
+	def check(self, graph=None, module=None, formula=None, extra_args=(), get_graph=False,
+	          timeout=None, cost=False, formula_str=None, aprops=None, logic=None,
+	          dist=None, reward=None, **kwargs):
+		"""Solves a model-checking problem with PRISM"""
+
+		# Create the graph if not provided by the caller
+		if graph is None:
+			graph = create_graph(logic=logic, tableau=True, **kwargs)
+
+		# Extract the atomic proposition term from the raw formulae
+		if formula is None:
+			aprops = set()
+			_collect_raw_aprops(formula_str, aprops)
+
+		# Parse the atomic proposition to be evaluated on the states
+		aprop_terms = [module.parseTerm(prop) for prop in aprops]
+
+		holds, stats = self.run(graph, formula, logic, aprop_terms, extra_args, cost=cost,
+		                        formula_str=formula_str, timeout=timeout, distrib=dist,
+		                        reward=reward)
+
+		if holds is not None and get_graph:
+			stats['graph'] = graph
+
+		return holds, stats
+
+
+class PRISMGenerator:
+	"""Generator of PRISM models"""
+
+	def __init__(self, outfile=sys.stdout, aprops=(), distrib=None):
+		self.visited = set()
+		self.aprops = aprops
+		self.outfile = outfile
+
+		self.satisfies = None
+		self.true_term = None
+		self.distrib = distrib
+		self.odegree = None
+
+		# Number of rewrites used to check atomic propositions
+		self.nrRewrites = 0
+
+	def getNrRewrites(self):
+		return self.nrRewrites
+
+	def check_aprop(self, graph, propNr, stateNr):
+		"""Check whether a given atomic proposition holds in a state"""
+		t = self.satisfies.makeTerm([graph.getStateTerm(stateNr), self.aprops[propNr]])
+		self.nrRewrites += t.reduce()
+		return t == self.true_term
+
+	def graph(self, graph, is_mdp=False):
+
+		# Expand the graph and calculate the output degrees
+		self.expand(graph)
+
+		# Find the satisfaction (|=) symbol and the true constant to be used
+		# when testing atomic propositions.
+
+		module = graph.getStateTerm(0).symbol().getModule()
+		boolkind = module.findSort('Bool').kind()
+
+		self.satisfies = module.findSymbol('_|=_',
+		                                   [module.findSort('State').kind(), module.findSort('Prop').kind()],
+		                                   boolkind)
+
+		self.true_term = module.findSymbol('true', [], boolkind).makeTerm([])
+
+		# Build the model specification in the PRISM format
+		model_type = 'mdp' if is_mdp else 'dtmc'
+
+		# A discrete-time Markov chain or Markov decision process module is created
+		print(f'{model_type}\n\nmodule M\n\tx : [0..{graph.getNrStates()}] init 0;\n', file=self.outfile)
+
+		# For each reachable state, we first write the transition relation or distribution
+		for state, degree in self.odegree.items():
+			# If the states does not have successors, we just continue
+			# (the stuttering-extension of deadlock states is done by PRISM)
+			if degree == 0:
+				continue
+
+			# Single successors are handled apart for convenience
+			if degree == 1:
+				print(f'\t[] x={state} -> (x\'={next(graph.getNextStates(state))});', file=self.outfile)
+
+			else:
+				successors = list(graph.getNextStates(state))
+				# Probabilities on the successors provided by the assigner
+				probs = self.distrib(graph, state, successors)
+
+				# Markov decision process
+				if is_mdp:
+					# Multiple lines are written, one for each nondeterministic action
+					for action in probs:
+						update = ' + '.join([f"{p}:(x'={nexts})" for nexts, p in action])
+						print(f'\t[] x={state} -> {update};', file=self.outfile)
+
+				# Discrete-time Markov chain
+				else:
+					# Successors have the form probability:(x'=next_state)
+					update = ' + '.join([f"{p}:(x'={nexts})" for p, nexts in zip(probs, successors)])
+					print(f'\t[] x={state} -> {update};', file=self.outfile)
+
+		print('\nendmodule', file=self.outfile)
+
+		# Define a label for each atomic proposition
+		for propNr, prop in enumerate(self.aprops):
+			satisfied = [f'x={state}' for state in self.odegree.keys() if self.check_aprop(graph, propNr, state)]
+			satisfied_str = ' | '.join(satisfied) if satisfied else 'false'
+			prop_str = _translate_aprop(str(prop))
+
+			print(f'label "{prop_str}" = {satisfied_str};', file=self.outfile)
+
+		# Define a default reward specification for the number of steps
+		print('\nrewards\n\t[] true: 1;\nendrewards', file=self.outfile)
+
+	def make_reward(self, graph, name, evaluator):
+		"""Generate a named reward specification for the given evaluator"""
+
+		print(f'\nrewards "{name}"', file=self.outfile)
+
+		for state in self.odegree.keys():
+			value = evaluator(graph.getStateTerm(state))
+
+			if value is not None and value != 0:
+				print(f'\tx={state}: {value};', file=self.outfile)
+
+		print('\nendrewards\n', file=self.outfile)
+
+	def expand(self, graph):
+		"""Expand the graph and return a map with the outer degree of its vertices"""
+
+		pending = [(0, graph.getNextStates(0), 0)]
+		visited = set()
+		self.odegree = dict()
+
+		while pending:
+			state, it, degree = pending.pop()
+
+			next_state = next(it, None)
+
+			if next_state is None:
+				self.odegree[state] = degree
+
+			else:
+				pending.append((state, it, degree+1))
+
+				if next_state not in visited:
+					visited.add(next_state)
+					pending.append((next_state, graph.getNextStates(next_state), 0))
+
+		return self.odegree

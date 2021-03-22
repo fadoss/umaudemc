@@ -956,7 +956,7 @@ def memory_tests(suite, backends, args, only_file=None, only_logic=None,
                  out_file='memory.csv', repeats=None, resume=None):
 	"""Measure memory usage by the model checkers with the test suite"""
 
-	# There are two possibilites to measure memory usage and memusage
+	# There are two possibilities to measure memory usage and memusage
 	# is preferred over psutil
 	memusage = shutil.which('memusage')
 	psutil = None
@@ -1165,7 +1165,6 @@ class ResumeClue:
 					os._exit(1)
 
 			self.event.clear()
-
 
 
 def test(args):

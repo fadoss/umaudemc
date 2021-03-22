@@ -201,6 +201,47 @@ parser_graph.add_argument(
 parser_graph.set_defaults(mode='graph')
 
 #
+# Probabilistic and quantitative model checking
+#
+
+parser_pcheck = subparsers.add_parser('pcheck', help='Probabilistic and quantitative model checking')
+
+parser_pcheck.add_argument('file', help='Maude source file specifying the model-checking problem')
+parser_pcheck.add_argument('initial', help='initial term')
+parser_pcheck.add_argument('formula', help='temporal formula')
+parser_pcheck.add_argument('strategy', help='strategy expression', nargs='?')
+
+add_initial_data_args(parser_pcheck)
+
+parser_pcheck.add_argument(
+	'--assign',
+	help='Assign probabilities to the successors according to the given method',
+	metavar='METHOD',
+	default='uniform'
+)
+
+parser_pcheck.add_argument(
+	'--steps',
+	help='Calculate the mean cost in number of steps',
+	action='store_true'
+)
+
+parser_pcheck.add_argument(
+	'--reward',
+	help='Calculate the expected value of the given reward term on states '
+	     '(any variable S will be replaced by the state term)',
+	metavar='TERM'
+)
+
+parser_pcheck.add_argument(
+	'--raw-formula',
+	help='The formula argument is directly passed to the backend',
+	action='store_true'
+)
+
+parser_pcheck.set_defaults(mode='pcheck')
+
+#
 # Test and benchmark test suites from the command line
 #
 
@@ -364,6 +405,11 @@ elif args.mode == 'graph':
 elif args.mode == 'check':
 	from .command.check import check
 	check(args)
+
+# Probabilistic model-checking subcommand
+elif args.mode == 'pcheck':
+	from .command.pcheck import pcheck
+	pcheck(args)
 
 # Batch test subcommand
 elif args.mode == 'test':

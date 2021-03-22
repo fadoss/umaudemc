@@ -25,6 +25,10 @@ fixpoint operators `mu_._` and `nu_._`. The argument of the modalities may also
 be a dot to mean that any action is fine, and the list may be preceded by a
 negation symbol `~` to indicate its complement.
 
+There is also a more experimental support for probabilistic model checking
+through the `pcheck` command with a syntax similar to `check`. Formulae are
+expressed as indicated [here](umaudemc/data/problog.maude).
+
 
 Dependencies
 ------------
@@ -70,6 +74,11 @@ The first available and compatible backend in the order above will be used to
 model check the given formula. The default order can be overwritten using the
 `--backend` argument followed by a comma-separated list of backend names as
 they appear in the table.
+
+For the probabilistic model-checking command `pcheck`, the
+[PRISM](https://www.prismmodelchecker.org/) model checker is required.
+If not installed in the system path, its location should be provided using the
+`PRISM_PATH` environment variable.
 
 Moreover, to read test cases specifications in YAML, the 
 [PyYAML](https://pypi.org/project/pyaml/) package is required.
