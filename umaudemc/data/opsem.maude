@@ -704,7 +704,7 @@ smod NOP-KLEENE-SEMANTICS{X :: MODULE} is
 
 	*** Explore a substate recursively
 	crl [recurseSubterm] : wrap(subterm(((X : XS1), Sbs), T) @ C, As)
-	                    => wrap(XS, As extendActionTags(As', sub(X) C))
+	                    => wrap(subterm(((X : XS2), Sbs), T) @ C, As extendActionTags(As', sub(X) C))
 	 if wrap(XS1, none) => wrap(XS2, As') [nonexec] .
 
 	*** Add a tag to the tag record
@@ -736,7 +736,7 @@ smod NOP-KLEENE-SEMANTICS{X :: MODULE} is
 	strat ->> ->>r ->cw opsem @ WraptState .
 
 	sd ->> := discardTags ; ->>r .
-	sd ->>r := match subterm(Sbs, T)
+	sd ->>r := match wrap(subterm(Sbs, T) @ C, As)
 		? recurseSubterm{->>r}
 		: (->s | ->cw ; ->>r) .
 

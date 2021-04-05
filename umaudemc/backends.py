@@ -75,7 +75,7 @@ class MaudeBackend:
 			stats['graph'] = graph
 
 		if not result.holds:
-			stats['counterexample'] = (result.leadIn, result.cycle)
+			stats['counterexample'] = (list(result.leadIn), list(result.cycle))
 
 		return result.holds, stats
 
