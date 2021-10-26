@@ -229,7 +229,7 @@ parser_pcheck.add_argument(
 parser_pcheck.add_argument(
 	'--reward',
 	help='Calculate the expected value of the given reward term on states '
-	     '(any variable S will be replaced by the state term)',
+	     '(it may contain a single variable to be replaced by the state term)',
 	metavar='TERM'
 )
 
@@ -237,6 +237,12 @@ parser_pcheck.add_argument(
 	'--raw-formula',
 	help='The formula argument is directly passed to the backend',
 	action='store_true'
+)
+
+parser_pcheck.add_argument(
+	'--backend',
+	help='comma-separated prioritized list of probabilistic model-checking backends (among prism, storm)',
+	default='prism,storm'
 )
 
 parser_pcheck.set_defaults(mode='pcheck')
@@ -303,7 +309,7 @@ parser_test.add_argument(
 	'--timeout',
 	help='timeout for test case executions',
 	type=int,
-	default=0
+	default=None
 )
 parser_test.add_argument(
 	'--no-resume',

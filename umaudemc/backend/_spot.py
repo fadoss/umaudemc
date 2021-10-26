@@ -42,7 +42,7 @@ class SpotModelBuilder:
 		prop_kind = module.findSort('Prop').kind()
 
 		self.true = module.parseTerm('true', bool_kind)
-		self.satisfies = module.findSymbol('_|=_', [state_kind, prop_kind], bool_kind)
+		self.satisfies = module.findSymbol('_|=_', (state_kind, prop_kind), bool_kind)
 
 	def _register_aprops(self, automaton):
 		"""Register the atomic proposition in the automaton"""
@@ -188,8 +188,8 @@ class KleeneModelBuilder(SpotModelBuilder):
 		twa.set_init_state(self.state_map[0])
 
 		# Set the acceptance condition
-		acc_condition = ' & '.join([f'(Fin({2 * n}) | Inf({2 * n + 1}))'
-		                            for n in range(len(self.iter_map))])
+		acc_condition = ' & '.join(f'(Fin({2 * n}) | Inf({2 * n + 1}))'
+					   for n in range(len(self.iter_map)))
 
 		if acc_condition != '':
 			twa.set_acceptance(2 * len(self.iter_map), acc_condition)

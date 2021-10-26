@@ -180,7 +180,7 @@ class Banner(Gtk.Bin):
 			return '{' + ', '.join(entries) + '}'
 
 		elif isinstance(value, list):
-			return '[' + ', '.join([cls.dict2jsobj(elem) for elem in value]) + ']'
+			return '[' + ', '.join(cls.dict2jsobj(elem) for elem in value) + ']'
 
 		else:
 			return repr(value)

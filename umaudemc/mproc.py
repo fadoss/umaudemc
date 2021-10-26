@@ -281,27 +281,27 @@ class MaudeRemote:
 		self.p.start()
 
 	def load(self, filename):
-		self.pipe.send([MaudeProcess.load, filename])
+		self.pipe.send((MaudeProcess.load, filename))
 		return self.pipe.recv()
 
 	def getModules(self):
-		self.pipe.send([MaudeProcess.getModules])
+		self.pipe.send((MaudeProcess.getModules,))
 		return self.pipe.recv()
 
 	def getModuleInfo(self, name):
-		self.pipe.send([MaudeProcess.getModuleInfo, name])
+		self.pipe.send((MaudeProcess.getModuleInfo, name))
 		return self.pipe.recv()
 
 	def modelCheck(self, data):
-		self.pipe.send([MaudeProcess.modelCheck, data])
+		self.pipe.send((MaudeProcess.modelCheck, data))
 		return self.pipe.recv()
 
 	def get_result(self, data):
-		self.pipe.send([MaudeProcess.get_result, data])
+		self.pipe.send((MaudeProcess.get_result, data))
 		return self.pipe.recv()
 
 	def shutdown(self):
-		self.pipe.send([])
+		self.pipe.send(())
 		self.p.join(timeout=2)
 		self.p.terminate()
 		self.p = None

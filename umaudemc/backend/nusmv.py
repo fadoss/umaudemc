@@ -128,7 +128,7 @@ class NuSMV:
 
 		# NuSMV is called on the generated file
 		try:
-			status = subprocess.run([self.nusmv, tmpfile.name] + list(extra_args),
+			status = subprocess.run((self.nusmv, tmpfile.name) + tuple(extra_args),
 						capture_output=not raw, timeout=timeout)
 
 		except subprocess.TimeoutExpired:
@@ -245,7 +245,7 @@ class NuSMVGrapher:
 
 	def check_aprop(self, graph, propNr, stateNr):
 		"""Check whether a given atomic proposition holds in a state"""
-		t = self.satisfies.makeTerm([graph.getStateTerm(stateNr), self.aprops[propNr]])
+		t = self.satisfies.makeTerm((graph.getStateTerm(stateNr), self.aprops[propNr]))
 		self.nrRewrites += t.reduce()
 		return t == self.true_term
 
@@ -260,10 +260,10 @@ class NuSMVGrapher:
 		boolkind = module.findSort('Bool').kind()
 
 		self.satisfies = module.findSymbol('_|=_',
-		                                   [module.findSort('State').kind(), module.findSort('Prop').kind()],
+		                                   (module.findSort('State').kind(), module.findSort('Prop').kind()),
 		                                   boolkind)
 
-		self.true_term = module.findSymbol('true', [], boolkind).makeTerm([])
+		self.true_term = module.findSymbol('true', (), boolkind).makeTerm(())
 
 		# Start the NuSMV module and declares a single variable 'state' of bounded
 		# integer type that matches with the internal state numbers of the graph.

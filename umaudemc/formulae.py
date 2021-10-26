@@ -247,7 +247,7 @@ class BaseParser:
 			return False
 
 		self.makeParserModule = self.templog.findSymbol('makeParserModule',
-		                                                [module_kind, qidlist_kind, qidlist_kind],
+		                                                (module_kind, qidlist_kind, qidlist_kind),
 		                                                module_kind)
 
 		if not self.makeParserModule:
@@ -301,8 +301,8 @@ class Parser(BaseParser):
 			return None
 
 		# Get the operators to deducing its type and collect its atomic props
-		formulaElems = extmod.findSymbol('formulaElems', [formula_kind], formelems_kind)
-		formulaType = extmod.findSymbol('formulaType', [formelems_kind], logicname_kind)
+		formulaElems = extmod.findSymbol('formulaElems', (formula_kind,), formelems_kind)
+		formulaType = extmod.findSymbol('formulaType', (formelems_kind,), logicname_kind)
 
 		if formulaElems is None or formulaType is None:
 			usermsgs.print_error('Missing expected operators in the formula parsing module.'
@@ -319,7 +319,7 @@ class Parser(BaseParser):
 
 		# Makes a list of all rules to be parsed
 		if len(self.labels) + len(opaques) > 0:
-			all_labels = ' '.join([f"'{label}" for label in set(self.labels).union(set(opaques))])
+			all_labels = ' '.join(f"'{label}" for label in set(self.labels).union(set(opaques)))
 		else:
 			all_labels = '(nil).QidList'
 

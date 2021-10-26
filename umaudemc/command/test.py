@@ -256,7 +256,7 @@ def _depends_on_vars(node, variables):
 	"""Whether the given variables occur at the given node"""
 
 	for value in node.values():
-		if isinstance(value, str) and any([f'${var}' in value for var in variables]):
+		if isinstance(value, str) and any(f'${var}' in value for var in variables):
 			return True
 	return False
 
@@ -276,7 +276,7 @@ class ParameterSet:
 	def _is_substitution(self):
 		"""Decides whether this a substitution or includes alternatives values for each variable"""
 
-		return all((not isinstance(val, list) for val in self.dic.values()))
+		return all(not isinstance(val, list) for val in self.dic.values())
 
 	@classmethod
 	def combine(cls, parent, child):
@@ -332,7 +332,8 @@ TEST_FIELDS = {
 	'formula':	(str, _parse_formula, set()),
 	'opaque':	(list, None, {'update-parser'}),
 	'result':	(bool, None, set()),
-	'exclude':	(list, None, set())
+	'exclude':	(list, None, set()),
+	'preload':      (list, None, {'update-parser', 'initial', 'strategy', 'formula'}),
 }
 
 # Order to parse case elements
@@ -376,6 +377,20 @@ def read_cases(filename, source, parser, skip=0):
 		# Filenames are only allowed in the first level
 		if not test_stack:
 			rel_filename = source['file']
+
+			# Load auxiliary files first
+			aux_files = source.get('preload', [])
+			if isinstance(aux_files, str):
+				aux_files = [aux_files]
+
+			base_dir = os.path.dirname(filename)
+
+			for aux_filename in aux_files:
+				aux_fullname = os.path.join(base_dir, aux_filename)
+
+				if not maude.load(aux_fullname if os.path.exists(aux_fullname) else aux_filename):
+					usermsgs.print_error(f'Cannot load auxiliary file {aux_filename}.')
+					return None, None
 
 			if not maude.load(filename):
 				usermsgs.print_error(f'Cannot load {rel_filename}.')
@@ -649,7 +664,7 @@ def _benchmark_case(case, name, backend, timeout, args, log):
 		else:
 			counter_length = None
 
-		log.writerow([
+		log.writerow((
 			case.rel_filename,
 			case.module,
 			case.initial_str,
@@ -667,7 +682,7 @@ def _benchmark_case(case, name, backend, timeout, args, log):
 			stats.get('rewrites'),
 			(end_time - start_time) / 1e6,
 			preparation_time
-		])
+		))
 
 	return (end_time - start_time) / 1e6
 
@@ -685,11 +700,11 @@ def benchmark_tests(suite, backends, args, only_file=None, only_logic=None,
 
 		# Header of that CSV
 		if open_mode != 'a':
-			log.writerow([
+			log.writerow((
 				'filename', 'module', 'initial', 'formula', 'strategy',
 				'opaque', 'expected', 'logic', 'backend', 'result',
 				'states', 'real_states', 'buchi', 'clength', 'rewrites', 'time_ms', 'prep_ms'
-			])
+			))
 
 		for source, cases in suite:
 			if source is None:
@@ -793,7 +808,7 @@ def _feed_maude_binary(p, case):
 	"""Feed the Maude binary with the test case"""
 
 	# Represent the opaque names as a QidList term (as a string)
-	opaques = ' '.join(["'" + name for name in case.opaque]) if case.opaque else 'nil'
+	opaques = ' '.join("'" + name for name in case.opaque) if case.opaque else 'nil'
 
 	# Issue a select command if the module is not the default one
 	if case.module_str is not None:
@@ -937,7 +952,7 @@ def _memory_case(memusage, psutil, case, name, backend, args, log, maudebin=None
 		stack = int(m.group(3))
 		print(f'{name:10} {_print_size(peak):10} {_print_size(total):10} {_print_size(stack):10}')
 
-	log.writerow([case.rel_filename,
+	log.writerow((case.rel_filename,
 	              case.module,
 	              case.initial_str,
 	              case.formula_str,
@@ -949,7 +964,7 @@ def _memory_case(memusage, psutil, case, name, backend, args, log, maudebin=None
 	              total,
 	              peak,
 	              stack
-		])
+		))
 
 
 def memory_tests(suite, backends, args, only_file=None, only_logic=None,
@@ -1113,7 +1128,7 @@ class ResumeClue:
 		# The timeout is handled by a dedicated process with an event.
 		# We could have used a threading.Timer (single use) or
 		# signal.alarm (does not work in Windows) instead.
-		if timeout > 0:
+		if timeout:
 			self.timer = threading.Thread(target=self.timeout_handler, daemon=True)
 			self.event = threading.Event()
 			self.timer.start()

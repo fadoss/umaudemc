@@ -192,8 +192,8 @@ def _make_ltsmin_mucalc(form, labels):
 	# The translation of the modalities with dot (no matter which action is
 	# chosen) requires explicitly repeating the operator for each label in
 	# the module. They are directly inserted in the translation table.
-	_mucalc_translation['<.>_'] = ' || '.join([f'(< "{label}" > {{0}})' for label in labels]), 7
-	_mucalc_translation['`[.`]_'] = ' && '.join([f'([ "{label}" ] {{0}})' for label in labels]), 6
+	_mucalc_translation['<.>_'] = ' || '.join(f'(< "{label}" > {{0}})' for label in labels), 7
+	_mucalc_translation['`[.`]_'] = ' && '.join(f'([ "{label}" ] {{0}})' for label in labels), 6
 
 	return _make_ltsmin_formula(form, _mucalc_translation,
 	                            special_op=_special_mucalc)
@@ -504,7 +504,7 @@ class LTSminRunner:
 			args.append('--metamodule=' + self.metamodule)
 
 		if len(self.aprops) > 0:
-			args.append('--aprops=' + ','.join([prop for prop in self.aprops])),
+			args.append('--aprops=' + ','.join(prop for prop in self.aprops)),
 
 		if biased_matchrew:
 			args.append('--biased-matchrew')
@@ -597,7 +597,7 @@ class LTSminRunner:
 				# make it return wrong answers (https://github.com/utwente-fmt/ltsmin/issues/184).
 
 				pgname = os.path.join(tempdir, 'game.pg')
-				convert_status = subprocess.run([self.ltsmin.ltsmin_convert, '--rdwr', tempdir, pgname], capture_output=True)
+				convert_status = subprocess.run((self.ltsmin.ltsmin_convert, '--rdwr', tempdir, pgname), capture_output=True)
 				if convert_status.returncode != 0:
 					usermsgs.print_error('Error while generating the parity game with ltsmin-convert:'
 					                     + convert_status.stderr.decode('utf-8'))
@@ -609,7 +609,7 @@ class LTSminRunner:
 
 				# Solve the game with pbespgsolve, whose output is simply true or false
 
-				solver_status = subprocess.run([self.ltsmin.pbespgsolve, '-ipgsolver', pgname], capture_output=True)
+				solver_status = subprocess.run((self.ltsmin.pbespgsolve, '-ipgsolver', pgname), capture_output=True)
 				shutil.rmtree(tempdir)
 
 				if solver_status.returncode == 0:

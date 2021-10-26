@@ -38,7 +38,7 @@ class KripkeBuilder:
 		prop_kind = module.findSort('Prop').kind()
 
 		self.true = module.parseTerm('true', bool_kind)
-		self.satisfies = module.findSymbol('_|=_', [state_kind, prop_kind], bool_kind)
+		self.satisfies = module.findSymbol('_|=_', (state_kind, prop_kind), bool_kind)
 
 		# Number of rewrites to test them
 		self.nrRewrites = 0
@@ -54,7 +54,7 @@ class KripkeBuilder:
 		labels = set()
 
 		for prop in self.aprops:
-			t = self.satisfies.makeTerm([term, prop])
+			t = self.satisfies.makeTerm((term, prop))
 			self.nrRewrites += t.reduce()
 			if t == self.true:
 				labels.add(str(prop))

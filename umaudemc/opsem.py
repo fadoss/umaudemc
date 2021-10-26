@@ -60,8 +60,8 @@ class OpSemInstance:
 		strategy_kind = self.strategy_sort.kind()
 
 		# Symbols for decomposing the semantic states
-		self.cterm = self.osmod.findSymbol('cterm', [exstate_kind], term_kind)
-		self.stack_state = self.osmod.findSymbol('_@_', [expart_kind, strategy_kind], exstate_kind)
+		self.cterm = self.osmod.findSymbol('cterm', (exstate_kind,), term_kind)
+		self.stack_state = self.osmod.findSymbol('_@_', (expart_kind, strategy_kind), exstate_kind)
 
 	@classmethod
 	def get_instantiation(cls, module, metamodule=None, semantics_module=None, preds_module=None):
@@ -131,7 +131,7 @@ class OpSemInstance:
 		t = self.make_initial_term(initial, strategy)
 
 		if opaques:
-			opaque_set = ' ; '.join(["'" + name for name in opaques])
+			opaque_set = ' ; '.join("'" + name for name in opaques)
 			s = self.osmod.parseStrategy(f'opsemo({opaque_set})')
 		else:
 			s = self.osmod.parseStrategy('opsem')
@@ -185,9 +185,9 @@ class OpSemKleeneInstance(OpSemInstance):
 		tags_kind = self.osmod.findSort('ActionTags').kind()
 		wstate_kind = self.osmod.findSort('WraptState').kind()
 
-		self.wrap = self.osmod.findSymbol('wrap', [exstate_kind, tags_kind], wstate_kind)
+		self.wrap = self.osmod.findSymbol('wrap', (exstate_kind, tags_kind), wstate_kind)
 		self.none_tag = self.osmod.parseTerm('none', tags_kind)
-		self.tag_list = self.osmod.findSymbol('__', [tags_kind] * 2, tags_kind)
+		self.tag_list = self.osmod.findSymbol('__', (tags_kind,) * 2, tags_kind)
 
 	def make_initial_term(self, term, strategy):
 		semterm = super().make_initial_term(term, strategy)

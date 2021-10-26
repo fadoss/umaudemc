@@ -223,7 +223,7 @@ class MuMaudeGame(ParityGame):
 		prop_kind = self.module.findSort('Prop').kind()
 
 		self.true = self.module.parseTerm('true', bool_kind)
-		self.satisfies = self.module.findSymbol('_|=_', [state_kind, prop_kind], bool_kind)
+		self.satisfies = self.module.findSymbol('_|=_', (state_kind, prop_kind), bool_kind)
 
 		# Number of rewrites used to check this atomic proposition
 		self.nrRewrites = 0
@@ -324,7 +324,7 @@ class MuMaudeGame(ParityGame):
 
 	def check_aprop(self, state, aprop):
 		term = self.graph.getStateTerm(state)
-		t = self.satisfies.makeTerm([term, aprop])
+		t = self.satisfies.makeTerm((term, aprop))
 		self.nrRewrites += t.reduce()
 		return t == self.true
 

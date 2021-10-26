@@ -4,12 +4,13 @@
 # Many "probability assigners" are defined to distribute probabilities among the
 # successors of each state in the model. Their "nondeterminism" property tells
 # whether they yield MDPs or DTMCs. In the first case, the result of these
-# assigner is a list of lists of (state id, p) tuples where each sublist
+# assigners is a list of lists of (state id, p) tuples where each sublist
 # represents a nondeterministic action. In the second case, the result is
 # a single list with a probability number for each successor.
 #
 
 from collections import Counter
+from itertools import chain
 
 from .common import usermsgs, maude
 
@@ -47,6 +48,9 @@ def get_assigner(module, name):
 
 	if name == 'metadata':
 		return MetadataAssigner(), True
+
+	elif name == 'mdp-metadata':
+		return MetadataMDPAssigner(), True
 
 	elif name.startswith('uaction'):
 		return WeightedActionAssigner.parse(name), True
@@ -151,17 +155,19 @@ def _get_stmt_label(graph, origin, dest):
 
 
 def _assign_weights_by_actions(actions, weights, successors):
+	"""Get a dictionary from actions to lists of probabilities"""
+
 	# Grouped weights
 	grouped = {action: [] for action in actions}
 
 	for k, w in enumerate(weights):
-		grouped[actions[k]].append((successors[k], w))
+		grouped[actions[k]].append((w, successors[k]))
 
 	# Normalize weights to probabilities by groups
 	for gr in grouped.values():
-		total = sum((w for _, w in gr))
-		for k, (s, w) in enumerate(gr):
-			gr[k] = s, (w / total)
+		total = sum(w for w, _ in gr)
+		for k, (w, s) in enumerate(gr):
+			gr[k] = (w / total), s
 
 	return grouped.values()
 
@@ -204,23 +210,24 @@ class WeightedActionAssigner:
 		pactions = {}
 
 		for action, value in kv_pairs:
+			# Separate the action name and the suffix (.p or .w)
+			index = action.rfind('.')
+			action, suffix = (action[:index], action[index:]) if index >= 0 else (action, '')
+
 			try:
 				# Keys ending in .p are fixed probabilities
-				if action.endswith('.p'):
+				if suffix == '.p':
 					p = float(value)
 
-					if action[:-2] in wactions:
-						usermsgs.print_warning(f'Action {action[:-2]} has already been assigned a weight. Ignoring its probability.')
+					if action in wactions:
+						usermsgs.print_warning(f'Action {action} has already been assigned a weight. Ignoring its probability.')
 					if 0 <= p <= 1:
-						pactions[action[:-2]] = p
+						pactions[action] = p
 					else:
-						usermsgs.print_warning(f'Value {p} for action {action[:-2]} is not a probability between 0 and 1.')
+						usermsgs.print_warning(f'Value {p} for action {action} is not a probability between 0 and 1.')
 
+				# .w is optional when indicating weights
 				else:
-					# .w is optional when indicating weights
-					if action.endswith('.w'):
-						action = action[:-2]
-
 					if action in pactions:
 						usermsgs.print_warning(f'Action {action} has already been assigned a probability. Ignoring its weight.')
 					else:
@@ -243,8 +250,7 @@ class WeightedActionAssigner:
 		# among their successors
 		action_fq = Counter(actions)
 
-		# Calculate the assigned probability and the number of weighted elements
-		# (weights are not affected by the multiplicity of each label)
+		# Calculate the total probability and weight assigned
 		assigned_p, total_w = 0, 0
 
 		for action in action_fq.keys():
@@ -255,18 +261,18 @@ class WeightedActionAssigner:
 			else:
 				total_w += self.wactions.get(action, 1)
 
-		# Distribute the probability by first assigning the fixed probabilities and then
-		# sharing the rest among the rest of actions according to their weights, if possible
+		# Assigns the fixed probabilities first and then distributes the rest among the
+		# remaining actions according to their weights, if possible
 		if 0 <= assigned_p <= 1 and (assigned_p > 0 or total_w > 0):
-			# If assigned_p does not sum 1 but there is no other enabled actions
+			# If assigned_p does not sum 1 and no weighted action is enabled
 		  	# to distribute the rest, probabilities are scaled to 1
 			p = 1 / assigned_p if total_w == 0 else (1 - assigned_p) / total_w
 
 			action_fq = {action: self.pactions.get(action, p * self.wactions.get(action, 1)) / fq
 			             for action, fq in action_fq.items()}
 
-		# The total probability assigned to the available actions surpass 1 or it is
-		# zero and no weight is assigned to the other actions
+		# The total probability assigned surpass 1 or it is zero and no weight
+		# is assigned to the other actions
 		else:
 			usermsgs.print_warning(f'Probabilities assigned to actions sum {assigned_p}. Ignoring.')
 
@@ -277,17 +283,29 @@ class WeightedActionAssigner:
 		return [action_fq[action] for action in actions]
 
 
+def _find_vars(term, varset):
+	"""Find all variables in a term"""
+
+	if term.isVariable():
+		varset.add(term)
+	else:
+		for arg in term.arguments():
+			_find_vars(arg, varset)
+
+
 class MaudeTermBaseAssigner:
 	"""Assign probabilities according to the evaluation of a Maude term (base class)"""
 
-	def __init__(self, symb, args, replacements):
-		self.symb = symb
-		self.args = args
-		self.repls = replacements
+	def __init__(self, term, replacements):
+		self.term = term
+
+		self.left_var = replacements['L']
+		self.right_var = replacements['R']
+		self.action_var = replacements['A']
 
 		self.cache = {}
 
-		self.module = symb.getModule()
+		self.module = term.symbol().getModule()
 		self.qid_kind = self.module.findSort('Qid').kind()
 
 	@classmethod
@@ -315,57 +333,82 @@ class MaudeTermBaseAssigner:
 			usermsgs.print_warning(f'The range sort of the term {symb_name} is not a valid number type. '
 			                       'Continuing, but errors should be expected.')
 
-		# Process the arguments to be replaced later (L is to be replaced by the
-		# left-hand side, R by the right-hand side, and A by the transition label)
-		args = tuple(term.arguments())
-		repl = {'L': [], 'R': [], 'A': []}
+		# Check the variables in the term (L is to be replaced by the left-hand
+		# side, R by the right-hand side, and A by the transition label)
+		variables = set()
+		_find_vars(term, variables)
+		repl = {'L': None, 'R': None, 'A': None}
 
-		for k, a in enumerate(args):
-			var_name = a.getVarName()
+		for v in variables:
+			var_name = v.getVarName()
 
-			if a.getSort().kind() == state_kind:
-				if var_name in ('L', 'R'):
-					repl[var_name].append(k)
+			if var_name in ('L', 'R'):
+				if v.getSort().kind() != state_kind:
+					usermsgs.print_warning(f'Variable {v} in weight assignment term belongs to a '
+					                       f'wrong kind {v.getSort().kind()} ({state_kind} expected).')
+					return None
 
-			elif a.getSort().kind() == qid_kind:
-				if var_name == 'A':
-					repl['A'].append(k)
+				repl[var_name] = v
 
-		return cls(term.symbol(), args, repl)
+			elif var_name == 'A':
+				if v.getSort().kind() != qid_kind:
+					usermsgs.print_warning(f'Variable {v} in weight assignment term belongs to a '
+					                       f'wrong kind {v.getSort().kind()} ({state_kind} expected).')
+					return None
+
+				repl[var_name] = v
+			else:
+				usermsgs.print_error(f'Unbound variable {v} in weight assignment term.')
+				return None
+
+		return cls(term, repl)
+
+	def make_tuple(self, state, next_state, action):
+		"""Make a tuple to serve as key for the cache"""
+
+		key = []
+
+		if self.left_var:
+			key.append(state)
+		if self.right_var:
+			key.append(next_state)
+		if self.action_var:
+			key.append(action)
+
+		return tuple(key)
 
 	def get_weight(self, graph, term, state, next_state):
 		"""Get the weight for the given transition"""
 
+		# The action identifier (if needed)
+		action = _get_stmt_label(graph, state, next_state) if self.action_var else None
+
 		# Look for it in the cache to save work if possible
-		w = self.cache.get((state, next_state), None)
+		w = self.cache.get(self.make_tuple(state, next_state, action), None)
 
 		if w is None:
-			# Prepare the term to be reduced
-			args = list(self.args)
+			# Prepare the term to be instantiated
+			subs = {}
 
 			# The left-hand side of the transition
-			for k in self.repls['L']:
-				args[k] = term
+			if self.left_var:
+				subs[self.left_var] = term
 
 			# The right-hand side of the transition
-			if self.repls['R']:
-				next_term = graph.getStateTerm(next_state)
-				for k in self.repls['R']:
-					args[k] = next_term
+			if self.right_var:
+				subs[self.right_var] = graph.getStateTerm(next_state)
 
 			# The action identifier (will be parsed as Qid)
-			if self.repls['A']:
-				action = _get_stmt_label(graph, state, next_state)
+			if self.action_var:
 				action_term = self.module.parseTerm(f"'{action if action is not None else 'unknown'}",
 				                                    self.qid_kind)
-				for k in self.repls['A']:
-					args[k] = action_term
+				subs[self.action_var] = action_term
 
 			# Build and reduce the term
-			w = self.symb.makeTerm(args)
+			w = maude.Substitution(subs).instantiate(self.term)
 			w.reduce()
 			w = float(w)
-			self.cache[(state, next_state)] = w
+			self.cache[self.make_tuple(state, next_state, action)] = w
 
 		return w
 
@@ -427,52 +470,190 @@ class UniformMDPAssigner:
 		# Calculate the frequency of the actions to distribute the probability among them
 		action_fq = Counter(actions)
 
-		return [[(successors[k], 1 / action_fq[action]) for k, a in enumerate(actions) if a == action]
+		return [[(1 / action_fq[action], successors[k]) for k, a in enumerate(actions) if a == action]
 	                for action in action_fq.keys()]
-
-
-def _dissect_term(term, variable):
-	"""Dissect a term"""
-
-	# None indicates that the variable value must be filled there
-	if term.getVarName() == variable:
-		return None
-
-	# Composed terms are transformed to a list whose head is the symbol and with
-	# its arguments in the tail. However, if term does not contain the variable,
-	# it is keep as is
-	else:
-		dissected_args = [_dissect_term(arg, variable) for arg in term.arguments()]
-		contains_var = any(map(lambda v: not isinstance(v, maude.Term), dissected_args))
-
-		return [term.symbol()] + dissected_args if contains_var else term
-
-
-def _recompose_term(dterm, value):
-	"""Recompose terms dissected by _dissect_term while instantiating its variable"""
-
-	if dterm is None:
-		return value
-
-	elif isinstance(dterm, list):
-		symb, *args = dterm
-		return symb.makeTerm([_recompose_term(arg, value) for arg in args])
-
-	else:
-		return dterm
 
 
 class RewardEvaluator:
 	"""Evaluate reward terms on states"""
 
-	def __init__(self, term):
-		# Substitutions should be used instead of this when they
-		# are properly supported by the maude library
-		self.dissected_term = _dissect_term(term, 'S')
+	def __init__(self, term, variable):
+		self.reward_term = term
+		self.variable = variable
+
+	@staticmethod
+	def new(term, state_kind=None):
+		"""Construct a reward evaluator"""
+		variables = set()
+		_find_vars(term, variables)
+
+		# If there is no variables, the reward is constant
+		if not variables:
+			term.reduce()
+			constant = float(term)
+			return lambda _: constant
+
+		elif len(variables) > 1:
+			usermsgs.print_warning('The reward term contains multiple variables '
+			                       f'({", ".join(map(str, variables))}). It will be ignored.')
+			return None
+
+		# We check whether the variable is of the appropriate kind
+		variable = variables.pop()
+
+		if state_kind is not None and variable.getSort().kind() != state_kind:
+			usermsgs.print_warning(f'The sort {variable.getSort()} of the reward term variable '
+			                       'does not belong to the state kind. Errors should be expected.')
+
+		return RewardEvaluator(term, variable)
 
 	def __call__(self, state):
-		term = _recompose_term(self.dissected_term, state)
+		term = maude.Substitution({self.variable: state}).instantiate(self.reward_term)
 		term.reduce()
 
 		# We do not warn if the term is not a Int or Float
 		return float(term)
+
+
+class AssignedGraph:
+	"""Graph with probabilities by a probability assignment function"""
+
+	def __init__(self, graph, assigner):
+		self.graph = graph
+		self.assigner = assigner
+		self.visited = None
+
+		self.nondeterminism = self.assigner.nondeterminism
+
+	def getStateTerm(self, state):
+		return self.graph.getStateTerm(state)
+
+	def getNrRewrites(self):
+		return self.graph.getNrRewrites()
+
+	def getNrRealStates(self):
+		return len(self.visited)
+
+	def __len__(self):
+		return self.graph.getNrStates()
+
+	def states(self):
+		"""Iterator through the states (numbers) of the graph"""
+		return self.visited
+
+	def transitions(self):
+		"""Iterator through the transitions of the graph"""
+
+		for state in self.visited:
+			successors = list(self.graph.getNextStates(state))
+
+			if len(successors) == 1:
+				yield state, ((1.0, successors[0]),)
+
+			elif successors:
+				probs = self.assigner(self.graph, state, successors)
+
+				if self.assigner.nondeterminism:
+					for action in probs:
+						yield state, action
+				else:
+					yield state, zip(probs, successors)
+
+	def expand(self):
+		"""Expand the underlaying graph"""
+
+		pending = [(0, self.graph.getNextStates(0))]
+		self.visited = {0}
+
+		while pending:
+			# The stacks hold a state number, an iterator to the
+			# children, and the outer degree up to now
+			state, it = pending.pop()
+
+			next_state = next(it, None)
+
+			if next_state is not None:
+				pending.append((state, it))
+
+				if next_state not in self.visited:
+					self.visited.add(next_state)
+					pending.append((next_state, self.graph.getNextStates(next_state)))
+
+
+class StrategyMarkovGraph:
+	"""Graph with probabilities assigned by a strategy"""
+
+	def __init__(self, root):
+		self.state_list = [root]
+		self.state_map = {root: 0}
+		self.nondeterminism = False
+
+	def getStateTerm(self, state):
+		return self.state_list[state].term
+
+	def getNrRewrites(self):
+		# The number of rewrites is not counted in this implementation
+		return 0
+
+	def getNrRealStates(self):
+		return len(self.state_list)
+
+	def __len__(self):
+		return len(self.state_list)
+
+	def states(self):
+		"""Iterator through the states (numbers) of the graph"""
+		return range(len(self.state_list))
+
+	def transitions(self):
+		"""Iterator through the transitions of the graph"""
+
+		for state_nr, state in enumerate(self.state_list):
+
+			for next_state in state.children:
+				yield state_nr, ((1.0, self.state_map[next_state]),)
+
+			for choice in state.child_choices:
+				yield state_nr, ((p, self.state_map[next_state]) for next_state, p in choice.items())
+
+	def expand(self):
+		"""Expand the underlaying graph"""
+
+		for k, state in enumerate(self.state_list):
+			# Detect whether the graph contains unquantified nondeterminism
+			if len(state.children) + len(state.child_choices) > 1:
+				self.nondeterminism = True
+
+			for child in chain(state.children, (c for choice in state.child_choices
+				                              for c, _ in choice.items())):
+				if child not in self.state_map:
+					self.state_map[child] = len(self.state_list)
+					self.state_list.append(child)
+
+
+def get_probabilistic_strategy_graph(module, strategy, term):
+	"""Get the probabilistic graph of a probabilistic strategy"""
+
+	from . import pyslang
+
+	ml = maude.getModule('META-LEVEL')
+
+	# Initialize the strategy compiler and optimizer
+	sc = pyslang.StratCompiler(module, ml, use_notify=True, ignore_one=True)
+
+	# Compile the strategy
+	p = sc.compile(ml.upStrategy(strategy))
+
+	try:
+		# Execute the strategy
+		root = pyslang.MarkovRunner(p, term).run()
+
+		graph = StrategyMarkovGraph(root)
+		graph.expand()
+
+		return graph
+
+	except pyslang.BadProbStrategy as bps:
+		usermsgs.print_error(bps)
+
+	return None

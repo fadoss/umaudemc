@@ -14,6 +14,10 @@ from . import formulae as _formulae
 from . import grapher as _grapher
 from . import usermsgs as _usermsgs
 from . import wrappers as _wrappers
+from . import probabilistic as _probabilistic
+from .backend import prism as _prism
+from .backend import storm as _storm
+
 
 DEFAULT_BACKENDS = ('maude', 'ltsmin', 'pymc', 'nusmv', 'spot', 'builtin')
 
@@ -51,7 +55,7 @@ else:
 			return args
 
 		else:
-			args = ','.join([f'({_term2str(arg)})' for arg in arguments])
+			args = ','.join(f'({_term2str(arg)})' for arg in arguments)
 			return f'{symbol_name}({args})'
 
 
@@ -198,15 +202,15 @@ class MaudeModel:
 		:type formula_str: str or None
 		:param logic: Logic (in case formula is a list)
 		:type logic: str
-		:param depth: Depth bound on the rewriting graph (only work for some backends)
+		:param depth: Depth bound on the rewriting graph (only works for some backends)
 		:type depth: int
-		:param timeout: Timeout for the model-checking task (only work for some backends)
+		:param timeout: Timeout for the model-checking task (only works for some backends)
 		:type timeout: int or None
 		:param usermsgs: Partially override default user message printing functions
 		:type usermsgs: An object with print_error, print_warning and print_info methods
 		:param extra_args: Additional arguments to be passed to the backend
 		:type extra_args: list of str
-		:returns: the model checking result and a dictionary with statistics
+		:returns: the model-checking result and a dictionary with statistics
 		"""
 
 		# Formula
@@ -313,6 +317,101 @@ class MaudeModel:
 			stats['logic'] = logic
 
 		return holds, stats
+
+	def pcheck(self, formula, purge_fails='default', merge_states='default',
+		   backends=('prism', 'storm'), timeout=None, usermsgs=_usermsgs,
+		   extra_args=(), assign='uniform', steps=False, reward=None):
+		"""
+		Probabilistic model checking of a given temporal formula.
+
+		:param formula: Formula
+		:type formula: str
+		:param purge_fails: Whether failed states must be purged (by default,
+			this value is selected depending on the logic)
+		:type purge_fails: bool or str
+		:param merge_states: Whether successors with a common term should be merged
+			(edge, value or none, by default selected depending on the logic)
+		:type merge_states: str
+		:param backends: Prioritized list of model checking backends to be used
+		:type backends: str or list of str
+		:param timeout: Timeout for the model-checking task
+		:type timeout: int or None
+		:param usermsgs: Partially override default user message printing functions
+		:type usermsgs: An object with print_error, print_warning and print_info methods
+		:param extra_args: Additional arguments to be passed to the backend
+		:type extra_args: list of str
+		:param assign: Probability assignment method
+		:type assign: string
+		:param steps: Whether the expected number of steps should be calculated
+		:type steps: bool
+		:param reward: Reward term to calculate its expected value
+		:type reward: str or maude.Term or None
+		:returns: the probabilistic model-checking result and a dictionary with statistics
+		"""
+
+		# Select the model-checking backend
+		backend = None
+
+		if isinstance(backends, str):
+			backends = backends.split(',')
+
+		for name in backends:
+			backend = _storm.StormBackend() if name == 'storm' else _prism.PRISMBackend()
+
+			if backend.find():
+				break
+			else:
+				backend = None
+
+		if backend is None:
+			usermsgs.print_error('No available probabilistic backend.')
+			return None, None
+
+		# Select the probability assignment method
+		graph, distr = None, None
+
+		if assign == 'strategy':
+			graph = _probabilistic.get_probabilistic_strategy_graph(self.module,
+										self.strategy,
+										self.initial)
+
+		else:
+			distr, _ = _probabilistic.get_assigner(self.module, assign)
+
+		# Parse the temporal formula
+		pparser = _formulae.ProbParser()
+		pparser.set_module(self.module, self.metamodule)
+		pformula, aprops = pparser.parse(formula)
+
+		# Handle the reward
+		if reward is not None:
+			if isinstance(reward, str):
+				reward = self.module.parseTerm(reward)
+
+			if reward is None:
+				usermsgs.print_warning('The reward term cannot be parsed. It will be ignored.')
+				reward = None
+
+			else:
+				reward = _probabilistic.RewardEvaluator.new(reward, self.initial.getSort().kind())
+
+		result, stats = backend.check(module=self.module,
+		                              metamodule=self.metamodule,
+		                              term=self.initial,
+		                              formula=pformula,
+		                              strategy=self.strategy,
+		                              logic='LTL',
+		                              aprops=aprops,
+		                              purge_fails=purge_fails,
+		                              merge_states=merge_states,
+		                              extra_args=extra_args,
+		                              timeout=timeout,
+		                              cost=steps,
+		                              reward=reward,
+		                              dist=distr,
+		                              graph=graph)
+
+		return result, stats
 
 	def _get_depth(self, wgraph):
 		"""Get the depth of a bounded depth graph"""

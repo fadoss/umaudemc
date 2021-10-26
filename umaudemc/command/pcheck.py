@@ -2,11 +2,11 @@
 # Command-line probabilistic model-checking subcommand
 #
 
-from ..backend import prism
+from ..backend import prism, storm
 from ..backends import format_statistics
 from ..common import parse_initial_data, usermsgs
 from ..formulae import ProbParser
-from ..probabilistic import get_assigner, RewardEvaluator
+from ..probabilistic import get_assigner, RewardEvaluator, get_probabilistic_strategy_graph
 from ..terminal import terminal as tmn
 
 # Emphasized text to be used when printing Boolean model-checking results
@@ -51,7 +51,43 @@ def _is_ctl(formula):
 
 	else:
 		start = 1 if head in ('P__', '<>__', '`[`]__', '_U__', '_W__', '_R__') else 0
-		return any((_is_ctl(arg) for arg in args[start:]))
+		return any(_is_ctl(arg) for arg in args[start:])
+
+
+def _select_backend(known_backends, backend_list):
+	"""Get the first available backend according to the user preferences"""
+
+	# Get the first available backend in the list
+	# (first_known is used to show the error message with the first missing option)
+	options, first_known, first_available = backend_list.split(','), None, None
+
+	for name in options:
+		_, backend, _ = known_backends.get(name, (None,) * 3)
+
+		if backend is None:
+			usermsgs.print_warning(f'Unsupported backend "{name}". Ignoring it.')
+
+		elif backend.find():
+			first_available = name
+			break
+
+		elif first_known is None:
+			first_known = name
+
+
+	if first_available is None:
+		if first_known is None:
+			usermsgs.print_error('The backend list does not contain any valid option.')
+
+		else:
+			be_name, _, be_url = known_backends[first_known]
+
+			usermsgs.print_error(f'{be_name} cannot be found (after searching in the system path and the '
+					     f'{be_name.upper()}_PATH variable).\nIt can be downloaded from {be_url}.')
+
+		return None
+
+	return known_backends[first_available][1]
 
 
 def pcheck(args):
@@ -76,22 +112,38 @@ def pcheck(args):
 	else:
 		formula, aprops, ftype = None, None, 'raw'
 
-	# Initialize the PRISM backend
-	backend = prism.PRISMBackend()
+	# Available probabilistic model-checking backends
+	backends = {
+		'prism': ('PRISM', prism.PRISMBackend(), 'https://www.prismmodelchecker.org/'),
+		'storm': ('Storm', storm.StormBackend(), 'https://www.stormchecker.org/'),
+	}
 
-	if not backend.find():
-		usermsgs.print_error('PRISM cannot be found (after searching in the system path and the PRISM_PATH variable).\n'
-		                     'It can be downloaded from https://www.prismmodelchecker.org/.')
+	backend = _select_backend(backends, args.backend)
 
+	if backend is None:
 		return 1
 
 	# Get the probability assignment method
-	distr, found = get_assigner(data.module, args.assign)
+	distr, graph = None, None
 
-	if distr is None:
-		if not found:
-			usermsgs.print_error(f'Unknown probability assignment method {args.dist}.')
-		return 1
+	if args.assign == 'strategy':
+		if data.strategy is None:
+			usermsgs.print_error('A strategy expression must be provided to use the strategy assignment method.')
+			return 1
+
+		graph = get_probabilistic_strategy_graph(data.module, data.strategy, data.term)
+
+		if graph is None:
+			return 1
+
+	else:
+		distr, found = get_assigner(data.module, args.assign)
+
+		if distr is None:
+			if not found:
+				usermsgs.print_error(f'Unknown probability assignment method {args.dist}.')
+
+			return 1
 
 	# Get the optional reward evaluation function by parsing the reward term
 	reward = None
@@ -103,7 +155,7 @@ def pcheck(args):
 			usermsgs.print_warning('The reward term cannot be parsed. It will be ignored.')
 
 		else:
-			reward = RewardEvaluator(reward_term)
+			reward = RewardEvaluator.new(reward_term, data.term.getSort().kind())
 
 	# Solve the given problem
 	result, stats = backend.check(module=data.module,
@@ -119,7 +171,8 @@ def pcheck(args):
 	                              extra_args=args.extra_args,
 	                              cost=args.steps,
 	                              reward=reward,
-	                              dist=distr)
+	                              dist=distr,
+	                              graph=graph)
 
 	# Show the results and additional information
 	if result is not None:
@@ -138,6 +191,6 @@ def pcheck(args):
 					print(f'Result: {vmin} to {vmax}{_print_extra(result)}')
 					return 0
 
-			print(f'Result: {result.value}{_print_extra(result)}')
+			print(f'Result: {vmin}{_print_extra(result)}')
 
 	return 0

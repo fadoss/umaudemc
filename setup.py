@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
 	name				= 'umaudemc',
-	version				= '0.5.1',
+	version				= '0.6',
 	author				= 'ningit',
 	author_email			= 'ningit@users.noreply.github.com',
 	description			= 'Unified Maude model-checking utility',
@@ -26,7 +26,7 @@ setuptools.setup(
 	],
 	python_requires			= '>=3.7',
 	install_requires		= [
-		'maude >= 0.7',
+		'maude >= 1.0',
 	],
 	extra_requires			= {
 		'CTL*'	: ['pyModelChecking >= 1.3.3'],
