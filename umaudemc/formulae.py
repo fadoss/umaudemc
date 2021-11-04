@@ -26,7 +26,8 @@ def _add_path_premise_ctl(form, premise):
 	head, *rest = form
 
 	if head == 'A_' or head == 'E_':
-		return [head, ['_->_', premise, _add_path_premise_ctl(rest[0], premise)]]
+		bop = '_->_' if head == 'A_' else '_/\\_'
+		return [head, [bop, premise, _add_path_premise_ctl(rest[0], premise)]]
 
 	elif head == 'Prop':
 		return form
