@@ -1,0 +1,11 @@
+# Steady-state probabilities
+#+ for: prism storm
+
+umaudemc pcheck coin head @steady
+umaudemc pcheck coin head @steady --assign uniform
+umaudemc pcheck coin head @steady --assign "term(inertia(L, R))"
+umaudemc pcheck coin head @steady 'choice(3 : ttail, 7 : thead)' --assign strategy
+umaudemc pcheck coin head @steady 'choice(3 : ttail, 7 : thead) ; choice(2 : ttail, 3 : thead)' --assign strategy
+
+umaudemc pcheck coin head @steady 'ttail +'
+umaudemc pcheck coin head @steady '(ttail ; thead | thead ; ttail) +'

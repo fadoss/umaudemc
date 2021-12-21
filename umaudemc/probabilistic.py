@@ -13,6 +13,7 @@ from collections import Counter
 from itertools import chain
 
 from .common import usermsgs, maude
+from .wrappers import create_graph
 
 
 class QuantitativeResult:
@@ -43,7 +44,7 @@ class QuantitativeResult:
 		return str(self.value)
 
 
-def get_assigner(module, name):
+def get_local_assigner(module, name):
 	"""Instantiate probability assignment methods by their text descriptions"""
 
 	if name == 'metadata':
@@ -72,7 +73,7 @@ def get_assigner(module, name):
 
 
 class UniformAssigner:
-	"""Uniform assignement of probabilities among successors"""
+	"""Uniform assignment of probabilities among successors"""
 
 	# Nondeterminism is removed completely
 	nondeterminism = False
@@ -111,7 +112,7 @@ def _parse_metadata(graph, origin, dest):
 
 	# Get the statement producing the transition and its metadata attribute
 	stmt = _get_transition_stmt(graph, origin, dest)
-	mdata = None if stmt is None else stmt.getMetadata()
+	mdata = stmt.getMetadata() if stmt else None
 
 	# If the metadata attribute is absent, weight 1 is considered by default
 	if mdata is None:
@@ -189,7 +190,7 @@ class MetadataMDPAssigner:
 
 
 class WeightedActionAssigner:
-	""""Weighted assignement of probabilisties among actions and then uniform among successors"""
+	""""Weighted assignment of probabilisties among actions and then uniform among successors"""
 
 	# Nondeterminism is completely avoided
 	nondeterminism = False
@@ -306,7 +307,8 @@ class MaudeTermBaseAssigner:
 		self.cache = {}
 
 		self.module = term.symbol().getModule()
-		self.qid_kind = self.module.findSort('Qid').kind()
+		qid_sort = self.module.findSort('Qid')
+		self.qid_kind = qid_sort.kind() if qid_sort else None
 
 	@classmethod
 	def parse(cls, module, text):
@@ -315,8 +317,8 @@ class MaudeTermBaseAssigner:
 
 		nat_sort = module.findSort('Nat')
 		float_sort = module.findSort('Float')
-		qid_kind = module.findSort('Qid').kind()
-		state_kind = module.findSort('State').kind()
+		qid_sort = module.findSort('Qid')
+		qid_kind = qid_sort.kind() if qid_sort else None
 
 		# Parse the text between parentheses as a term
 		symb_name = text[text.index('(')+1:-1]
@@ -338,22 +340,30 @@ class MaudeTermBaseAssigner:
 		variables = set()
 		_find_vars(term, variables)
 		repl = {'L': None, 'R': None, 'A': None}
+		state_kind = None
 
 		for v in variables:
 			var_name = v.getVarName()
 
 			if var_name in ('L', 'R'):
-				if v.getSort().kind() != state_kind:
-					usermsgs.print_warning(f'Variable {v} in weight assignment term belongs to a '
-					                       f'wrong kind {v.getSort().kind()} ({state_kind} expected).')
-					return None
+				var_kind = v.getSort().kind()
+
+				# All ocurrences of the L and R variables in the term must belong to the same kind
+				if state_kind:
+					if var_kind != state_kind:
+						usermsgs.print_warning(f'Variable {v} in weight assignment term belongs to a '
+					                       f'wrong kind {var_kind} ({state_kind} expected).')
+						return None
+				else:
+					state_kind = var_kind
 
 				repl[var_name] = v
 
 			elif var_name == 'A':
 				if v.getSort().kind() != qid_kind:
+					# This may be a false positive if the Qid sort is renamed
 					usermsgs.print_warning(f'Variable {v} in weight assignment term belongs to a '
-					                       f'wrong kind {v.getSort().kind()} ({state_kind} expected).')
+					                       f'wrong kind {v.getSort().kind()} ([Qid] expected).')
 					return None
 
 				repl[var_name] = v
@@ -537,6 +547,13 @@ class AssignedGraph:
 	def __len__(self):
 		return self.graph.getNrStates()
 
+	@property
+	def strategyControlled(self):
+		return self.graph.strategyControlled
+
+	def getRule(self, *args):
+		return self.graph.getRule(*args)
+
 	def states(self):
 		"""Iterator through the states (numbers) of the graph"""
 		return self.visited
@@ -566,8 +583,8 @@ class AssignedGraph:
 		self.visited = {0}
 
 		while pending:
-			# The stacks hold a state number, an iterator to the
-			# children, and the outer degree up to now
+			# The stacks holds a state number and
+			# an iterator to the children
 			state, it = pending.pop()
 
 			next_state = next(it, None)
@@ -582,6 +599,9 @@ class AssignedGraph:
 
 class StrategyMarkovGraph:
 	"""Graph with probabilities assigned by a strategy"""
+
+	# This graph is always strategy-controlled
+	strategyControlled = True
 
 	def __init__(self, root):
 		self.state_list = [root]
@@ -657,3 +677,61 @@ def get_probabilistic_strategy_graph(module, strategy, term):
 		usermsgs.print_error(bps)
 
 	return None
+
+
+def _get_assignment_method(data, spec, allow_file=False):
+	"""Parse the probability assignment method"""
+
+	distr, graph = None, None
+
+	# If the argument to assign begins with @ we load it from a file
+	if allow_file and spec.startswith('@'):
+		try:
+			with open(spec[1:]) as asfile:
+				spec = asfile.read().strip()
+
+		except OSError as oe:
+			usermsgs.print_error(f'Cannot load the probability assignment method from file: {oe}.')
+
+			return None, None
+
+	if spec == 'strategy':
+		if data.strategy is None:
+			usermsgs.print_error('A strategy expression must be provided to use the strategy assignment method.')
+
+		else:
+			graph = get_probabilistic_strategy_graph(data.module, data.strategy, data.term)
+
+	else:
+		distr, found = get_local_assigner(data.module, spec)
+
+		if distr is None and not found:
+			usermsgs.print_error(f'Unknown probability assignment method {spec}.')
+
+	return distr, graph
+
+
+def get_probabilistic_graph(data, spec, allow_file=False, purge_fails='default', merge_states='default'):
+	"""Get the probabilistic graph from the given problem data"""
+
+	# Obtain the assignment method or the graph if it is strategy
+	distr, graph = _get_assignment_method(data, spec, allow_file)
+
+	if distr is None and graph is None:
+		return None
+
+	# Generate the graph for the local probability distributions
+	if distr:
+		graph = AssignedGraph(create_graph(
+				data.term,
+				data.strategy,
+				opaque=data.opaque,
+				full_matchrew=data.full_matchrew,
+				purge_fails=purge_fails,
+				merge_states=merge_states,
+				logic='CTL'),
+			distr)
+
+		graph.expand()
+
+	return graph

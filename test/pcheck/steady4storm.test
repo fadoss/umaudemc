@@ -1,0 +1,10 @@
+# Steady-state probabilities specifically for Storm
+#+ for: storm
+
+# These are the test cases that do not converge with the default method of
+# PRISM (see steady4prism), but they work out of the box with Storm
+
+umaudemc pcheck coin head @steady --assign metadata
+umaudemc pcheck coin head @steady --assign 'uaction(ttail=3, thead=7)'
+umaudemc pcheck coin head @steady --assign @ite.assign
+umaudemc pcheck coin head @steady 'choice(3 : ttail, 7 : thead) *' --assign strategy

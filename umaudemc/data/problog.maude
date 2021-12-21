@@ -39,6 +39,7 @@ fmod PROBABILISTIC-TEMPORAL-LOGIC is
 	op >_   : Float -> Bound [ctor] .
 	op >_   : Nat -> Bound [ctor] .
 
+	op [_,_] : Nat Nat -> Bound [ctor] .
 	op [_,_] : Float Float -> Bound [ctor] .
 
 	vars f g : Formula .

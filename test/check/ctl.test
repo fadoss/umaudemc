@@ -1,0 +1,14 @@
+# Tests for CTL
+#+ for: ltsmin pymc nusmv builtin
+
+umaudemc check vending initial 'A O E <> hasCake' alpha
+umaudemc check vending initial 'A O E <> hasCake' beta
+
+umaudemc check vending initial 'A O E <> hasCake' 'put1 ; apple | put1 ; put1 ; cake'
+umaudemc check vending initial 'A O E <> hasCake' 'put1 ; (apple | put1 ; cake)'
+
+umaudemc check vending initial 'A O E <> hasCake' alpha --merge-states=no
+umaudemc check vending initial 'A O E <> hasCake' beta --merge-states=no
+
+umaudemc check vending initial 'A O E <> hasCake' 'put1 ; apple | put1 ; put1 ; cake ; fail'
+umaudemc check vending initial 'A O E <> hasCake' 'put1 ; apple | put1 ; put1 ; cake ; fail' --purge-fails=no

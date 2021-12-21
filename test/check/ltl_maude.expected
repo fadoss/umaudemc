@@ -1,0 +1,46 @@
+The property is not satisfied in the initial state (5 system states, 13 rewrites, 1 Büchi state)
+| e e [empty]
+∨  rl e O:Soup [I:Soup] => O:Soup [e I:Soup] [label put1] . 
+| e [e]
+∨  rl e O:Soup [I:Soup] => O:Soup [e I:Soup] [label put1] . 
+| empty [e e]
+∨  rl O:Soup [e I:Soup] => a O:Soup [I:Soup] [label apple] . 
+| a [e]
+∨  rl O:Soup [e I:Soup] => a O:Soup [I:Soup] [label apple] . 
+X a a [empty]
+The property is not satisfied in the initial state (6 system states, 16 rewrites, 2 Büchi states)
+| e e [empty]
+∨  rl e O:Soup [I:Soup] => O:Soup [e I:Soup] [label put1] . 
+| e [e]
+∨  rl e O:Soup [I:Soup] => O:Soup [e I:Soup] [label put1] . 
+| empty [e e]
+∨  rl O:Soup [e e I:Soup] => c O:Soup [I:Soup] [label cake] . 
+X c [empty]
+The property is satisfied in the initial state (7 system states, 29 rewrites, 3 Büchi states)
+The property is not satisfied in the initial state (3 system states, 9 rewrites, 1 Büchi state)
+| e e [empty]
+|  @ put1 ; apple | put1 ; put1 ; cake 
+∨  rl e O:Soup [I:Soup] => O:Soup [e I:Soup] [label put1] . 
+| e [e]
+|  @ apple 
+∨  rl O:Soup [e I:Soup] => a O:Soup [I:Soup] [label apple] . 
+X e a [empty]
+The property is not satisfied in the initial state (6 system states, 15 rewrites, 2 Büchi states)
+| e e [empty] @ put1 ; apple | put1 ; put1 ; cake
+∨  put1 
+| e [e] @ put1
+∨  put1 
+| empty [e e] @ cake
+∨  cake 
+X c [empty] @ None
+The property is not satisfied in the initial state (6 system states, 15 rewrites, 2 Büchi states)
+| false 3
+∨  "vending.maude", line 19 (mod VENDING-MACHINE) 
+| false 3
+∨  "vending.maude", line 19 (mod VENDING-MACHINE) 
+| false 3
+∨  "vending.maude", line 21 (mod VENDING-MACHINE) 
+X true 3
+The property is satisfied in the initial state (6 system states, 25 rewrites, 3 Büchi states)
+The property is satisfied in the initial state (6 system states, 15 rewrites, 2 Büchi states)
+The property is satisfied in the initial state (6 system states, 15 rewrites, 2 Büchi states)

@@ -1,0 +1,17 @@
+Using both edge and state labels may not work in your version of LTSmin.
+(see https://github.com/utwente-fmt/ltsmin/pull/185).
+The property is satisfied in the initial state (6 system states, 14 rewrites, 5 game states)
+Using both edge and state labels may not work in your version of LTSmin.
+(see https://github.com/utwente-fmt/ltsmin/pull/185).
+The property is not satisfied in the initial state (4 system states, 8 rewrites, 2 game states)
+Using both edge and state labels may not work in your version of LTSmin.
+(see https://github.com/utwente-fmt/ltsmin/pull/185).
+The property is not satisfied in the initial state (6 system states, 14 rewrites, 9 game states)
+Using both edge and state labels may not work in your version of LTSmin.
+(see https://github.com/utwente-fmt/ltsmin/pull/185).
+The property is not satisfied in the initial state (6 system states, 14 rewrites, 9 game states)
+Using both edge and state labels may not work in your version of LTSmin.
+(see https://github.com/utwente-fmt/ltsmin/pull/185).
+The property is not satisfied in the initial state (5 system states, 12 rewrites, 9 game states)
+The property is satisfied in the initial state (7 system states, 86 rewrites)
+The property is satisfied in the initial state (6 system states, 62 rewrites)

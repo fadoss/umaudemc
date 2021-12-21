@@ -150,17 +150,23 @@ def _reviewOpaqueActions(form, rule_labels, opaque_labels):
 			_reviewOpaqueActions(subform, rule_labels, opaque_labels)
 
 
+def _int_orelse_float(term):
+	"""Convert a term to an integer if possible, otherwise to a float"""
+
+	value = float(term)
+	return int(value) if value.is_integer() else value
+
+
 def _boundSpecParse(bound):
 	"""Parse a probability or steps bound"""
 
 	symbol = str(bound.symbol())
 
 	if symbol in ('<_', '<=_', '>_', '>=_'):
-		value = float(next(bound.arguments()))
-		return [symbol.replace('_', ''), int(value) if value.is_integer() else value]
+		return [symbol.replace('_', ''), _int_orelse_float(next(bound.arguments()))]
 
 	else:
-		return ['-'] + [float(arg) for arg in bound.arguments()]
+		return ['-'] + [_int_orelse_float(arg) for arg in bound.arguments()]
 
 
 def _probFormula2List(form, prop_sort, aprops):

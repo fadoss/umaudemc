@@ -2,11 +2,14 @@
 # Command-line probabilistic model-checking subcommand
 #
 
+import os
+import re
+
 from ..backend import prism, storm
 from ..backends import format_statistics
 from ..common import parse_initial_data, usermsgs
 from ..formulae import ProbParser
-from ..probabilistic import get_assigner, RewardEvaluator, get_probabilistic_strategy_graph
+from ..probabilistic import get_probabilistic_graph, RewardEvaluator
 from ..terminal import terminal as tmn
 
 # Emphasized text to be used when printing Boolean model-checking results
@@ -57,6 +60,14 @@ def _is_ctl(formula):
 def _select_backend(known_backends, backend_list):
 	"""Get the first available backend according to the user preferences"""
 
+	# If the given backend_list is empty, we read it from the following
+	# environment variable, or otherwise we use the defaults
+	if backend_list is None:
+		backend_list = os.getenv('UMAUDEMC_PBACKEND')
+
+		if backend_list is None:
+			backend_list = 'prism,storm'
+
 	# Get the first available backend in the list
 	# (first_known is used to show the error message with the first missing option)
 	options, first_known, first_available = backend_list.split(','), None, None
@@ -90,6 +101,44 @@ def _select_backend(known_backends, backend_list):
 	return known_backends[first_available][1]
 
 
+def _do_state_analysis(data, args, backend, graph, step_number):
+	"""Calculate steady-state or transient probabilities"""
+
+	# State probabilities are only computed for DTMCs
+	if graph.nondeterminism:
+		usermsgs.print_error('Transient and steady-state probabilities are only computed for DTMCs.')
+		return 1
+
+	plist, stats = backend.state_analysis(
+		  step=step_number,
+		  extra_args=args.extra_args,
+		  graph=graph
+	)
+
+	if plist is None:
+		return 1
+
+	# In the strategy-controlled case, we have to merge state
+	# probabilities to obtain term probabilities
+	if graph.strategyControlled:
+		state_dict = {}
+
+		for k, p in enumerate(plist):
+			if p > 0:
+				term = graph.getStateTerm(k)
+				prev = state_dict.get(term, 0.0)
+				state_dict[term] = prev + p
+
+	else:
+		state_dict = {graph.getStateTerm(k): p for k, p in enumerate(plist)}
+
+	# Print the terms with positive probability (without header)
+	for term, p in sorted(state_dict.items(), key=lambda item: - item[1]):
+		print(f' {p:<20} {term}')
+
+	return 0
+
+
 def pcheck(args):
 	"""Probabilistic check subcommand"""
 
@@ -99,8 +148,30 @@ def pcheck(args):
 	if data is None:
 		return 1
 
+	# Whether standard state analysis is requested
+	state_analysis, step_number = False, None
+
 	# Parse the formula if not a raw one
-	if not args.raw_formula:
+	match = re.fullmatch(r'@(steady|transient)(?:\((\d+)\))?', args.formula)
+
+	# Pseudoformulas for stead-state and transient analysis
+	if match:
+		name, step = match.groups()
+		state_analysis = True
+
+		if name == 'steady':
+			if step:
+				usermsgs.print_warning(f'The @steady pseudoformula does not take any argument. It will be ignored.')
+
+		elif name == 'transient':
+			if step is None:
+				usermsgs.print_error('A step number must be given as @transient(step) for transient analysis.')
+				return 1
+
+			step_number = int(step)
+
+	# Formulas expressed in the Maude syntax
+	elif not args.raw_formula:
 		formula, aprops = _parse_formula(data, args)
 
 		if formula is None:
@@ -109,6 +180,8 @@ def pcheck(args):
 		# CTL and PCTL formula must get their states merged in the
 		# strategy-controlled case
 		ftype = 'CTL' if _is_ctl(formula) else 'LTL'
+
+	# Raw formulas in the syntax of the backend
 	else:
 		formula, aprops, ftype = None, None, 'raw'
 
@@ -123,27 +196,17 @@ def pcheck(args):
 	if backend is None:
 		return 1
 
-	# Get the probability assignment method
-	distr, graph = None, None
+	# Get the probabilistic graph
+	graph = get_probabilistic_graph(data, args.assign, allow_file=True,
+					purge_fails=args.purge_fails,
+					merge_states=args.merge_states)
 
-	if args.assign == 'strategy':
-		if data.strategy is None:
-			usermsgs.print_error('A strategy expression must be provided to use the strategy assignment method.')
-			return 1
+	if graph is None:
+		return 1
 
-		graph = get_probabilistic_strategy_graph(data.module, data.strategy, data.term)
-
-		if graph is None:
-			return 1
-
-	else:
-		distr, found = get_assigner(data.module, args.assign)
-
-		if distr is None:
-			if not found:
-				usermsgs.print_error(f'Unknown probability assignment method {args.dist}.')
-
-			return 1
+	# Do state analysis, if required
+	if state_analysis:
+		return _do_state_analysis(data, args, backend, graph, step_number)
 
 	# Get the optional reward evaluation function by parsing the reward term
 	reward = None
@@ -159,19 +222,13 @@ def pcheck(args):
 
 	# Solve the given problem
 	result, stats = backend.check(module=data.module,
-	                              metamodule=data.metamodule,
-	                              term=data.term,
 	                              formula=formula,
 	                              formula_str=args.formula,
-	                              strategy=data.strategy,
 	                              logic=ftype,
 	                              aprops=aprops,
-	                              purge_fails=args.purge_fails,
-	                              merge_states=args.merge_states,
 	                              extra_args=args.extra_args,
 	                              cost=args.steps,
 	                              reward=reward,
-	                              dist=distr,
 	                              graph=graph)
 
 	# Show the results and additional information
@@ -190,7 +247,9 @@ def pcheck(args):
 				if vmin != vmax:
 					print(f'Result: {vmin} to {vmax}{_print_extra(result)}')
 					return 0
+				else:
+					result.value = vmin
 
-			print(f'Result: {vmin}{_print_extra(result)}')
+			print(f'Result: {result.value}{_print_extra(result)}')
 
 	return 0

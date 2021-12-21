@@ -124,7 +124,7 @@ class MaudeModel:
 
 		if isinstance(metamodule, str):
 			self.metamodule = self.module.parseTerm(metamodule)
-			self.module = maude.downModule(metamodule)
+			self.module = maude.downModule(self.metamodule)
 		elif isinstance(metamodule, maude.Term):
 			self.metamodule = metamodule
 			self.module = maude.downModule(metamodule)

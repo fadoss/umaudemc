@@ -62,8 +62,7 @@ def add_backend_arg(parser):
 
 	parser.add_argument(
 		'--backend',
-		help='comma-separated prioritized list of model-checking backends (among maude, ltsmin, pymc, nusmv, spot, builtin)',
-		default='maude,ltsmin,pymc,nusmv,spot,builtin'
+		help='comma-separated prioritized list of model-checking backends (among maude, ltsmin, pymc, nusmv, spot, builtin)'
 	)
 
 
@@ -182,7 +181,7 @@ add_initial_data_args(parser_graph)
 parser_graph.add_argument(
 	'--format',
 	help='select the output format',
-	choices=['default', 'dot', 'tikz', 'nusmv'],
+	choices=['default', 'dot', 'tikz', 'nusmv', 'prism'],
 	default='default'
 )
 parser_graph.add_argument('-o', help='output to a file', metavar='FILENAME')
@@ -197,6 +196,11 @@ parser_graph.add_argument(
 	'--aprops',
 	help='comma-separated list of atomic propositions to be written as annotations if supported',
 	metavar='LIST'
+)
+parser_graph.add_argument(
+	'--passign',
+	help='probability assignment method for adding them to the graph',
+	metavar='METHOD'
 )
 parser_graph.set_defaults(mode='graph')
 
@@ -241,8 +245,7 @@ parser_pcheck.add_argument(
 
 parser_pcheck.add_argument(
 	'--backend',
-	help='comma-separated prioritized list of probabilistic model-checking backends (among prism, storm)',
-	default='prism,storm'
+	help='comma-separated prioritized list of probabilistic model-checking backends (among prism, storm)'
 )
 
 parser_pcheck.set_defaults(mode='pcheck')

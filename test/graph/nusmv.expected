@@ -1,0 +1,147 @@
+MODULE main
+VAR
+  state: 0..6;
+DEFINE
+INIT
+  state in 0;
+TRANS
+  next(state) in case
+    -- e e [empty] (hasCake=false)
+    state = 0 : {1};
+    -- e [e] (hasCake=false)
+    state = 1 : {2, 3};
+    -- empty [e e] (hasCake=false)
+    state = 2 : {4, 6};
+    -- e a [empty] (hasCake=false)
+    state = 3 : {4};
+    -- a [e] (hasCake=false)
+    state = 4 : {5};
+    -- a a [empty] (hasCake=false)
+    state = 5 : {-1};
+    -- c [empty] (hasCake=true)
+    state = 6 : {-1};
+  esac;
+MODULE main
+VAR
+  state: 0..6;
+DEFINE
+    -- hasCake
+    p0 := {6};
+INIT
+  state in 0;
+TRANS
+  next(state) in case
+    -- e e [empty]
+    state = 0 : {1};
+    -- e [e]
+    state = 1 : {2, 3};
+    -- empty [e e]
+    state = 2 : {4, 6};
+    -- e a [empty]
+    state = 3 : {4};
+    -- a [e]
+    state = 4 : {5};
+    -- a a [empty]
+    state = 5 : {-1};
+    -- c [empty]
+    state = 6 : {-1};
+  esac;
+MODULE main
+VAR
+  state: 0..6;
+DEFINE
+    -- hasCake
+    p0 := {6};
+INIT
+  state in 0;
+TRANS
+  next(state) in case
+    -- e e [empty]
+    state = 0 : {1};
+    -- e [e]
+    state = 1 : {2, 3};
+    -- empty [e e]
+    state = 2 : {4, 6};
+    -- e a [empty]
+    state = 3 : {4};
+    -- a [e]
+    state = 4 : {5};
+    -- a a [empty]
+    state = 5 : {-1};
+    -- c [empty]
+    state = 6 : {-1};
+  esac;
+MODULE main
+VAR
+  state: 0..4;
+DEFINE
+INIT
+  state in 0;
+TRANS
+  next(state) in case
+    -- e e [empty]
+    state = 0 : {1};
+    -- e [e]
+    state = 1 : {2, 3};
+    -- e a [empty]
+    state = 2 : {2};
+    -- empty [e e]
+    state = 3 : {4};
+    -- c [empty]
+    state = 4 : {4};
+  esac;
+MODULE main
+VAR
+  state: 0..5;
+DEFINE
+INIT
+  state in 0;
+TRANS
+  next(state) in case
+    -- e e [empty]
+    state = 0 : {1, 3};
+    -- e [e]
+    state = 1 : {2};
+    -- e a [empty]
+    state = 2 : {2};
+    -- e [e]
+    state = 3 : {4};
+    -- empty [e e]
+    state = 4 : {5};
+    -- c [empty]
+    state = 5 : {5};
+  esac;
+MODULE main
+VAR
+  state: 0..2;
+DEFINE
+INIT
+  state in 0;
+TRANS
+  next(state) in case
+    -- e e [empty]
+    state = 0 : {1};
+    -- e [e]
+    state = 1 : {2};
+    -- e a [empty]
+    state = 2 : {2};
+  esac;
+MODULE main
+VAR
+  state: 0..4;
+DEFINE
+INIT
+  state in 0;
+TRANS
+  next(state) in case
+    -- e e [empty]
+    state = 0 : {1};
+    -- e [e]
+    state = 1 : {2, 3};
+    -- e a [empty]
+    state = 2 : {2};
+    -- empty [e e]
+    state = 3 : {4};
+    -- c [empty]
+    state = 4 : {-1};
+  esac;

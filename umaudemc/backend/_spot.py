@@ -110,6 +110,7 @@ class StandardModelBuilder(SpotModelBuilder):
 		while pending:
 			state = pending.pop()
 			state_spot = self.state_map[state]
+			deadlock = True
 
 			for next_state in self.graph.getNextStates(state):
 				next_state_spot = self.state_map.get(next_state)
@@ -120,6 +121,11 @@ class StandardModelBuilder(SpotModelBuilder):
 					pending.append(next_state)
 
 				k.new_edge(state_spot, next_state_spot)
+				deadlock = False
+
+			# Add a self-loop to deadlock states
+			if deadlock and not self.graph.strategyControlled:
+				k.new_edge(state_spot, state_spot)
 
 		k.set_init_state(self.state_map[0])
 

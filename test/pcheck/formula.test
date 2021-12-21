@@ -1,0 +1,41 @@
+# Probabilities of temporal formulae
+#+ for: prism storm
+
+umaudemc pcheck coin head 'O tail'
+umaudemc pcheck coin head '<> <= 10 tail'
+umaudemc pcheck coin head 'P > 0.9 <> <= 10 tail'
+
+umaudemc pcheck coin head 'O tail' --assign uniform
+umaudemc pcheck coin head '<> <= 10 tail' --assign uniform
+umaudemc pcheck coin head 'P > 0.9 <> <= 10 tail' --assign uniform
+
+umaudemc pcheck coin head 'O tail' --assign metadata
+umaudemc pcheck coin head '<> <= 10 tail' --assign metadata
+umaudemc pcheck coin head 'P > 0.9 <> <= 10 tail' --assign metadata
+
+umaudemc pcheck coin head 'O tail' --assign 'uaction(ttail=3, thead=7)'
+umaudemc pcheck coin head '<> <= 10 tail' --assign 'uaction(ttail=3, thead=7)'
+umaudemc pcheck coin head 'P > 0.9 <> <= 10 tail' --assign 'uaction(ttail=3, thead=7)'
+
+umaudemc pcheck coin head 'O tail' --assign @ite.assign
+umaudemc pcheck coin head '<> <= 10 tail' --assign @ite.assign
+umaudemc pcheck coin head 'P > 0.9 <> <= 10 tail' --assign @ite.assign
+
+umaudemc pcheck coin head 'O tail' --assign "term(inertia(L, R))"
+umaudemc pcheck coin head '<> <= 10 tail' --assign "term(inertia(L, R))"
+umaudemc pcheck coin head 'P > 0.9 <> <= 10 tail' --assign "term(inertia(L, R))"
+
+umaudemc pcheck coin head 'O tail' 'choice(3 : ttail, 7 : thead)' --assign strategy
+umaudemc pcheck coin head '<> <= 10 tail' 'choice(3 : ttail, 7 : thead)' --assign strategy
+umaudemc pcheck coin head 'P > 0.9 <> <= 10 tail' 'choice(3 : ttail, 7 : thead)' --assign strategy
+
+umaudemc pcheck coin head 'O tail' 'choice(3 : ttail, 7 : thead) *' --assign strategy
+umaudemc pcheck coin head '<> <= 10 tail' 'choice(3 : ttail, 7 : thead) *' --assign strategy
+umaudemc pcheck coin head 'P > 0.9 <> <= 10 tail' 'choice(3 : ttail, 7 : thead) *' --assign strategy
+
+umaudemc pcheck coin head 'O tail' 'choice(3 : ttail, 7 : thead) ; choice(2 : ttail, 3 : thead)' --assign strategy
+umaudemc pcheck coin head '<> <= 10 tail' 'choice(3 : ttail, 7 : thead) ; choice(2 : ttail, 3 : thead)' --assign strategy
+umaudemc pcheck coin head 'P > 0.9 <> <= 10 tail' 'choice(3 : ttail, 7 : thead) ; choice(2 : ttail, 3 : thead)' --assign strategy
+
+umaudemc pcheck coin head 'P < 0.5 <> tail'
+umaudemc pcheck coin head '<> [3, 5] tail'

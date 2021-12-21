@@ -2,10 +2,13 @@
 # Storm probabilistic backend for umaudemc
 #
 
+import json
 import os
 import re
 import shutil
 import subprocess
+import tempfile
+import time
 
 from . import prism
 from .. import probabilistic as pbs
@@ -77,3 +80,54 @@ class StormBackend(prism.PRISMBackend):
 				usermsgs.print_error('Error: ' + line[6:].decode('utf-8'))
 
 		return result
+
+	def state_analysis(self, step, graph=None, extra_args=(), timeout=None, raw=False):
+		"""Steady and transient state analysis"""
+
+		if self.command is None:
+			return None, None
+
+		# Transient probabilities are not calculated by Storm, as far as we know
+		if step is not None:
+			usermsgs.print_error('Transient probabilities are not supported by Storm. Use PRISM instead.')
+			return None, None
+
+		# The model is written to a temporary file, like in run.
+
+		with tempfile.TemporaryDirectory() as tmpdir:
+			model_file = os.path.join(tmpdir, 'model.pm')
+			export_file = os.path.join(tmpdir, 'export.json')
+
+			with open(model_file, 'w') as pm:
+				grapher = prism.PRISMGenerator(pm, aprops=set())
+
+				# Output the DTMC or MDP for the model
+				grapher.graph(graph)
+
+			# Storm invocation for steady-state probabilities
+			cmd_args = [self.command, '--prism', model_file, '--steadystate', '--exportresult', export_file]
+
+			# Record the time when the actual backend has run for statistics
+			start_time = time.perf_counter_ns()
+
+			try:
+				status = subprocess.run(cmd_args + list(extra_args),
+						        stdout=None if raw else subprocess.PIPE,
+						        stderr=subprocess.STDOUT, timeout=timeout)
+
+			except subprocess.TimeoutExpired:
+				usermsgs.print_error(f'PRISM execution timed out after {timeout} seconds.')
+				return None
+
+			# If something has go wrong...
+			if status.returncode != 0:
+				usermsgs.print_error('An error was produced while running Storm:\n'
+			                     + status.stdout[:-1].decode('utf-8'))
+				return None, None
+
+			# The output file is a JSON with the probabilities
+			with open(export_file) as ef:
+				x = json.load(ef)
+				result = [entry['v'] for entry in x]
+
+		return result, self.make_statistics(grapher, graph, start_time)

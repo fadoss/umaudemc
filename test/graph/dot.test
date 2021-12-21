@@ -1,0 +1,18 @@
+# Graphs in DOT format
+
+umaudemc graph ../check/vending initial
+umaudemc graph ../check/vending initial alpha
+umaudemc graph ../check/vending initial beta
+umaudemc graph ../check/vending initial alpha --merge-states=state
+umaudemc graph ../check/vending initial beta --merge-states=edge
+
+umaudemc graph ../check/vending initial 'put1 ; apple | put1 ; put1 ; cake ; fail'
+umaudemc graph ../check/vending initial 'put1 ; apple | put1 ; put1 ; cake ; fail' --purge-fails=yes
+
+umaudemc graph ../check/vending initial --depth 2
+
+umaudemc graph ../check/vending initial alpha --opaque alpha
+
+umaudemc graph ../check/vending initial --slabel '%t - {%t |= hasCake}' --elabel '(%l)'
+umaudemc graph ../check/vending initial --slabel '%i' --elabel '%s'
+umaudemc graph ../check/vending initial alpha --slabel '%t @ %10s' --elabel '%n'

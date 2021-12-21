@@ -951,7 +951,7 @@ class StratCompiler:
 		# (4) Decide where to add NOTIFY instructions
 
 		notify_points = []  # Addresses where a notify should be added
-		jump_over_notify = []
+		jump_over_notify = []  # Jumps that should be added to skip notifies
 		# Blocks that carry a notify to the block in the key
 		notifiers = {}
 		# Blocks that jump to to the block in the key without address
@@ -977,7 +977,7 @@ class StratCompiler:
 			rwc_level = 0
 
 			for bidx, block in enumerate(fn):
-				# Inherited pending from incoming blocks
+				# Inherited notify from incoming blocks
 				notify_pending = block.start in notifiers and block.start not in not_notifiers
 
 				# There is a notify pending, but it must be resolved right now
@@ -1023,6 +1023,7 @@ class StratCompiler:
 						# When any of the following instructions is found, we stop delaying the
 						# notification since they involve branches or creating new contexts
 						elif (inst.type == Instruction.JUMP and (len(inst.extra) > 1 or inst.extra[0] <= k) or
+						      inst.type == Instruction.CHOICE and len(inst.extra) > 1 or
 						      inst.type == Instruction.NEXTSUBTERM and not inst.extra[0] or
 						      inst.type in (Instruction.CALL, Instruction.SUBSEARCH, Instruction.MATCHREW,
 						                   Instruction.RWCSTART, Instruction.SAMPLE)):

@@ -1,0 +1,55 @@
+***
+*** Vending machine example
+***
+
+sload model-checker
+
+mod VENDING-MACHINE is
+	sorts Machine Soup Thing .
+	subsort Thing < Soup .
+
+	*** One-euro coin, apple, and cake
+	ops e a c : -> Thing [ctor] .
+	op _[_]   : Soup Soup -> Machine [ctor prec 50 format (d s d d d)] .
+	op empty  : -> Soup [ctor] .
+	op __     : Soup Soup -> Soup [ctor assoc comm id: empty] .
+
+	vars O I : Soup .
+
+	rl [put1]  : O e [I]   => O [I e] .
+	rl [apple] : O [I e]   => O a [I] .
+	rl [cake]  : O [I e e] => O c [I] .
+endm
+
+mod VENDING-MACHINE-PREDS is
+	protecting VENDING-MACHINE .
+	including SATISFACTION .
+
+	subsort Machine < State .
+
+	op hasCake : -> Prop [ctor] .
+
+	vars O I : Soup .
+	var  M   : Machine .
+
+	eq (O c [I]) |= hasCake = true .
+	eq M         |= hasCake = false [owise] .
+endm
+
+smod VENDING-MACHINE-STRAT is
+	protecting VENDING-MACHINE .
+
+	strats alpha beta @ Machine .
+
+	sd alpha := put1 ; apple | put1 ; put1 ; cake .
+	sd beta  := put1 ; (apple | put1 ; cake) .
+endsm
+
+smod VENDING-MACHINE-CHECK is
+	protecting VENDING-MACHINE-PREDS .
+	protecting VENDING-MACHINE-STRAT .
+	including STRATEGY-MODEL-CHECKER .
+
+	op initial : -> Machine [ctor] .
+	eq initial = e e [empty] .
+endsm

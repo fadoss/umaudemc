@@ -1,0 +1,161 @@
+digraph {
+	0 [label="e e [empty]"];
+	0 -> 1 [label="put1"];
+	1 [label="e [e]"];
+	1 -> 2 [label="put1"];
+	2 [label="empty [e e]"];
+	2 -> 3 [label="apple"];
+	3 [label="a [e]"];
+	3 -> 4 [label="apple"];
+	4 [label="a a [empty]"];
+	2 -> 5 [label="cake"];
+	5 [label="c [empty]"];
+	1 -> 6 [label="apple"];
+	6 [label="e a [empty]"];
+	6 -> 3 [label="put1"];
+}
+digraph {
+	0 [label="e e [empty]"];
+	0 -> 1 [label="put1"];
+	1 [label="e [e]"];
+	1 -> 2 [label="apple"];
+	2 [label="e a [empty]"];
+	2 -> 2;
+	0 -> 3 [label="put1"];
+	3 [label="e [e]"];
+	3 -> 4 [label="put1"];
+	4 [label="empty [e e]"];
+	4 -> 5 [label="cake"];
+	5 [label="c [empty]"];
+	5 -> 5;
+}
+digraph {
+	0 [label="e e [empty]"];
+	0 -> 1 [label="put1"];
+	1 [label="e [e]"];
+	1 -> 2 [label="apple"];
+	2 [label="e a [empty]"];
+	2 -> 2;
+	1 -> 3 [label="put1"];
+	3 [label="empty [e e]"];
+	3 -> 4 [label="cake"];
+	4 [label="c [empty]"];
+	4 -> 4;
+}
+digraph {
+	0 [label="e e [empty]"];
+	0 -> 1 [label="put1"];
+	1 [label="e [e]"];
+	1 -> 2 [label="apple"];
+	2 [label="e a [empty]"];
+	2 -> 2;
+	1 -> 3 [label="put1"];
+	3 [label="empty [e e]"];
+	3 -> 4 [label="cake"];
+	4 [label="c [empty]"];
+	4 -> 4;
+}
+digraph {
+	0 [label="e e [empty]"];
+	0 -> 1 [label="put1"];
+	1 [label="e [e]"];
+	1 -> 2 [label="apple"];
+	2 [label="e a [empty]"];
+	2 -> 3;
+	3 [label="e a [empty]"];
+	3 -> 3;
+	1 -> 4 [label="put1"];
+	4 [label="empty [e e]"];
+	4 -> 5 [label="cake"];
+	5 [label="c [empty]"];
+	5 -> 6;
+	6 [label="c [empty]"];
+	6 -> 6;
+}
+digraph {
+	0 [label="e e [empty]"];
+	0 -> 1 [label="put1"];
+	1 [label="e [e]"];
+	1 -> 2 [label="apple"];
+	2 [label="e a [empty]"];
+	2 -> 2;
+	0 -> 3 [label="put1"];
+	3 [label="e [e]"];
+	3 -> 4 [label="put1"];
+	4 [label="empty [e e]"];
+	4 -> 5 [label="cake"];
+	5 [label="c [empty]"];
+}
+digraph {
+	0 [label="e e [empty]"];
+	0 -> 1 [label="put1"];
+	1 [label="e [e]"];
+	1 -> 2 [label="apple"];
+	2 [label="e a [empty]"];
+	2 -> 2;
+}
+digraph {
+	0 [label="e e [empty]"];
+	0 -> 1 [label="put1"];
+	1 [label="e [e]"];
+	1 -> 2 [label="put1"];
+	2 [label="empty [e e]"];
+	1 -> 3 [label="apple"];
+	3 [label="e a [empty]"];
+}
+digraph {
+	0 [label="e e [empty]"];
+	0 -> 1 [label="alpha"];
+	1 [label="e a [empty]"];
+	1 -> 1;
+	0 -> 2 [label="alpha"];
+	2 [label="c [empty]"];
+	2 -> 2;
+}
+digraph {
+	0 [label="e e [empty] - false"];
+	0 -> 1 [label="(put1)"];
+	1 [label="e [e] - false"];
+	1 -> 2 [label="(put1)"];
+	2 [label="empty [e e] - false"];
+	2 -> 3 [label="(apple)"];
+	3 [label="a [e] - false"];
+	3 -> 4 [label="(apple)"];
+	4 [label="a a [empty] - false"];
+	2 -> 5 [label="(cake)"];
+	5 [label="c [empty] - true"];
+	1 -> 6 [label="(apple)"];
+	6 [label="e a [empty] - false"];
+	6 -> 3 [label="(put1)"];
+}
+digraph {
+	0 [label="0"];
+	0 -> 1 [label="rl e O:Soup [I:Soup] => O:Soup [e I:Soup] [label put1] ."];
+	1 [label="1"];
+	1 -> 2 [label="rl e O:Soup [I:Soup] => O:Soup [e I:Soup] [label put1] ."];
+	2 [label="2"];
+	2 -> 3 [label="rl O:Soup [e I:Soup] => a O:Soup [I:Soup] [label apple] ."];
+	3 [label="3"];
+	3 -> 4 [label="rl O:Soup [e I:Soup] => a O:Soup [I:Soup] [label apple] ."];
+	4 [label="4"];
+	2 -> 5 [label="rl O:Soup [e e I:Soup] => c O:Soup [I:Soup] [label cake] ."];
+	5 [label="5"];
+	1 -> 6 [label="rl O:Soup [e I:Soup] => a O:Soup [I:Soup] [label apple] ."];
+	6 [label="6"];
+	6 -> 3 [label="rl e O:Soup [I:Soup] => O:Soup [e I:Soup] [label put1] ."];
+}
+digraph {
+	0 [label="e e [empty] @ alpha     "];
+	0 -> 1 [label="\"vending.maude\", line 19 (mod VENDING-MACHINE)"];
+	1 [label="e [e] @ apple     "];
+	1 -> 2 [label="\"vending.maude\", line 20 (mod VENDING-MACHINE)"];
+	2 [label="e a [empty] @ None      "];
+	2 -> 2;
+	0 -> 3 [label="\"vending.maude\", line 19 (mod VENDING-MACHINE)"];
+	3 [label="e [e] @ put1      "];
+	3 -> 4 [label="\"vending.maude\", line 19 (mod VENDING-MACHINE)"];
+	4 [label="empty [e e] @ cake      "];
+	4 -> 5 [label="\"vending.maude\", line 21 (mod VENDING-MACHINE)"];
+	5 [label="c [empty] @ None      "];
+	5 -> 5;
+}

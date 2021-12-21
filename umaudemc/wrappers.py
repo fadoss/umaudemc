@@ -142,7 +142,7 @@ class MergedGraph:
 		return None
 
 	def getNrStates(self):
-		return self.graph.getNrStates()
+		return len(self.states)
 
 	def getNrRealStates(self):
 		return self.graph.getNrRealStates()
@@ -266,7 +266,7 @@ def wrapGraph(graph, purge_fails, merge_states):
 
 
 def create_graph(term=None, strategy=None, opaque=(), full_matchrew=False, purge_fails='default',
-                 merge_states='default', tableau=False, logic=None, **kwargs):
+                 merge_states='default', tableau=False, logic=None, **_):
 	"""Create a graph from the problem input data"""
 
 	if strategy is None:

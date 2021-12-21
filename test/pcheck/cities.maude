@@ -1,0 +1,77 @@
+***
+*** Simple example to use rewards
+***
+
+fmod CITIES is
+	protecting FLOAT .
+
+	sort City .
+
+	ops Madrid Lisbon Paris Berlin Rome Athens : -> City [ctor] .
+endfm
+
+view City from TRIV to CITIES is
+	sort Elt to City .
+endv
+
+mod FLIGHTS is
+	protecting LIST{City} .
+
+	sorts Flight Position .
+	subsorts City Flight < Position .
+
+	ops fr3625 tp846 i23740 u24246 i23673 a3822 : -> Flight [ctor] .
+
+	rl Lisbon => fr3625 . rl fr3625 => Madrid .
+	rl Lisbon => tp846 . rl tp846 => Rome .
+	rl Madrid => i23740 . rl i23740 => Paris .
+	rl Rome => u24246 . rl u24246 => Paris .
+	rl Berlin => i23673 . rl i23673 => Madrid .
+	rl Athens => a3822 . rl a3822 => Berlin .
+
+	var C : City .
+	var F : Flight .
+
+	op price : Position -> Float .
+
+	eq price(C) = 0.0 .
+	eq price(fr3625) = 21.0 .
+	eq price(tp846) = 97.0 .
+	eq price(i23740) = 49.0 .
+	eq price(u24246) = 70.0 .
+	eq price(i23673) = 56.0 .
+	eq price(a3822) = 182.0 .
+
+	op co2 : Position -> Float .
+
+	eq co2(C) = 0.0 .
+	eq co2(fr3625) = 80.0 .
+	eq co2(tp846) = 267.0 .
+	eq co2(i23740) = 129.0 .
+	eq co2(u24246) = 131.0 .
+	eq co2(i23673) = 197.0 .
+	eq co2(a3822) = 206.0 .
+endm
+
+sload model-checker
+
+mod FLIGHTS-PRED is
+	protecting FLIGHTS .
+	including SATISFACTION .
+
+	subsort Position < State .
+	subsort City < Prop .
+
+	var P : Position .
+	var C : City .
+
+	eq C |= C = true .
+	eq P |= C = false [owise] .
+endm
+
+mod FLIGHTS-CHECK is
+	protecting FLIGHTS-PRED .
+	including MODEL-CHECKER .
+
+	var S : State .
+endm

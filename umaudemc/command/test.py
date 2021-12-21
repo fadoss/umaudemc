@@ -581,7 +581,7 @@ def run_tests(suite, backends, args, only_file=None, only_logic=None, resume=Non
 			return 1
 
 		# Ignore files that do not match pattern
-		if only_file and not only_file.match(source):
+		if only_file and not only_file.fullmatch(source):
 			continue
 
 		# Show the file that is being tested
@@ -711,7 +711,7 @@ def benchmark_tests(suite, backends, args, only_file=None, only_logic=None,
 				return 1
 
 			# Ignore files that do not match pattern
-			if only_file and not only_file.match(source):
+			if only_file and not only_file.fullmatch(source):
 				continue
 
 			print(f'{tmn.bold}{source}{tmn.reset}')
@@ -1017,7 +1017,7 @@ def memory_tests(suite, backends, args, only_file=None, only_logic=None,
 				return 1
 
 			# Ignore files that do not match pattern
-			if only_file and not only_file.match(source):
+			if only_file and not only_file.fullmatch(source):
 				continue
 
 			print(f'{tmn.bold}{source}{tmn.reset}')

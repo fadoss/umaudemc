@@ -1,0 +1,10 @@
+# Exporting NuSMV files
+
+umaudemc graph ../check/vending initial --format nusmv --slabel '%t (hasCake={%t |= hasCake})'
+umaudemc graph ../check/vending initial --format nusmv --aprops hasCake
+umaudemc graph ../check/vending initial --format nusmv --aprops hasCake
+
+umaudemc graph ../check/vending initial alpha --format nusmv
+umaudemc graph ../check/vending initial alpha --format nusmv --merge-states=no
+umaudemc graph ../check/vending initial 'put1 ; apple | put1 ; put1 ; cake ; fail' --format nusmv
+umaudemc graph ../check/vending initial 'put1 ; apple | put1 ; put1 ; cake ; fail' --format nusmv --purge-fails=no

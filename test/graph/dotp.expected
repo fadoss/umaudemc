@@ -1,0 +1,99 @@
+digraph {
+	0 [label="e e [empty]"];
+	1 [label="e [e]"];
+	0 -> 1 [label="put1"];
+	2 [label="empty [e e]"];
+	1 -> 2 [label="1/2 put1"];
+	6 [label="e a [empty]"];
+	1 -> 6 [label="1/2 apple"];
+	3 [label="a [e]"];
+	2 -> 3 [label="1/2 apple"];
+	5 [label="c [empty]"];
+	2 -> 5 [label="1/2 cake"];
+	4 [label="a a [empty]"];
+	3 -> 4 [label="apple"];
+	6 -> 3 [label="put1"];
+}
+digraph {
+	0 [label="e e [empty]"];
+	1 [label="e [e]"];
+	0 -> 1 [label="put1"];
+	2 [label="empty [e e]"];
+	1 -> 2 [label="1/6 put1"];
+	6 [label="e a [empty]"];
+	1 -> 6 [label="5/6 apple"];
+	3 [label="a [e]"];
+	2 -> 3 [label="5/12 apple"];
+	5 [label="c [empty]"];
+	2 -> 5 [label="7/12 cake"];
+	4 [label="a a [empty]"];
+	3 -> 4 [label="apple"];
+	6 -> 3 [label="put1"];
+}
+digraph {
+	0 [label="0"];
+	1 [label="1"];
+	0 -> 1 [label="\"vending.maude\", line 19 (mod VENDING-MACHINE)"];
+	2 [label="2"];
+	1 -> 2 [label="1/2 \"vending.maude\", line 19 (mod VENDING-MACHINE)"];
+	6 [label="6"];
+	1 -> 6 [label="1/2 \"vending.maude\", line 20 (mod VENDING-MACHINE)"];
+	3 [label="3"];
+	2 -> 3 [label="3/5 \"vending.maude\", line 20 (mod VENDING-MACHINE)"];
+	5 [label="5"];
+	2 -> 5 [label="2/5 \"vending.maude\", line 21 (mod VENDING-MACHINE)"];
+	4 [label="4"];
+	3 -> 4 [label="\"vending.maude\", line 20 (mod VENDING-MACHINE)"];
+	6 -> 3 [label="\"vending.maude\", line 19 (mod VENDING-MACHINE)"];
+}
+digraph {
+	0 [label="e e [empty]"];
+	1 [label="e [e]"];
+	0 -> 1 [label="put1"];
+	2 [label="empty [e e]"];
+	1 -> 2 [label="1/2 put1"];
+	6 [label="e a [empty]"];
+	1 -> 6 [label="1/2 apple"];
+}
+digraph {
+	0 [label="head"];
+	0 -> 0 [label="8/13 thead"];
+	1 [label="tail"];
+	0 -> 1 [label="5/13 ttail"];
+	1 -> 0 [label="8/13 thead"];
+	1 -> 1 [label="5/13 ttail"];
+}
+digraph {
+	0 [label="head"];
+	1 [label="tail"];
+	0 -> 1 [label="8/13 "];
+	2 [label="head"];
+	0 -> 2 [label="5/13 "];
+	3 [label="tail"];
+	1 -> 3;
+	2 -> 3;
+}
+digraph {
+	0 [label="head"];
+	1 [label="tail"];
+	0 -> 1 [label="8/13 "];
+	2 [label="head"];
+	0 -> 2 [label="5/13 "];
+	1 -> 1 [label="8/13 "];
+	1 -> 2 [label="5/13 "];
+	2 -> 1 [label="8/13 "];
+	2 -> 2 [label="5/13 "];
+}
+digraph {
+	0 [label="head"];
+	1 [label="tail"];
+	0 -> 1 [label="8/13 "];
+	2 [label="head"];
+	0 -> 2 [label="5/13 "];
+	3 [label="tail"];
+	1 -> 3 [label="3/10 "];
+	4 [label="head"];
+	1 -> 4 [label="7/10 "];
+	2 -> 3 [label="3/10 "];
+	2 -> 4 [label="7/10 "];
+}

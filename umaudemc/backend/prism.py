@@ -135,9 +135,20 @@ class PRISMBasedBackend:
 	def __init__(self):
 		self.command = None
 
+	@staticmethod
+	def make_statistics(grapher, graph, start_time):
+		"""Make the model-checking statistics dictionary"""
+
+		return {
+			'states': len(graph),
+			'rewrites': grapher.getNrRewrites() + graph.getNrRewrites(),
+			'backend_start_time': start_time,
+			'real_states': graph.getNrRealStates()
+		}
+
 	def run(self, graph, form, ftype, aprops, extra_args=(), raw=False, cost=False,
-	        formula_str=None, timeout=None, distrib=None, reward=None):
-		"""Run PRISM to solve the given problem"""
+	        formula_str=None, timeout=None, reward=None):
+		"""Run the PRISM-based backend to solve the given problem"""
 
 		# If PRISM has not been found, end with None
 		if self.command is None:
@@ -150,7 +161,7 @@ class PRISMBasedBackend:
 		# The procedure is explained in the NuSMV backend source.
 
 		with tempfile.NamedTemporaryFile(mode='w', delete=False) as tmpfile:
-			grapher = PRISMGenerator(tmpfile, aprops=aprops, distrib=distrib)
+			grapher = PRISMGenerator(tmpfile, aprops=aprops)
 
 			# Output the DTMC or MDP for the model
 			# Expand the graph and calculate the output degrees
@@ -191,12 +202,7 @@ class PRISMBasedBackend:
 		result, stats = self.run_command(tmpfile.name, full_formula, extra_args, timeout, raw), None
 
 		if result is not None:
-			stats = {
-				'states': len(graph),
-				'rewrites': grapher.getNrRewrites() + graph.getNrRewrites(),
-				'backend_start_time': start_time,
-				'real_states': graph.getNrRealStates()
-			}
+			stats = self.make_statistics(grapher, graph, start_time)
 
 		os.remove(tmpfile.name)
 		return result, stats
@@ -205,11 +211,6 @@ class PRISMBasedBackend:
 	          timeout=None, cost=False, formula_str=None, aprops=None, logic=None,
 	          dist=None, reward=None, **kwargs):
 		"""Solves a model-checking problem with PRISM"""
-
-		# Create the graph if not provided by the caller
-		if graph is None:
-			graph = pbs.AssignedGraph(create_graph(logic=logic, tableau=True, **kwargs), dist)
-			graph.expand()
 
 		# Extract the atomic proposition term from the raw formulae
 		if formula is None:
@@ -220,11 +221,7 @@ class PRISMBasedBackend:
 		aprop_terms = [module.parseTerm(prop) for prop in aprops]
 
 		holds, stats = self.run(graph, formula, logic, aprop_terms, extra_args, cost=cost,
-		                        formula_str=formula_str, timeout=timeout, distrib=dist,
-		                        reward=reward)
-
-		if holds is not None and get_graph:
-			stats['graph'] = graph
+		                        formula_str=formula_str, timeout=timeout, reward=reward)
 
 		return holds, stats
 
@@ -303,11 +300,67 @@ class PRISMBackend(PRISMBasedBackend):
 
 		return result
 
+	def state_analysis(self, step, graph=None, extra_args=(), timeout=None, raw=False):
+		"""Steady and transient state analysis"""
+
+		if self.command is None:
+			return None, None
+
+		# The model is written to a temporary file, like in run.
+
+		with tempfile.TemporaryDirectory() as tmpdir:
+			model_file = os.path.join(tmpdir, 'model.pm')
+			export_file = os.path.join(tmpdir, 'export.txt')
+
+			with open(model_file, 'w') as pm:
+				grapher = PRISMGenerator(pm, aprops=set())
+
+				# Output the DTMC or MDP for the model
+				grapher.graph(graph)
+
+			# PRISM invocation for either transient or steady-state probabilities
+			cmd_args = [self.command, model_file]
+
+			if step is not None:
+				cmd_args += ['-tr', str(step), '-exporttransient']
+			else:
+				cmd_args += ['-ss', '-exportsteadystate']
+
+			# The result are exported to a file
+			cmd_args.append(export_file)
+
+			# Record the time when the actual backend has run for statistics
+			start_time = time.perf_counter_ns()
+
+			try:
+				status = subprocess.run(cmd_args + list(extra_args),
+						        capture_output=not raw, timeout=timeout)
+
+			except subprocess.TimeoutExpired:
+				usermsgs.print_error(f'PRISM execution timed out after {timeout} seconds.')
+				return None
+
+			# The return code does not seem to be reliable
+			if b'Error:' in status.stdout:
+				usermsgs.print_error('An error was produced while running PRISM:\n'
+			                     + status.stdout[:-1].decode('utf-8'))
+				return None, None
+
+			# The output file is a list of probabilities, one per line, for each state
+			with open(export_file) as ef:
+				if step is None:
+					result = list(map(float, ef))
+				else:
+					# Transient probabilities appear after the = sign
+					result = [float(m[m.index('=')+1:]) for m in ef]
+
+		return result, self.make_statistics(grapher, graph, start_time)
+
 
 class PRISMGenerator:
 	"""Generator of PRISM models"""
 
-	def __init__(self, outfile=sys.stdout, aprops=(), distrib=None):
+	def __init__(self, outfile=sys.stdout, aprops=(), slabel=None):
 		self.visited = set()
 		self.aprops = aprops
 		self.outfile = outfile
@@ -315,32 +368,43 @@ class PRISMGenerator:
 		self.satisfies = None
 		self.true_term = None
 
+		self.slabel = slabel
+
 		# Number of rewrites used to check atomic propositions
 		self.nrRewrites = 0
 
 	def getNrRewrites(self):
 		return self.nrRewrites
 
-	def check_aprop(self, graph, propNr, stateNr):
-		"""Check whether a given atomic proposition holds in a state"""
-		t = self.satisfies.makeTerm((graph.getStateTerm(stateNr), self.aprops[propNr]))
-		self.nrRewrites += t.reduce()
-		return t == self.true_term
-
-	def graph(self, graph):
-		"""Generate a PRISM input file"""
-
-		# Find the satisfaction (|=) symbol and the true constant to be used
-		# when testing atomic propositions.
+	def init_aprop(self, graph):
+		"""Find the resources required for testing atomic propositions"""
 
 		module = graph.getStateTerm(0).symbol().getModule()
 		boolkind = module.findSort('Bool').kind()
 
 		self.satisfies = module.findSymbol('_|=_', (module.findSort('State').kind(),
 							    module.findSort('Prop').kind()),
-		                                   boolkind)
+						  boolkind)
 
 		self.true_term = module.findSymbol('true', (), boolkind).makeTerm(())
+
+
+	def check_aprop(self, graph, propNr, stateNr):
+		"""Check whether a given atomic proposition holds in a state"""
+
+		t = self.satisfies.makeTerm((graph.getStateTerm(stateNr), self.aprops[propNr]))
+		self.nrRewrites += t.reduce()
+		return t == self.true_term
+
+	def graph(self, graph, bound=None):
+		"""Generate a PRISM input file"""
+
+		# Find the satisfaction (|=) symbol and the true constant to be used
+		# when testing atomic propositions.
+
+		if self.aprops:
+			self.init_aprop(graph)
+
 
 		# Build the model specification in the PRISM format
 		model_type = 'mdp' if graph.nondeterminism else 'dtmc'
@@ -352,6 +416,10 @@ class PRISMGenerator:
 		for state, children in graph.transitions():
 			# If the state does not have successors, we just continue
 			# (the stuttering-extension of deadlock states is done by PRISM)
+
+			# Adds labels to the states for graph generation
+			if self.slabel:
+				print(f'\t// {self.slabel(graph, state)}', file=self.outfile)
 
 			update = ' + '.join(f"{p}:(x'={nexts})" for p, nexts in children)
 			print(f'\t[] x={state} -> {update};', file=self.outfile)

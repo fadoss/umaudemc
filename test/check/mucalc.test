@@ -1,0 +1,13 @@
+# Test for the μ-calculus
+#+ for: ltsmin builtin
+
+# Hennessy-Milner logic
+umaudemc check vending initial '< put1 > < put1 > < cake > hasCake'
+umaudemc check vending initial '< put1 > < cake > hasCake'
+umaudemc check vending initial '< put1 > < put1 > [.] hasCake'
+umaudemc check vending initial '< put1 > < put1 > [.] hasCake' alpha
+umaudemc check vending initial '< put1 > < put1 > [.] hasCake' beta
+
+# μ-calculus
+umaudemc check vending initial 'mu Z . hasCake \/ <.> Z'
+umaudemc check vending initial 'mu Z . hasCake \/ <.> Z' alpha

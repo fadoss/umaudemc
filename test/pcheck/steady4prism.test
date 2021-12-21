@@ -1,0 +1,10 @@
+# Steady-state probabilities specifically for Prism
+#+ for: prism
+
+# The Jacobi method that PRISM uses by default does not converge in the
+# following cases, so we indicate -gs to use Gauss-Seidel instead.
+
+umaudemc pcheck coin head @steady --assign metadata -- -gs
+umaudemc pcheck coin head @steady --assign 'uaction(ttail=3, thead=7)' -- -gs
+umaudemc pcheck coin head @steady --assign @ite.assign -- -gs
+umaudemc pcheck coin head @steady 'choice(3 : ttail, 7 : thead) *' --assign strategy -- -gs

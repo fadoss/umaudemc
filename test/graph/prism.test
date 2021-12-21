@@ -1,0 +1,15 @@
+# Exporting PRISM files
+
+umaudemc graph ../check/vending initial --passign uniform --format prism
+umaudemc graph ../check/vending initial --passign uniform --format prism --slabel '{%t |= hasCake}'
+umaudemc graph ../check/vending initial --passign uniform --format prism --aprops hasCake
+
+umaudemc graph ../check/vending initial --passign 'uaction(cake=7, apple=5)' --format prism --slabel ''
+umaudemc graph ../check/vending initial --passign "term(if A:Qid == 'cake then 2 else 3 fi)" --format prism
+
+umaudemc graph ../pcheck/coin head --passign metadata --format prism --aprops head,tail
+umaudemc graph ../pcheck/coin head 'choice(8 : ttail, 5 : thead) ; ttail' --passign strategy --format prism --aprops head,tail
+umaudemc graph ../pcheck/coin head 'choice(8 : ttail, 5 : thead) *' --passign strategy --format prism --aprops head,tail
+
+# TODO: este no funciona como esperaba
+umaudemc graph ../pcheck/coin head 'choice(8 : ttail, 5 : thead) ; choice(3 : ttail, 7 : thead)' --passign strategy

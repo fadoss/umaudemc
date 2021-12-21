@@ -1,0 +1,14 @@
+# Test for LTL
+#+ for: maude ltsmin nusmv spot pymc
+
+umaudemc check vending initial '<> hasCake'
+umaudemc check vending initial '[] ~ hasCake'
+umaudemc check vending initial '<> hasCake -> <> [] hasCake'
+
+umaudemc check vending initial '<> hasCake' alpha --show-strat
+umaudemc check vending initial '[] ~ hasCake' alpha --slabel '%t @ %s' --elabel '%l'
+umaudemc check vending initial '[] ~ hasCake' alpha --slabel '{%t |= hasCake} {1 + 2}' --elabel '%n'
+umaudemc check vending initial '<> hasCake -> <> [] hasCake' alpha
+
+umaudemc check vending initial '[] ~ hasCake' 'put1 ; apple | put1 ; put1 ; cake ; fail'
+umaudemc check vending initial '[] ~ hasCake' 'put1 ; apple | put1 ; put1 ; cake ; fail' --purge-fails=no

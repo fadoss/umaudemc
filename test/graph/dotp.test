@@ -1,0 +1,12 @@
+# Probabilistic graphs in DOT format
+
+umaudemc graph ../check/vending initial --passign uniform
+umaudemc graph ../check/vending initial --passign 'uaction(cake=7, apple=5)'
+umaudemc graph ../check/vending initial --passign "term(if A:Qid == 'cake then 2 else 3 fi)" --slabel '%i' --elabel '%n'
+umaudemc graph ../check/vending initial --passign uniform --depth 2
+
+umaudemc graph ../pcheck/coin head --passign metadata
+umaudemc graph ../pcheck/coin head 'choice(8 : ttail, 5 : thead) ; ttail' --passign strategy
+umaudemc graph ../pcheck/coin head 'choice(8 : ttail, 5 : thead) *' --passign strategy
+
+umaudemc graph ../pcheck/coin head 'choice(8 : ttail, 5 : thead) ; choice(3 : ttail, 7 : thead)' --passign strategy

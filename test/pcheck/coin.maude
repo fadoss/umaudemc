@@ -1,0 +1,60 @@
+***
+*** Simple coin toss example
+***
+*** It is intended to be used with the umaudemc's pcheck command
+***
+
+mod COIN is
+	sort Coin .
+	ops head tail : -> Coin [ctor] .
+
+	vars C C' : Coin .
+
+	rl [thead] : C => head [metadata "8"] .
+	rl [ttail] : C => tail [metadata "5"] .
+endm
+
+smod COIN-STRAT is
+	protecting COIN .
+	protecting NAT .
+
+	strats repeat : Nat @ Coin .
+
+	var N : Nat .
+
+	strat toss @ Coin .
+	sd toss := thead | ttail .
+
+	sd repeat(0) := idle .
+	sd repeat(s(N)) := toss ; repeat(N) .
+endsm
+
+sload model-checker
+
+mod COIN-PREDS is
+	protecting COIN .
+	including SATISFACTION .
+
+	subsorts Coin < State Prop .
+
+	vars C C' : Coin .
+
+	eq C |= C' = C == C' .
+endm
+
+smod COIN-SCHECK is
+	protecting COIN-STRAT .
+	protecting COIN-PREDS .
+	including MODEL-CHECKER .
+	including STRATEGY-MODEL-CHECKER .
+
+	vars C C' L R : Coin .
+	var  Q A      : Qid .
+
+	*** inertia can be used with the term assignment method of pcheck
+	*** to specify that obtaining the same face in the next toss
+	*** is twice as likely as obtaining a different one
+
+	op inertia : Coin Coin -> Nat .
+	eq inertia(C, C') = if C == C' then 2 else 1 fi .
+endsm

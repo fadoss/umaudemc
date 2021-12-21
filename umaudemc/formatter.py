@@ -107,18 +107,19 @@ def apply_edge_format(graph, origin, dest, eformat):
 
 	stmt = graph.getRule(origin, dest)
 	label = stmt.getLabel()
+	line = stmt.getLineNumber()
 	opaque = ''
 
 	if label is None:
 		label = ''
 
-	return eformat.format(stmt=stmt, label=label, opaque=opaque)
+	return eformat.format(stmt=stmt, label=label, line=line, opaque=opaque)
 
 
 def apply_edge_format_strat(graph, origin, dest, eformat):
 	"""Edge label generator for strategy-controlled using a prebuilt format string"""
 	trans = graph.getTransition(origin, dest)
-	opaque, label, stmt = '', '', ''
+	opaque, label, stmt, line = '', '', '', ''
 
 	if trans.getType() == maude.StrategyRewriteGraph.SOLUTION:
 		stmt = label = 'solution'
@@ -126,13 +127,15 @@ def apply_edge_format_strat(graph, origin, dest, eformat):
 	elif trans.getType() == maude.StrategyRewriteGraph.RULE_APPLICATION:
 		stmt = trans.getRule()
 		label = stmt.getLabel()
+		line = stmt.getLineNumber()
 
 	elif trans.getType() == maude.StrategyRewriteGraph.OPAQUE_STRATEGY:
 		stmt = trans.getStrategy()
 		label = stmt.getName()
+		line = stmt.getLineNumber()
 		opaque = 'opaque'
 
-	return eformat.format(stmt=stmt, label=label, opaque=opaque)
+	return eformat.format(stmt=stmt, label=label, line=line, opaque=opaque)
 
 
 def parse_edge_format(eformat, strategy):
@@ -144,6 +147,7 @@ def parse_edge_format(eformat, strategy):
 	eformat = re.sub(r'%(.\d+)?s', r'{stmt:\1}', eformat)
 	eformat = re.sub(r'%(.\d+)?l', r'{label:\1}', eformat)
 	eformat = re.sub(r'%(.\d+)?o', r'{opaque:\1}', eformat)
+	eformat = re.sub(r'%(.\d+)?n', r'{line:\1}', eformat)
 
 	if strategy:
 		return lambda graph, origin, dest: apply_edge_format_strat(graph, origin, dest, eformat)

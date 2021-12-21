@@ -1,0 +1,12 @@
+# Probabilities of temporal formulae (LTL formulae, for PRISM)
+#+ req: prism
+
+umaudemc pcheck coin head '[] <> tail'
+umaudemc pcheck coin head '[] <> tail' --assign uniform
+umaudemc pcheck coin head '[] <> tail' --assign metadata
+umaudemc pcheck coin head '[] <> tail' --assign 'uaction(ttail=3, thead=7)'
+umaudemc pcheck coin head '[] <> tail' --assign @ite.assign
+umaudemc pcheck coin head '[] <> tail' --assign "term(inertia(L, R))"
+umaudemc pcheck coin head '[] <> tail' 'choice(3 : ttail, 7 : thead)' --assign strategy
+umaudemc pcheck coin head '[] <> tail' 'choice(3 : ttail, 7 : thead) *' --assign strategy
+umaudemc pcheck coin head '[] <> tail' 'choice(3 : ttail, 7 : thead) ; choice(2 : ttail, 3 : thead)' --assign strategy

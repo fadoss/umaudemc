@@ -1,0 +1,1 @@
+term(if A == 'ttail then 3 else 7 fi)

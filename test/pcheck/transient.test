@@ -1,0 +1,13 @@
+# Transient probabilities
+#+ req: prism
+
+umaudemc pcheck coin head '@transient(0)'
+umaudemc pcheck coin head '@transient(4)'
+umaudemc pcheck coin head '@transient(5)'
+
+umaudemc pcheck coin head '@transient(3)' '(thead ; ttail) !'
+umaudemc pcheck coin head '@transient(4)' '(thead ; ttail) !'
+umaudemc pcheck coin head '@transient(5)' '(thead ; ttail) !'
+
+umaudemc pcheck coin head '@transient(2)' 'choice(1 : thead, 3 : ttail) ; choice(1 : ttail, 3 : thead)' --assign strategy
+umaudemc pcheck coin head '@transient(3)' 'choice(1 : thead, 3 : ttail) ; choice(1 : ttail, 3 : thead)' --assign strategy

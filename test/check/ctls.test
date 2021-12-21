@@ -1,0 +1,4 @@
+# Tests for CTL*
+#+ for: ltsmin pymc
+
+umaudemc check cupsballs 'cup(nothing) cup(ball) cup(nothing)' 'A (<> uncovered -> E <> hit)' cups-rec

@@ -319,7 +319,7 @@ def run(args):
 	server_address = ('127.0.0.1', 8000)
 
 	if args.address is not None:
-		match = ADDRESS_REGEX.match(args.address)
+		match = ADDRESS_REGEX.fullmatch(args.address)
 		if match:
 			server_address = (match.group(1), int(match.group(2)))
 		else:

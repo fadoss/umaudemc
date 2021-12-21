@@ -1,0 +1,6 @@
+# Test for the Kleene star semantics
+#+ for: spot maude ltsmin
+
+umaudemc check cupsballs initial '[] <> uncovered' cups
+umaudemc check cupsballs initial '[] <> uncovered' cups -k
+umaudemc check cupsballs initial '[] <> uncovered' cups --kleene-iteration

@@ -19,6 +19,9 @@ supported_logics = {
 	'builtin': {'propLogic', 'CTL', 'Mucalc'}
 }
 
+# List of backends in the default order
+DEFAULT_BACKENDS = 'maude,ltsmin,pymc,nusmv,spot,builtin'
+
 # Backends that support the generation of counterexamples
 counterexample_backends = {'maude', 'nusmv', 'spot'}
 
@@ -41,7 +44,7 @@ class MaudeBackend:
 		return True
 
 	def check(self, module=None, graph=None, formula_str=None, term=None,
-	          strategy=None, opaque=(), full_matchrew=False, get_graph=False, **kwargs):
+	          strategy=None, opaque=(), full_matchrew=False, get_graph=False, **_):
 		"""Check an LTL formula using the Maude LTL model checker"""
 
 		formula = module.parseTerm(formula_str)
@@ -99,6 +102,13 @@ def get_backend(backend):
 def get_backends(backend_arg):
 	"""Get the lists of available and unavailable backends give a comma-separated list with their names"""
 	available, unavailable = [], []
+
+	# If the argument is None, take it from the environment or by default
+	if backend_arg is None:
+		backend_arg = os.getenv('UMAUDEMC_BACKEND')
+
+		if backend_arg is None:
+			backend_arg = DEFAULT_BACKENDS
 
 	backend_names = backend_arg.split(',') if isinstance(backend_arg, str) else backend_arg
 

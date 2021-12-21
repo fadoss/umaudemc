@@ -1,0 +1,16 @@
+# Reward calculation
+#+ for: prism storm
+
+umaudemc pcheck coin head '<> tail' --steps
+umaudemc pcheck coin head '<> tail' --steps --assign uniform
+umaudemc pcheck coin head '<> tail' --steps --assign metadata
+umaudemc pcheck coin head '<> tail' --steps --assign 'uaction(ttail=3, thead=7)'
+umaudemc pcheck coin head '<> tail' --steps --assign @ite.assign
+umaudemc pcheck coin head '<> tail' --steps --assign "term(inertia(L, R))"
+umaudemc pcheck coin head '<> tail' 'choice(3 : ttail, 7 : thead)' --steps --assign strategy
+umaudemc pcheck coin head '<> tail' 'choice(3 : ttail, 7 : thead) *' --steps  --assign strategy
+
+umaudemc pcheck cities Lisbon '<> Paris' --steps
+umaudemc pcheck cities Lisbon '<> Paris' --reward 'price(S)'
+umaudemc pcheck cities Lisbon '<> Paris' --reward 'co2(St:State)'
+umaudemc pcheck cities Athens '<> Madrid' --reward 'price(S)'

@@ -1,0 +1,71 @@
+***
+*** Cups and balls test for the Kleene star iteration
+***
+*** This example should be model checked using the Kleene-star
+*** semantics of the iteration.
+***
+
+sload model-checker
+
+mod CUPS-BALLS is
+	protecting LIST{Nat} .
+
+	sort MaybeBall Cup Table .
+	subsort MaybeBall Cup < Table .
+
+	ops ball nothing : -> MaybeBall [ctor] .
+	op  cup          : MaybeBall -> Cup [ctor frozen] .
+
+	op  empty        : -> Table [ctor] .
+	op  __           : Table Table -> Table [ctor assoc id: empty] .
+
+	var  T          : Table .
+	vars B? B1? B2? : MaybeBall .
+
+	rl [swap]    : cup(B1?) T cup(B2?) => cup(B2?) T cup(B1?) .
+	rl [uncover] : cup(B?) => B? .
+	rl [cover]   : B? => cup(B?) .
+
+	rl [disappear] : cup(ball) => cup(nothing) .
+	rl [appear]    : cup(nothing) => cup(ball) .
+
+	op initial : -> Table .
+	eq initial = nothing ball nothing .
+endm
+
+mod CUPS-BALLS-PREDS is
+	protecting CUPS-BALLS .
+	including SATISFACTION .
+
+	subsort Table < State .
+
+	ops uncovered hit : -> Prop [ctor] .
+
+	vars L R T : Table .
+	var  B?    : MaybeBall .
+
+	eq L B? R   |= uncovered = true .
+	eq T        |= uncovered = false [owise] .
+	eq L ball R |= hit = true .
+	eq T        |= hit = false [owise] .
+endm
+
+smod CUPS-BALLS-STRAT is
+	protecting CUPS-BALLS .
+
+	strats cups cups-rec @ Table .
+
+	sd cups := cover ! ; cups-rec .
+	sd cups-rec := swap * ; uncover ; cover ; cups-rec .
+
+	strats cups2 cups2-rec @ Table .
+
+	sd cups2 := cover ! ; cups2-rec .
+	sd cups2-rec := (swap | disappear) * ; not(amatch cup(ball)) ; uncover ; cover ; appear ; cups2-rec .
+endsm
+
+smod CUPS-BALLS-CHECK is
+	protecting CUPS-BALLS-PREDS .
+	protecting CUPS-BALLS-STRAT .
+	including STRATEGY-MODEL-CHECKER .
+endsm
