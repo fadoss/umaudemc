@@ -233,7 +233,11 @@ class PRISMBackend(PRISMBasedBackend):
 		"""Tries to find PRISM"""
 
 		if os.getenv('PRISM_PATH') is not None:
-			prism_path = os.path.join(os.getenv('PRISM_PATH'), 'prism')
+			prism_path = os.getenv('PRISM_PATH')
+
+			# Let PRISM_PATH be the filename of a binary (for using ngrpism)
+			if not os.path.isfile(prism_path):
+				prism_path = os.path.join(prism_path, 'prism')
 
 			if os.path.isfile(prism_path) and os.access(prism_path, os.X_OK):
 				self.command = prism_path

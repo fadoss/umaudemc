@@ -583,7 +583,7 @@ class AssignedGraph:
 		self.visited = {0}
 
 		while pending:
-			# The stacks holds a state number and
+			# The stacks hold a state number and
 			# an iterator to the children
 			state, it = pending.pop()
 

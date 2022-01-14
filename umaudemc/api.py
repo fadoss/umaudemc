@@ -182,6 +182,19 @@ class MaudeModel:
 		self.wgraphs = {}
 		self.single_use = single_use
 
+	def _make_data(self):
+		"""Make an InitialData structure from the model content"""
+
+		data = _common.InitialData()
+
+		data.module = self.module
+		data.strategy = self.strategy
+		data.term = self.initial
+		data.opaque = self.opaque
+		data.full_matchrew = not self.biased_matchrew
+
+		return data
+
 	def check(self, formula, purge_fails='default', merge_states='default',
 	          backends=DEFAULT_BACKENDS, formula_str=None, logic=None,
 	          depth=-1, timeout=None, usermsgs=_usermsgs, extra_args=()):
@@ -220,8 +233,8 @@ class MaudeModel:
 			formula_str = formula
 
 		elif isinstance(formula, maude.Term):
-			pyformula = None
 			formula_str = formula_str if formula_str else _term2str(formula)
+			pyformula, _ = self.parser.parse(formula_str)
 			logic = 'LTL'
 
 		elif isinstance(formula, list):
@@ -270,7 +283,7 @@ class MaudeModel:
 
 			# Decide the purge_fails and merge_states values if not explicitly given
 			purge, merge = _common.default_model_settings(logic, purge_fails, merge_states,
-			                                              self.strategy is None,
+			                                              self.strategy,
 			                                              tableau=name in ['nusmv', 'pymc'])
 			wgraph = self.wgraphs.get((purge, merge, depth > 0))
 
@@ -280,7 +293,7 @@ class MaudeModel:
 				wgraph = _wrappers.BoundedGraph(self.graph, depth) if depth > 0 else self.graph
 
 				# Create and store the wrapped graph
-				wgraph = _wrappers.wrapGraph(wgraph, purge_fails, merge_states)
+				wgraph = _wrappers.wrapGraph(wgraph, purge, merge)
 				self.wgraphs[(purge, merge, depth > 0)] = wgraph
 
 				# In case both purge and merge are used, we keep the purged
@@ -368,15 +381,11 @@ class MaudeModel:
 			return None, None
 
 		# Select the probability assignment method
-		graph, distr = None, None
+		data = self._make_data()
 
-		if assign == 'strategy':
-			graph = _probabilistic.get_probabilistic_strategy_graph(self.module,
-										self.strategy,
-										self.initial)
-
-		else:
-			distr, _ = _probabilistic.get_assigner(self.module, assign)
+		graph = _probabilistic.get_probabilistic_graph(data, assign,
+							       purge_fails=purge_fails,
+							       merge_states=merge_states)
 
 		# Parse the temporal formula
 		pparser = _formulae.ProbParser()
@@ -396,20 +405,13 @@ class MaudeModel:
 				reward = _probabilistic.RewardEvaluator.new(reward, self.initial.getSort().kind())
 
 		result, stats = backend.check(module=self.module,
-		                              metamodule=self.metamodule,
-		                              term=self.initial,
-		                              formula=pformula,
-		                              strategy=self.strategy,
-		                              logic='LTL',
-		                              aprops=aprops,
-		                              purge_fails=purge_fails,
-		                              merge_states=merge_states,
-		                              extra_args=extra_args,
-		                              timeout=timeout,
-		                              cost=steps,
-		                              reward=reward,
-		                              dist=distr,
-		                              graph=graph)
+					      formula=pformula,
+					      logic='CTL',
+					      aprops=aprops,
+					      extra_args=extra_args,
+					      cost=steps,
+					      reward=reward,
+					      graph=graph)
 
 		return result, stats
 

@@ -179,6 +179,9 @@ class ListWalker:
 	def reset(self):
 		self.index = 0
 
+	def __contains__(self, value):
+		return value in self.lst
+
 	def peek_equal(self, value):
 		"""Check whether the next number of the sequence is the given one without advancing it"""
 
@@ -982,7 +985,14 @@ class StratCompiler:
 
 				# There is a notify pending, but it must be resolved right now
 				if not notify_pending and block.start in notifiers:
-					# If there is only one notifier, notify there
+					# The problem is that there are both notifiers and non-notifiers
+					# jumping to this block. We must add a NOTIFY for the former that
+					# the later must jump over. This is easy to achieve unless the
+					# non-notifier is the previous block, which does not have a jump.
+
+					# As an optimization, if there is a single notifier, notify at the
+					# end of it (which may coincide with the beginning of this block,
+					# but in this case the previous block is a notifier)
 					our_notifiers = notifiers[block.start]
 					notifier, *_ = our_notifiers
 					if len(our_notifiers) == 1 and p[notifier.start + notifier.length - 1] in (Instruction.JUMP, Instruction.CHOICE):
@@ -1091,6 +1101,12 @@ class StratCompiler:
 			if jump_over_notify.next_equal(block.start):
 				np.append(Instruction.JUMP, extra=(translation[block.start] + 1, ))
 
+			def translate(addr):
+				# Non-notifiers jumping to a NOTIFY must skip it
+				if block in not_notifiers.get(addr, ()) and addr in notify_points:
+					return translation[addr] + 1
+				return translation[addr]
+
 			# Translate addresses and add NOTIFY inside the block
 			for k in range(block.start, block.start + block.length):
 				inst = p[k]
@@ -1108,31 +1124,16 @@ class StratCompiler:
 						matchrew_vars[-1] = matchrew_vars[-1][1:]
 
 				if inst.type == Instruction.JUMP:
-					np.append(Instruction.JUMP, extra=tuple(translation[addr] for addr in inst.extra))
+					np.append(Instruction.JUMP, extra=tuple(translate(addr) for addr in inst.extra))
 
 				elif inst.type == Instruction.SUBSEARCH:
-					np.append(Instruction.SUBSEARCH, extra=translation[inst.extra])
+					np.append(Instruction.SUBSEARCH, extra=translate(inst.extra))
 
 				elif inst.type == Instruction.CHOICE:
-					np.append(Instruction.CHOICE, extra=tuple((w, translation[pc]) for w, pc in inst.extra))
+					np.append(Instruction.CHOICE, extra=tuple((w, translate(pc)) for w, pc in inst.extra))
 
 				else:
 					np.inst.append(p[k])
-
-		# Make the non-notifiers jump the NOTIFY instruction
-		notify_points.reset()
-
-		for block in itertools.chain.from_iterable(blocks):
-			if notify_points.peek_equal(block.start) and block.start in not_notifiers:
-				for nn in not_notifiers[block.start]:
-					inst = np[translation[nn.start + nn.length] - 1]
-					if inst.type == Instruction.JUMP:
-						inst.extra = tuple((addr + 1 if addr == translation[block.start] else addr)
-						                   for addr in inst.extra)
-
-					elif inst.type == Instruction.CHOICE:
-						inst.extra = tuple((w, addr + 1 if addr == translation[block.start] else addr)
-						                   for w, addr in inst.extra)
 
 		# Translate the addresses of the definitions
 		np.defs = tuple((name, tuple((p, c, translation[addr]) for p, c, addr in defs)) for name, defs in p.defs)
@@ -1490,7 +1491,7 @@ class StratRunner:
 		"""Start a subsearch by pushing a stack node with continuation"""
 
 		# Push a new stack node with a fresh table of seen states to hold the subsearch
-		# (the pc field will be cleared -in pop- when a solution is found to disable the
+		# (the pc field will be cleared -in nofail- when a solution is found to disable the
 		# execution of the negative branch).
 		subsearch_stack = StackNode(parent=stack, pc=args, seen=HierarchicalSeenSet(self.seen_class()))
 		self.current_state = self.current_state.copy(stack=subsearch_stack)
@@ -1798,6 +1799,21 @@ class BadProbStrategy(Exception):
 		                 'between quantified ones and a rewrite. No DTMC or MDP can be derived.')
 
 
+class SubsearchNode(StackNode):
+	"""Stack node for subsearches"""
+
+	def __init__(self, dfs_base=None, subsearch_id=None, **kwargs):
+		super().__init__(**kwargs)
+
+		# Base of the DFS stack when the search started
+		self.dfs_base = dfs_base
+		# Identifier of the subsearch
+		self.subsearch_id = subsearch_id
+
+	def __repr__(self):
+		return f'SubsearchNode(id={self.subsearch_id}, dfs_base={self.dfs_base})'
+
+
 class MarkovRunner(StratRunner):
 	"""Runner that extracts a DTMC or MDP"""
 
@@ -1820,6 +1836,8 @@ class MarkovRunner(StratRunner):
 			self.valid = True
 			# Each graph state has its own list of pending execution states
 			self.pending = []
+			# Subsearches for which a solution is reachable from here
+			self.solve_subsearch = set()
 
 		def __repr__(self):
 			return f'GraphState({self.term}, {self.children}, {self.child_choices}, {self.solution})'
@@ -2008,6 +2026,17 @@ class MarkovRunner(StratRunner):
 			if successor.valid:
 				self.dfs_stack[-1].children.add(successor)
 
+			# Handle the deactivation of the negative branch of
+			# a subsearch when this state leaded to a solution
+			to_be_solved = len(successor.solve_subsearch)
+
+			while stack and to_be_solved:
+				subsearch_id = getattr(stack, 'subsearch_id', None)
+				if subsearch_id in successor.solve_subsearch:
+					stack.pc = None
+					to_be_solved -= 1
+				stack = stack.parent
+
 			self.next_pending()
 
 	def checkpoint(self, args, stack):
@@ -2019,6 +2048,31 @@ class MarkovRunner(StratRunner):
 		else:
 			stack.add_to_seen_table(self.current_state.pc, self.dfs_stack[-1], True)
 			self.current_state.pc += 1
+
+	def subsearch(self, args, stack):
+		"""Start a subsearch by pushing a stack node with continuation"""
+
+		# The same as StratRunner.subsearch, but forking the seen set. Moreover,
+		# the size of the DFS stack is recorded to allow finding out which states
+		# lead to solutions within the search (identified by the current PC)
+		subsearch_stack = SubsearchNode(parent=stack, pc=args,
+		                                seen=stack.seen.fork(self.current_state.pc),
+		                                dfs_base=len(self.dfs_stack),
+		                                subsearch_id = self.current_state.pc)
+		self.current_state = self.current_state.copy(stack=subsearch_stack)
+
+		# Exactly the same as StratRunner.subsearch
+		self.pending.append(self.current_state.copy(pc=args, stack=subsearch_stack, conditional=True))
+
+	def nofail(self, args, stack):
+		"""Pop the stack and discard the continuation on failure"""
+
+		# Annotate the graph states with the current subsearch,
+		# for which they provides a solution
+		for node in self.dfs_stack[stack.dfs_base:]:
+			node.solve_subsearch.add(stack.subsearch_id)
+
+		super().nofail(args, stack)
 
 	def run(self):
 		"""Run the strategy to generate the graph"""

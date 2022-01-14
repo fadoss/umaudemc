@@ -10,7 +10,9 @@ benchmarking them. This functionality is organized in subcommands:
 
 * `check <filename> <initial term> <formula> [<strategy>]` to check a
 temporal property on the given rewrite system.
-* `pcheck <filename> <initial term> <formula> [<strategy>] [--assign <method>] [--reward <term>]` to calculate probabilities and expected values for a temporal property on the given rewrite system extended with probabilities.
+* `pcheck <filename> <initial term> <formula> [<strategy>] [--assign <method>] [--reward <term>]`
+to calculate probabilities and expected values for a temporal property on the
+given rewrite system extended with probabilities.
 * `graph <filename> <initial term> [<strategy>]` to generate a visual
 representation of the reachable rewrite graph from the given initial state
 in the [GraphViz](https://graphviz.org/)'s DOT format.
@@ -36,6 +38,17 @@ specified [here](umaudemc/data/problog.maude). Probabilities are assigned with
 some alternative methods explained [below](#specification-of-probabilities).
 
 
+Installation
+------------
+
+The [`umaudemc`](https://pypi.org/project/umaudemc) package can be installed from
+the Python Package Index (PyPI) with `pip install umaudemc`. External
+model-checking backends should be installed as explained in the next section.
+
+Alternatively, the [release](https://github.com/fadoss/umaudemc/releases/tag/latest)
+page in this repository includes other options for using this tool.
+
+
 Dependencies
 ------------
 
@@ -46,18 +59,18 @@ model checking. However, other external backends can be installed:
 * The built-in LTL model checker included in Maude and its extension for
 strategy-controlled systems are already available in the `maude` library.
 * [LTSmin](https://ltsmin.utwente.nl) is a language-independent model checker,
-for which a [Maude language extension](http://maude.ucm.es/strategies)
+for which a [Maude language extension](https://maude.ucm.es/strategies)
 has been written. The environment variable `LTSMIN_PATH` should be set to
 the path containing the LTSmin binaries and `MAUDEMC_PATH` should point
 to the full path of the language plugin. Since the official version of LTSmin
 does not support mixing edge labels and state labels in μ-calculus formulae,
 a ready-to-use distribution of a
 [modified version](https://github.com/fadoss/ltsmin) can be downloaded from
-[here](http://maude.ucm.es/strategies).
+[here](https://maude.ucm.es/strategies).
 * [pyModelChecking](https://pypi.org/project/pyModelChecking/) is a simple
 Python model-checking library. It can be installed with
 `pip install pyModelChecking`.
-* [NuSMV](http://nusmv.fbk.eu/). The environment variable should be set to
+* [NuSMV](https://nusmv.fbk.eu/). The environment variable should be set to
 the path where the `NuSMV` binary is available (if not already in the system
 path).
 * [Spot](https://spot.lrde.epita.fr/) is a platform for LTL and ω-automata
@@ -107,15 +120,19 @@ terms and reduced in the current module, after replacing the `%t` templates in
 it. This is useful to make traces and graphs more readable, and to check atomic
 propositions like in `%t -- p={%t |= p}`.
 * `--elabel` sets the format of edge labels in counterexamples and graphs. The
-format string may contain the templates `%s`, `%l`, `%o` that will be replaced
-by the statement the caused the transition, by its label, and by the string
-`opaque` if the transition was caused by an opaque strategy, respectively.
+format string may contain the templates `%s`, `%l`, `%n`, `%o` that will be
+replaced by the statement the caused the transition, by its label, by its line
+number, and by the string `opaque` if the transition was caused by an opaque
+strategy, respectively.
 * The model adaptations for branching-time logics `--purge-fails` and
 `--merge-states` are chosen automatically by the tool depending on the input
 formulae. However, they can be manually overwritten.
 * The option `--kleene-iteration` or `-k` in `check` when checking properties
 on strategy-controlled specifications makes the iteration strategy be
 interpreted as the Kleene star (i.e. infinite iterations are discarded).
+
+Further information is available at the model checkers'
+[manual](https://maude.ucm.es/strategies/modelchecker-manual.pdf).
 
 ### Specification of probabilities
 

@@ -248,6 +248,12 @@ parser_pcheck.add_argument(
 	help='comma-separated prioritized list of probabilistic model-checking backends (among prism, storm)'
 )
 
+parser_pcheck.add_argument(
+	'--fraction', '-f',
+	help='show approximated fractional probabilities',
+	action='store_true'
+)
+
 parser_pcheck.set_defaults(mode='pcheck')
 
 #

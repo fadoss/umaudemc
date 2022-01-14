@@ -2,6 +2,7 @@
 # Command-line probabilistic model-checking subcommand
 #
 
+import fractions
 import os
 import re
 
@@ -40,6 +41,14 @@ def _print_extra(result):
 		extra = result.extra
 
 	return f' (relative error {extra["rel_error"]})' if extra else ''
+
+
+def _print_fraction(value):
+	"""Print a fraction that approximates the given value"""
+
+	num, den = fractions.Fraction(value).limit_denominator().as_integer_ratio()
+
+	return f'{num}/{den}' if num > 0 and den != 1 else num
 
 
 def _is_ctl(formula):
@@ -101,7 +110,7 @@ def _select_backend(known_backends, backend_list):
 	return known_backends[first_available][1]
 
 
-def _do_state_analysis(data, args, backend, graph, step_number):
+def _do_state_analysis(data, args, backend, graph, step_number, show_p):
 	"""Calculate steady-state or transient probabilities"""
 
 	# State probabilities are only computed for DTMCs
@@ -130,11 +139,11 @@ def _do_state_analysis(data, args, backend, graph, step_number):
 				state_dict[term] = prev + p
 
 	else:
-		state_dict = {graph.getStateTerm(k): p for k, p in enumerate(plist)}
+		state_dict = {graph.getStateTerm(k): p for k, p in enumerate(plist) if p > 0}
 
 	# Print the terms with positive probability (without header)
 	for term, p in sorted(state_dict.items(), key=lambda item: - item[1]):
-		print(f' {p:<20} {term}')
+		print(f' {show_p(p):<20} {term}')
 
 	return 0
 
@@ -204,9 +213,12 @@ def pcheck(args):
 	if graph is None:
 		return 1
 
+	# Whether to show approximate fractions or floating-point numbers
+	show_p = _print_fraction if args.fraction else lambda x: x
+
 	# Do state analysis, if required
 	if state_analysis:
-		return _do_state_analysis(data, args, backend, graph, step_number)
+		return _do_state_analysis(data, args, backend, graph, step_number, show_p)
 
 	# Get the optional reward evaluation function by parsing the reward term
 	reward = None
@@ -245,11 +257,11 @@ def pcheck(args):
 				vmin, vmax = result.value
 
 				if vmin != vmax:
-					print(f'Result: {vmin} to {vmax}{_print_extra(result)}')
+					print(f'Result: {show_p(vmin)} to {show_p(vmax)}{_print_extra(result)}')
 					return 0
 				else:
 					result.value = vmin
 
-			print(f'Result: {result.value}{_print_extra(result)}')
+			print(f'Result: {show_p(result.value)}{_print_extra(result)}')
 
 	return 0

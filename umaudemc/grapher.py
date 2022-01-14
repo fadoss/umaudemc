@@ -21,7 +21,7 @@ class DOTGrapher:
 		"""Write a transition from start to end"""
 
 		if elabel:
-			elabel = elabel.replace('"', '\\"')
+			elabel = str(elabel).replace('"', '\\"')
 			print(f'\t{start} -> {end} [label="{elabel}"];', file=self.outfile)
 		else:
 			print(f'\t{start} -> {end};', file=self.outfile)

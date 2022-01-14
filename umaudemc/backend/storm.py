@@ -25,7 +25,10 @@ class StormBackend(prism.PRISMBackend):
 		"""Tries to find Storm"""
 
 		if os.getenv('STORM_PATH') is not None:
-			storm_path = os.path.join(os.getenv('STORM_PATH'), 'storm')
+			storm_path = os.getenv('STORM_PATH')
+
+			if not os.path.isfile(storm_path):
+				storm_path = os.path.join(storm_path, 'storm')
 
 			if os.path.isfile(storm_path) and os.access(storm_path, os.X_OK):
 				self.command = storm_path
@@ -105,7 +108,8 @@ class StormBackend(prism.PRISMBackend):
 				grapher.graph(graph)
 
 			# Storm invocation for steady-state probabilities
-			cmd_args = [self.command, '--prism', model_file, '--steadystate', '--exportresult', export_file]
+			cmd_args = [self.command, '--prism', model_file, '--buildstateval',
+			            '--steadystate', '--exportresult', export_file]
 
 			# Record the time when the actual backend has run for statistics
 			start_time = time.perf_counter_ns()
@@ -125,9 +129,17 @@ class StormBackend(prism.PRISMBackend):
 			                     + status.stdout[:-1].decode('utf-8'))
 				return None, None
 
+			elif b'WARN' in status.stdout:
+				for line in status.stdout.split(b'\n'):
+					if b'WARN' in line:
+						line = line.strip().decode('utf-8')
+						usermsgs.print_warning(line.replace('WARN', 'Warning from Storm'))
+
 			# The output file is a JSON with the probabilities
 			with open(export_file) as ef:
-				x = json.load(ef)
-				result = [entry['v'] for entry in x]
+				ssout = json.load(ef)
+				result = [0.0] * len(ssout)
+				for entry in ssout:
+					result[entry['s']['x']] = entry['v']
 
 		return result, self.make_statistics(grapher, graph, start_time)
