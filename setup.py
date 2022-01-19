@@ -16,7 +16,7 @@ documentation, and examples.
 
 setuptools.setup(
 	name				= 'umaudemc',
-	version				= '0.7.1',
+	version				= '0.7.2',
 	author				= 'ningit',
 	author_email			= 'ningit@users.noreply.github.com',
 	description			= 'Unified Maude model-checking utility',

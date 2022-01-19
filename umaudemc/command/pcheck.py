@@ -50,22 +50,6 @@ def _print_fraction(value):
 
 	return f'{num}/{den}' if num > 0 and den != 1 else num
 
-
-def _is_ctl(formula):
-	"""Check whether a formula is not a linear-time one"""
-	head, *args = formula
-
-	if head == 'Prop':
-		return False
-
-	elif head in ('A_', 'E_'):
-		return True
-
-	else:
-		start = 1 if head in ('P__', '<>__', '`[`]__', '_U__', '_W__', '_R__') else 0
-		return any(_is_ctl(arg) for arg in args[start:])
-
-
 def _select_backend(known_backends, backend_list):
 	"""Get the first available backend according to the user preferences"""
 
@@ -186,9 +170,9 @@ def pcheck(args):
 		if formula is None:
 			return 1
 
-		# CTL and PCTL formula must get their states merged in the
-		# strategy-controlled case
-		ftype = 'CTL' if _is_ctl(formula) else 'LTL'
+		# We do not check the syntactic validity of the formula,
+		# the backends will complain
+		ftype = 'CTL'
 
 	# Raw formulas in the syntax of the backend
 	else:

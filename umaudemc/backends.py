@@ -2,11 +2,6 @@
 # Gather all backends and define functions to access them
 #
 
-from .backend.bmcalc import BuiltinBackend
-from .backend.ltsmin import LTSmin
-from .backend.nusmv import NuSMV
-from .backend.pymc import PyModelChecking
-from .backend.spot import SpotBackend
 from .common import *
 
 # Logics supported by each backend
@@ -88,14 +83,19 @@ def get_backend(backend):
 	if backend == 'maude':
 		return MaudeBackend()
 	elif backend == 'ltsmin':
+		from .backend.ltsmin import LTSmin
 		return LTSmin()
 	elif backend == 'pymc':
+		from .backend.pymc import PyModelChecking
 		return PyModelChecking()
 	elif backend == 'nusmv':
+		from .backend.nusmv import NuSMV
 		return NuSMV()
 	elif backend == 'spot':
+		from .backend.spot import SpotBackend
 		return SpotBackend()
 	elif backend == 'builtin':
+		from .backend.bmcalc import BuiltinBackend
 		return BuiltinBackend()
 
 

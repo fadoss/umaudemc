@@ -126,7 +126,7 @@ def merge_substitutions(sb1, sb2):
 	if sb2 is None or len(sb2) == 0:
 		return sb1
 
-	return maude.Substitution(dict(sb1) | dict(sb2))
+	return maude.Substitution({**dict(sb1), **dict(sb2)})
 
 
 def bernoulli_distrib(p):
@@ -1214,7 +1214,7 @@ class SubtermNode(StackNode):
 		"""Get the stack for the next subterm"""
 
 		return type(self)(parent=self.parent, venv=self.venv, context=self.context,
-		                  pending=self.pending[1:], done=self.done | {var: value},
+		                  pending=self.pending[1:], done={**self.done, **{var: value}},
 		                  seen=self.seen.fork((pc, value)))
 
 	def __repr__(self):
@@ -1626,7 +1626,7 @@ class StratRunner:
 
 		if is_last:
 			# Instantiate the pattern in context with the rewritten subterms
-			self.current_state.term = maude.Substitution(stack.done | {var: self.current_state.term}).instantiate(stack.context)
+			self.current_state.term = maude.Substitution({**stack.done, **{var: self.current_state.term}}).instantiate(stack.context)
 			# Get out of the matchrew stack node
 			self.current_state.stack = self.current_state.stack.parent
 		else:
@@ -1671,7 +1671,7 @@ class StratRunner:
 
 			for match, ctx in self.current_state.term.match(lhs, initial_cond, maxDepth=-1 if top else maude.UNBOUNDED):
 				# Substitution for the rule application (containing the initial and matching variables)
-				subs = maude.Substitution(dict(match) | initial_subs)
+				subs = maude.Substitution({**dict(match), **initial_subs})
 				# Stack node holding the context and accumulated substitution of the rewriting condition
 				new_stack = RwcNode(parent=stack, index=k, subs=subs, context=(ctx(hole), hole))
 				# Start rewriting the left-hand side of the first condition fragment
@@ -1715,7 +1715,13 @@ class StratRunner:
 		variable, dist, dargs = args
 
 		# Arguments of the distribution instantiated in the variable context
-		dargs = [float(stack.venv.instantiate(arg) if stack.venv else arg) for arg in dargs]
+		dargs = [(stack.venv.instantiate(arg) if stack.venv else arg) for arg in dargs]
+
+		# Reduce them
+		for arg in dargs:
+			arg.reduce()
+
+		dargs = [float(arg) for arg in dargs]
 
 		new_variable = {variable: variable.symbol().getModule().parseTerm(str(dist(*dargs)))}
 
@@ -1757,12 +1763,12 @@ def rebuild_term(term, stack, args):
 			continue
 
 		# Substitution with...
-		subs = maude.Substitution(
+		subs = maude.Substitution({
 			# ...the subterms that have already been rewritten, and...
-			mrew_stack.done |
+			**mrew_stack.done,
 			# ..the current and the pending subterms.
-			dict(zip(pending_vars, [new_term] + mrew_stack.pending))
-		)
+			**dict(zip(pending_vars, [new_term] + mrew_stack.pending))
+		})
 		# Rebuild the subterm
 		new_term = subs.instantiate(mrew_stack.context)
 
@@ -1795,7 +1801,7 @@ class BadProbStrategy(Exception):
 	"""Bad probabilitistic strategy that cannot engender MDPs or DTMCs"""
 
 	def __init__(self):
-		super().__init__('Strategies are not allowed to make nondeterminstic choices '
+		super().__init__('Strategies are not allowed to make nondeterministic choices '
 		                 'between quantified ones and a rewrite. No DTMC or MDP can be derived.')
 
 

@@ -73,7 +73,7 @@ def _make_bound(bound):
 
 def _translate_aprop(aprop):
 	"""Translate an atomic proposition to a PRISM label"""
-	return aprop.replace('"', '\\"').replace('(', '').replace(')', '')
+	return aprop.replace('"', '\\"').replace('(', '').replace(')', '').replace('-', '')
 
 
 def _make_prism_formula(form, translation, out_prio=20):
@@ -155,7 +155,14 @@ class PRISMBasedBackend:
 			return None, None
 
 		# Translate the Maude-parsed formula (if not raw)
-		prism_formula = make_prism_formula(form) if form is not None else formula_str
+		if form is not None:
+			prism_formula = make_prism_formula(form)
+		else:
+			prism_formula = formula_str
+
+			# Translate identifiers to those admitted by PRISM
+			for ap in aprops:
+				prism_formula = prism_formula.replace(f'"{ap}"', f'"{_translate_aprop(str(ap))}"')
 
 		# The model is written to a temporary file so that it can be read by PRISM.
 		# The procedure is explained in the NuSMV backend source.
@@ -177,7 +184,7 @@ class PRISMBasedBackend:
 
 		# A raw formula has been given
 		if form is None:
-			full_formula = formula_str
+			full_formula = prism_formula
 
 		# If the model is a DTMC, we calculate the probability
 		# (or reward expectation) that the property holds
@@ -345,7 +352,7 @@ class PRISMBackend(PRISMBasedBackend):
 				return None
 
 			# The return code does not seem to be reliable
-			if b'Error:' in status.stdout:
+			if b'Error:' in status.stdout or not os.path.exists(export_file):
 				usermsgs.print_error('An error was produced while running PRISM:\n'
 			                     + status.stdout[:-1].decode('utf-8'))
 				return None, None
