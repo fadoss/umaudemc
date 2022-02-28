@@ -19,10 +19,10 @@ function browseDir(dir)
 	{
 		if (this.readyState == XMLHttpRequest.DONE && this.status == 200)
 		{
-			var listing = JSON.parse(this.responseText)
+			const listing = JSON.parse(this.responseText)
 
 			// Shows the files as a unordered list
-			var fileList = document.getElementById('of-fileList')
+			const fileList = document.getElementById('of-fileList')
 			var out = ''
 
 			if (listing.base != '/')
@@ -57,12 +57,95 @@ function openFile(file)
 	loadSourceModules(file)
 }
 
+function incompletePassign()
+{
+	switch (document.getElementById('pmethod').value) {
+		case 'uaction':
+		case 'term':
+			return document.getElementById('parg').value == ''
+		case 'strategy':
+			return document.getElementById('strategy').value == ''
+		default:
+			return false;
+	}
+}
+
 function buttonToggle()
 {
 	document.getElementById('send').disabled = document.getElementById('initial').value == ''
 		|| document.getElementById('formula').value == ''
 		|| document.getElementById('module').disabled
 		|| !document.getElementById('description').db.valid
+		|| (document.getElementById('command').value == 'qt' && incompletePassign())
+}
+
+function setDisplay(elem, value)
+{
+	elem.style.display = value
+
+	for (label of elem.labels)
+		label.style.display = value
+}
+
+function pcheckToggle()
+{
+	const assign = document.getElementById('pmethod')
+	const parg = document.getElementById('parg')
+	const reward = document.getElementById('reward')
+
+	var mdp_display = 'block'
+
+	if (document.getElementById('command').value == 'qt')
+	{
+		pmethod.style.display = 'block'
+		setDisplay(reward, 'block')
+
+		switch (pmethod.value)
+		{
+			case 'uaction':
+				parg.placeholder = 'Comma-separated list of label=weight or label.p=prob'
+				parg.labels[0].innerText = 'Label weights:'
+				mdp_display = 'none'
+				setDisplay(parg, 'block')
+				break;
+			case 'term':
+				parg.placeholder = 'Term on the variables L(HS), R(HS), and A(ction)'
+				parg.labels[0].innerText = 'Weight term:'
+				setDisplay(parg, 'block')
+				break;
+			case 'strategy':
+				mdp_display = 'none'
+			default:
+				parg.value = ''
+				setDisplay(parg, 'none')
+		}
+	}
+	else
+	{
+		mdp_display = 'none'
+		pmethod.style.display = 'none'
+		setDisplay(parg, 'none')
+		setDisplay(reward, 'none')
+	}
+
+	setDisplay(document.getElementById('mdp'), mdp_display)
+
+	buttonToggle()
+}
+
+function advancedToggle() {
+	var advanced = document.getElementById('advanced')
+	var button = document.getElementById('expandAdvanced')
+
+	if (advanced.style.display == 'none')
+	{
+		advanced.style.display = 'inline-flex'
+		button.innerText = '-'
+	}
+	else {
+		advanced.style.display = 'none'
+		button.innerText = '+'
+	}
 }
 
 function disableInput(disabled)
@@ -76,6 +159,10 @@ function disableInput(disabled)
 	document.getElementById('opaques').disabled = disabled
 	document.getElementById('sourceFileOpen').disabled = disabled
 	document.getElementById('description').disabled = disabled
+	document.getElementById('command').disabled = disabled
+	document.getElementById('pmethod').disabled = disabled
+	document.getElementById('parg').disabled = disabled
+	document.getElementById('reward').disabled = disabled
 }
 
 function loadSourceModules(file)
@@ -87,12 +174,12 @@ function loadSourceModules(file)
 	{
 		if (this.readyState == XMLHttpRequest.DONE && this.status == 200)
 		{
-			var listing = JSON.parse(this.responseText);
+			const listing = JSON.parse(this.responseText);
 
 			for (module of listing.modules)
 				if (module.type != 'fmod' && module.type != 'fth')
 				{
-					var option = new Option(module.name + ' (' + module.type + ')', module.name)
+					const option = new Option(module.name + ' (' + module.type + ')', module.name)
 					smodule.options.add(option)
 				}
 
@@ -150,7 +237,7 @@ function loadModule()
 	{
 		if (this.readyState == XMLHttpRequest.DONE && this.status == 200)
 		{
-			var listing = JSON.parse(this.responseText)
+			const listing = JSON.parse(this.responseText)
 			description.db = listing
 
 			var text = ''
@@ -221,9 +308,7 @@ function loadModule()
 				text += '</table>'
 			}
 			else
-			{
 				text += 'Not valid for model checking.'
-			}
 
 			buttonToggle()
 			description.innerHTML = text
@@ -257,8 +342,11 @@ function modelcheck()
 				case 0 : errbar.innerHTML = 'Waiting for the model checker... or <a class="cancelButton" onclick="cancelChecking()">cancel</a> it'; break
 				case 1 : errbar.innerText = 'Syntax error at the initial term'; break
 				case 2 : errbar.innerText = 'Syntax error at the formula'; break
-				case 3 : errbar.innerText = 'Syntax error at strategy expression'; break
-				case 4 : errbar.innerText = `No installed backends for the ${listing.logic} logic`; break
+				case 3 : errbar.innerText = 'Syntax error at the strategy expression'; break
+				case 4 : errbar.innerText = `No backends for the ${listing.logic} logic installed`; break
+				case 5 : errbar.innerText = 'Syntax error at the weight specification'; break;
+				case 6 : errbar.innerText = 'Syntax error at the reward term'; break;
+				case 7 : errbar.innerText = 'No probabilistic backends installed'; break
 			}
 
 			errbar.style.display = 'block'
@@ -276,6 +364,15 @@ function modelcheck()
 	question.append('formula', document.getElementById('formula').value)
 	question.append('strategy', document.getElementById('strategy').value)
 	question.append('opaques', document.getElementById('opaques').value)
+
+	// Quantitative model checking stuff
+	if (document.getElementById('command').value == 'qt')
+	{
+		question.append('pmethod', document.getElementById('pmethod').value)
+		question.append('pargument', document.getElementById('parg').value)
+		question.append('mdp', document.getElementById('mdp').checked)
+		question.append('reward', document.getElementById('reward').value)
+	}
 
 	request.open('post', 'ask')
 	request.send(question)
@@ -296,23 +393,18 @@ function waitModelChecker(mcref) {
 	{
 		if (this.readyState == XMLHttpRequest.DONE && this.status == 200)
 		{
-			var listing = JSON.parse(this.responseText)
-			var errbar = document.getElementById('errorbar')
+			const listing = JSON.parse(this.responseText)
+			const errbar = document.getElementById('errorbar')
 
 			// Enable input
 			disableInput(false)
 
-			if (listing.holds)
+			if (listing.result == null)
 			{
-				errbar.innerHTML = `The property <span class="baremph">${escapeHTMLChars(listing.formula)}</span> holds from <span class="baremph">${escapeHTMLChars(listing.initial)}</span>` + (listing.strat == '' ? '' : ` using <span class="baremph">${escapeHTMLChars(listing.strat)}</span>`)
+				errbar.innerHTML = 'An internal error of the model checker has occurred'
 				errbar.style.display = 'block'
 			}
-			else if (!listing.hasCounterexample)
-			{
-				errbar.innerHTML = `The property <span class="baremph">${escapeHTMLChars(listing.formula)}</span> does not hold from <span class="baremph">${escapeHTMLChars(listing.initial)}</span>` + (listing.strat == '' ? '' : ` using <span class="baremph">${escapeHTMLChars(listing.strat)}</span>`)
-				errbar.style.display = 'block'
-			}
-			else
+			else if (listing.hasCounterexample)
 			{
 				// Hide the informative bar
 				errbar.style.display = 'none'
@@ -333,6 +425,35 @@ function waitModelChecker(mcref) {
 				graph.db.states = listing.states
 				paintCanvas(canvas, graph)
 			}
+			else {
+				var head = ''
+
+				console.log(listing)
+
+				if (listing.reward)
+				{
+					if (listing.rtype == 'r')
+						head = `is between <span class="baremph">${listing.result[0]}</span> and <span class="baremph">${listing.result[1]}</span>`
+					else
+						head = `is <span class="baremph">${listing.result}</span>`
+
+					head = `The value of the reward <span class="baremph">${escapeHTMLChars(listing.reward)}</span> ` + head
+				}
+				else {
+					if (listing.rtype == 'b')
+						head = listing.result ? 'holds' : 'does not hold'
+					else if (listing.rtype == 'n')
+						head = `holds with probability <span class="baremph">${listing.result}</span>`
+					else if (listing.rtype == 'r')
+						head = `holds with a probability between <span class="baremph">${listing.result[0]}</span> and <span class="baremph">${listing.result[1]}</span>`
+
+					head = `The property <span class="baremph">${escapeHTMLChars(listing.formula)}</span> ` + head
+				}
+
+				errbar.innerHTML = head + ` from <span class="baremph">${escapeHTMLChars(listing.initial)}</span>`
+					+ (listing.strat == '' ? '' : ` using <span class="baremph">${escapeHTMLChars(listing.strat)}</span>`)
+				errbar.style.display = 'block'
+			}
 		}
 	}
 
@@ -348,8 +469,8 @@ function waitModelChecker(mcref) {
 }
 
 function cancelChecking() {
-	var request = new XMLHttpRequest()
-	var question = new FormData()
+	const request = new XMLHttpRequest()
+	const question = new FormData()
 
 	request.onreadystatechange = function()
 	{
@@ -360,7 +481,7 @@ function cancelChecking() {
 			openFile(sourceFile.fullPath)
 
 			// Hide the informative bar
-			var errbar = document.getElementById('errorbar')
+			const errbar = document.getElementById('errorbar')
 			errbar.style.display = 'none'
 		}
 	}

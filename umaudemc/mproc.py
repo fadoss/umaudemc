@@ -7,6 +7,7 @@
 #
 
 import multiprocessing as mp
+import os
 
 
 class MaudeProcess:
@@ -14,16 +15,18 @@ class MaudeProcess:
 	Server for the Python instance running the Maude interpreter.
 
 	It communicates with the client using pipes where the method to be
-	called and its arguments are receives and the results are sent
+	called and its arguments are received and the results are sent
 	as a dictionary.
 	"""
 
 	DEFAULT_BACKENDS = 'maude,ltsmin,pymc,nusmv,spot,builtin'
+	DEFAULT_PBACKENDS = 'prism,storm'
 
 	def __init__(self, backends=DEFAULT_BACKENDS):
-		from .common import maude
-		from . import wrappers
+		from .common import maude, InitialData
+		from . import wrappers  # for getNextStates and strategyControlled
 		from .backends import get_backends, backend_for
+		from .formulae import Parser
 		maude.init(advise=False)
 
 		self.graph = None
@@ -39,6 +42,14 @@ class MaudeProcess:
 		self.maude = maude
 		self.backends, unsupported = get_backends(backends)
 		self.backend_for = backend_for
+		self.Parser = Parser
+		self.InitialData = InitialData
+
+		# The probabilistic ingredients are lazily imported
+		self.ProbParser = None
+		self.get_probabilistic_graph = None
+		self.RewardEvaluator = None
+		self.prob_backend = None
 
 		# Dictionary of jobs where model-checking task are stored
 		self.filename = None
@@ -80,11 +91,7 @@ class MaudeProcess:
 		modinfo['valid'] = True
 
 		# Obtain the state sorts (subsorts of State)
-		actual_state_sort = []
-		for sort in state_sort.getSubsorts():
-			actual_state_sort.append(str(sort))
-
-		modinfo['state'] = actual_state_sort
+		modinfo['state'] = [str(sort) for sort in state_sort.getSubsorts()]
 
 		# Obtain the list of atomic propositions with their signatures
 		atomic_props = []
@@ -96,7 +103,7 @@ class MaudeProcess:
 				first_decl = opdecls[0]
 				decl_domain = first_decl.getDomainAndRange()
 
-				for i in range(0, symbol.arity()):
+				for i in range(symbol.arity()):
 					prop_signature.append(str(decl_domain[i]))
 
 				atomic_props.append(prop_signature)
@@ -126,25 +133,26 @@ class MaudeProcess:
 			return None
 
 		# Executes the actual model checking
-		holds, stats = task()
+		result, stats = task()
 
-		if 'counterexample' in stats:
+		if result is None or 'counterexample' not in stats:
+			return {
+				'hasCounterexample': False,
+				**self._make_result(result)
+			}
+		else:
 			lead_in, cycle = stats['counterexample']
 			graph = stats['graph']
 
 			states_involved = set(lead_in).union(set(cycle))
 
 			return {
+				'result': result,
+				'rtype': 'b',
 				'hasCounterexample': True,
-				'holds': holds,
 				'leadIn': list(lead_in),
 				'cycle': list(cycle),
-				'states': {index: self._state_summary(graph, index) for index in states_involved}
-			}
-		else:
-			return {
-				'holds': holds,
-				'hasCounterexample': False
+				'states': {index: self._state_summary(graph, index) for index in states_involved},
 			}
 
 	def modelCheck(self, data):
@@ -176,24 +184,42 @@ class MaudeProcess:
 		else:
 			strategy = None
 
-		# Parse the LTL formula
-		from .formulae import Parser
-
 		# Opaque strategies
 		opaques = data.get('opaques', [])
 
-		parser = Parser()
+		# Make the (qualitative or quantitative) model-checking task
+		make_task = self._make_pcheck_task if data.get('passign') else self._make_check_task
+		task, other = make_task(data, mod, initial, strategy, opaques)
+
+		if task is None:
+			return other
+
+		# Add this model-checking job to the table
+		self.jobs[self.counter] = task
+		self.counter += 1
+
+		return {
+			'ok'	: True,
+			'logic'	: other,
+			'ref'	: self.counter - 1
+		}
+
+	def _make_check_task(self, data, mod, initial, strategy, opaques):
+		"""Make a qualitative model-checking task"""
+
+		# Parse the qualitative formula
+		parser = self.Parser()
 		parser.set_module(mod)
 		formula, logic = parser.parse(data['formula'], opaques=opaques)
 
 		if formula is None or logic == 'invalid':
-			return {'ok': False, 'cause': 'formula'}
+			return None, {'ok': False, 'cause': 'formula'}
 
 		# Find a backend for the given formula
 		name, handle = self.backend_for(self.backends, logic)
 
 		if name is None:
-			return {'ok': False, 'logic': logic, 'cause': 'nobackend'}
+			return None, {'ok': False, 'logic': logic, 'cause': 'nobackend'}
 
 		# Save the model-checking task as a lambda
 		task = lambda: handle.check(module=mod,
@@ -211,15 +237,96 @@ class MaudeProcess:
 		                            filename=self.filename,
 		                            get_graph=True)
 
-		# Add this model-checking job to the table
-		self.jobs[self.counter] = task
-		self.counter += 1
+		return task, logic
 
-		return {
-			'ok'	: True,
-			'logic'	: logic,
-			'ref'	: self.counter - 1
-		}
+	def _make_pcheck_task(self, data, mod, initial, strategy, opaques):
+		"""Make a quantitative model-checking task"""
+
+		# Lazily import the probabilistic components
+		if not self.ProbParser:
+			from .formulae import ProbParser
+			from .backend import prism, storm
+			from .probabilistic import get_probabilistic_graph, RewardEvaluator
+
+			self.ProbParser = ProbParser
+			self.get_probabilistic_graph = get_probabilistic_graph
+			self.RewardEvaluator = RewardEvaluator
+
+			# Find a probabilistic backend
+			backend_list = os.getenv('UMAUDEMC_PBACKEND') or \
+			               self.DEFAULT_PBACKENDS
+
+			for name in backend_list.split(','):
+				if name == 'prism':
+					backend = prism.PRISMBackend()
+				elif name == 'storm':
+					backend = storm.StormBackend()
+				else:
+					continue
+
+				if backend.find():
+					self.prob_backend = backend
+
+		if self.prob_backend is None:
+			return None, {'ok': False, 'logic': 'prob', 'cause': 'nopbackend'}
+
+		# Parse the quantitative formula
+		parser = self.ProbParser()
+		parser.set_module(mod)
+		formula, aprops = parser.parse(data['formula'])
+
+		if formula is None:
+			return None, {'ok': False, 'cause': 'formula'}
+
+		# Generate the probabilistic graph (using passign)
+		cdata = self.InitialData()
+
+		cdata.module = mod
+		cdata.strategy = strategy
+		cdata.term = initial
+		cdata.opaque = opaques
+		cdata.full_matchrew = False
+
+		graph = self.get_probabilistic_graph(cdata, data['passign'])
+
+		if graph is None:
+			return None, {'ok': False, 'logic': 'prob', 'cause': 'passign'}
+
+		# Parse the reward (if any)
+		reward, reward_term = None, data['reward']
+
+		if reward_term and reward_term != 'steps':
+			reward_term = mod.parseTerm(reward_term)
+
+			if reward_term:
+				reward = self.RewardEvaluator.new(reward_term, initial.getSort().kind())
+
+			if not reward_term:
+				return None, {'ok': False, 'logic': 'prob', 'cause': 'reward'}
+
+		# Solve the given problem
+		task = lambda: self.prob_backend.check(module=mod,
+		                                       formula=formula,
+		                                       formula_str=data['formula'],
+		                                       logic='CTL',
+		                                       aprops=aprops,
+		                                       cost=reward is None and reward_term == 'steps',
+		                                       reward=reward,
+		                                       graph=graph)
+
+		return task, 'prob'
+
+	def _make_result(self, result):
+		"""Transform the result for being sent to the client"""
+
+		if result is None:
+			return {'result': None}
+
+		if isinstance(result, bool):
+			return {'result': result, 'rtype': 'b'}
+
+		# result is a QuantitativeResult
+		return {'result': result.value, 'rtype': 'bnr'[result.rtype - 1]}
 
 	def _state_summary(self, graph, index):
 		"""Generate a summary of a state for its graphical representation"""
@@ -266,7 +373,7 @@ class MaudeProcess:
 
 		while msg:
 			# Call the given method and send the result
-			func, args = msg[0], msg[1:]
+			func, *args = msg
 			pipe.send(func(maudp, *args))
 
 			msg = pipe.recv()

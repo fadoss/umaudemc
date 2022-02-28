@@ -15,35 +15,40 @@ documentation, and examples.
 '''
 
 setuptools.setup(
-	name				= 'umaudemc',
-	version				= '0.7.2',
-	author				= 'ningit',
-	author_email			= 'ningit@users.noreply.github.com',
-	description			= 'Unified Maude model-checking utility',
-	long_description 		= long_description,
-	long_description_content_type	= 'text/markdown',
-	url				= 'https://github.com/fadoss/umaudemc',
-	project_urls                    = {
+	name                          = 'umaudemc',
+	version                       = '0.8',
+	author                        = 'ningit',
+	author_email                  = 'ningit@users.noreply.github.com',
+	description                   = 'Unified Maude model-checking utility',
+	long_description              = long_description,
+	long_description_content_type = 'text/markdown',
+	url                           = 'https://github.com/fadoss/umaudemc',
+	project_urls                  = {
 		'Bug Tracker'   : 'https://github.com/fadoss/umaudemc/issues',
 		'Documentation' : 'https://github.com/fadoss/umaudemc',
 		'Source Code'   : 'https://github.com/fadoss/umaudemc'
 	},
-	license				= 'GPLv3',
-	packages			= setuptools.find_packages(),
-	package_data			= {'': ['data/*']},
-	include_package_data		= True,
-	classifiers			= [
+	license                       = 'GPLv3',
+	packages                      = setuptools.find_packages(),
+	package_data                  = {'': ['data/*']},
+	include_package_data          = True,
+	entry_points                  = {
+		'console_scripts': [
+			'umaudemc=umaudemc.__main__:main'
+		]
+	},
+	classifiers                   = [
 		'Programming Language :: Python :: 3',
 		'Intended Audience :: Science/Research',
 		'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
-	        'Topic :: Scientific/Engineering',
+		'Topic :: Scientific/Engineering',
 		'Operating System :: OS Independent',
 	],
-	python_requires			= '>=3.7',
-	install_requires		= [
+	python_requires               = '>=3.7',
+	install_requires              = [
 		'maude >= 1.0',
 	],
-	extra_requires			= {
+	extras_require                = {
 		'CTL*'	: ['pyModelChecking >= 1.3.3'],
 		'YAML'	: ['pyaml']
 	}

@@ -505,7 +505,7 @@ class ModelCheckerWindow(Gtk.ApplicationWindow):
 		# Join the model checker thread (just finished)
 		self.thread.join(2)
 
-		holds = result['holds']
+		holds = result['result']
 		has_counterexample = result['hasCounterexample']
 
 		if not has_counterexample or holds:
@@ -536,8 +536,7 @@ def run_gtk():
 		window.show_all()
 
 	app.connect('activate', window_init)
-	app.run()
-
+	return app.run()
 
 if __name__ == "__main__":
 	run_gtk()

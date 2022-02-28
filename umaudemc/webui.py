@@ -23,7 +23,7 @@ ADDRESS_REGEX = re.compile('([a-zA-Z0-9.]*):([0-9]+)')
 # Handle the path explorer of the graphical interface
 #
 # The possibility of setting an explicit root to limit the access to the
-# filesystem and supporting access across drives in Windows add some
+# filesystem and supporting access across drives in Windows adds some
 # complications. Paths seen by the browser are always absolute POSIX paths.
 #
 
@@ -48,15 +48,15 @@ class PathHandler:
 
 	def set_default(self, default):
 		# The default directory by default
-		self.default = self.root if self.root is not None else pathlib.Path.cwd()
+		self.default = self.root if self.root else pathlib.Path.cwd()
 
-		if default is not None:
+		if default:
 			default_dir = pathlib.Path(default).resolve()
 
 			if not default_dir.exists():
 				usermsgs.print_warning('The given source directory does not exist. Ignoring it.')
 
-			elif self.root is not None and self.root != default_dir and \
+			elif self.root and self.root != default_dir and \
 				self.root not in default_dir.parents:
 				usermsgs.print_warning('The source directory must be inside the root directory. Ignoring it.')
 			else:
@@ -68,7 +68,7 @@ class PathHandler:
 		# If no path was given, the default is used
 		if not path:
 			full_path = self.default
-			relative_path = full_path.relative_to(self.root) if self.root is not None else full_path
+			relative_path = full_path.relative_to(self.root) if self.root else full_path
 
 		elif self.root is None:
 			full_path = pathlib.Path(path).resolve()
@@ -147,6 +147,7 @@ class ConnectionInfo:
 	def __init__(self):
 		self.path_handler = WinPathHandler() if sys.platform == 'win32' else PathHandler()
 		self.remote = None
+		# Initial data of the problem while waiting for the reply
 		self.problem_data = {}
 
 
@@ -222,9 +223,9 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
 				'type'		: minfo['type'],
 				'params'	: [],
 				'valid'		: minfo['valid'],
-				'stateSorts'	: minfo['state'],
-				'strategies'	: [self.make_signature(signat) for signat in minfo['strat']],
-				'props'		: [self.make_signature(signat) for signat in minfo['prop']]
+				'stateSorts'	: minfo.get('state', []),
+				'strategies'	: [self.make_signature(signat) for signat in minfo.get('strat', ())],
+				'props'		: [self.make_signature(signat) for signat in minfo.get('prop', ())]
 			}
 			self.wfile.write(json.dumps(response).encode('utf-8'))
 		elif question == 'modelcheck':
@@ -232,21 +233,27 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
 			self.send_header('Content-Type', 'text/json; charset=utf-8')
 			self.end_headers()
 			data = {
-				'module':	form.getvalue('mod'),
-				'initial':	form.getvalue('initial'),
-				'formula':	form.getvalue('formula'),
-				'strat':	form.getvalue('strategy'),
-				'opaques':	form.getvalue('opaques')
+				'module':  form.getvalue('mod'),
+				'initial': form.getvalue('initial'),
+				'formula': form.getvalue('formula'),
+				'strat':   form.getvalue('strategy'),
+				'opaques': form.getvalue('opaques'),
+				'passign': self.make_passign(form),
+				'reward':  form.getvalue('reward', None),
 			}
 			result = self.server.info.remote.modelCheck(data)
 			response = {
-				# Ok (0) or where the failure is: in the state term (1), in the LTL
-				# formula (2), in the strategy (3) or in the opaque strategy list (4).
+				# Ok (0) or the failure cause: the state term (1), the LTL formula (2),
+				# the strategy (3), the probability assignment (5), the reward term (6),
+				# or the lack of appropriate standard (4) or probabilistic (7) backends
 				'status': 0 if result['ok'] else {
-					'term'		: 1,
-					'formula'	: 2,
-					'strat'		: 3,
-					'nobackend'	: 4
+					'term'       : 1,
+					'formula'    : 2,
+					'strat'      : 3,
+					'nobackend'  : 4,
+					'passign'    : 5,
+					'reward'     : 6,
+					'nopbackend' : 7,
 				}.get(result['cause'], 5),
 				'logic': self.logic_name(result.get('logic'))
 
@@ -277,13 +284,16 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
 
 			response = {
 				'hasCounterexample': result['hasCounterexample'],
-				'formula'	: data['formula'],
-				'initial'	: data['initial'],
-				'strat'		: data.get('strat'),
-				'holds'		: result['holds'],
-				'leadIn'	: result.get('leadIn'),
-				'cycle'		: result.get('cycle'),
-				'states'	: result.get('states')
+				'formula' : data['formula'],
+				'initial' : data['initial'],
+				'strat'   : data.get('strat'),
+				'result'  : result['result'],
+				'rtype'   : result['rtype'],
+				'leadIn'  : result.get('leadIn'),
+				'cycle'   : result.get('cycle'),
+				'states'  : result.get('states'),
+				'passign' : data['passign'],
+				'reward'  : data['reward'],
 			}
 			self.wfile.write(json.dumps(response).encode('utf-8'))
 		elif question == 'cancel':
@@ -301,15 +311,29 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
 	@staticmethod
 	def logic_name(name):
 		"""User-friendly name of each logic"""
-		if name == 'Mucalc':
-			return 'μ-calculus'
-		else:
-			return name
+		return 'μ-calculus' if name == 'Mucalc' else name
 
 	@staticmethod
 	def make_signature(signat):
 		head, *itypes = signat
 		return {'name': head, 'params': itypes}
+
+	@staticmethod
+	def make_passign(form):
+		"""Build a passign term from its name and argument"""
+
+		name = form.getvalue('pmethod', None)
+
+		if name is None:
+			return None
+
+		argument = form.getvalue('pargument', '')
+
+		# Add mdp- prefix when MDP is selected and admissible
+		can_mdp = name not in ('uaction', 'strategy')
+		mdp = 'mdp-' if can_mdp and form.getvalue('mdp') == 'true' else ''
+
+		return f'{mdp}{name}({argument})' if argument else f'{mdp}{name}'
 
 
 def run(args):
@@ -344,4 +368,10 @@ def run(args):
 	usermsgs.print_info(f'Serving at {full_address}')
 	if not args.no_browser:
 		webbrowser.open(full_address)
-	httpd.serve_forever()
+
+	try:
+		httpd.serve_forever()
+	except KeyboardInterrupt:
+		print('Server stopped by the user')
+
+	return 0

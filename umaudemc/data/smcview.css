@@ -9,7 +9,11 @@ body {
 	margin: 0px;
 	display: flex;
 	flex-direction: column;
-	font-family: "Ubuntu", "Calibri", sans-serif;
+	font-family: ui-sans-serif, sans-serif;
+}
+
+code {
+	font-family: ui-monospace, monospace;
 }
 
 

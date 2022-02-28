@@ -39,9 +39,6 @@ fmod PROBABILISTIC-TEMPORAL-LOGIC is
 	op >_   : Float -> Bound [ctor] .
 	op >_   : Nat -> Bound [ctor] .
 
-	op [_,_] : Nat Nat -> Bound [ctor] .
-	op [_,_] : Float Float -> Bound [ctor] .
-
 	vars f g : Formula .
 
 	*** we are not interested in negative normal forms or
@@ -70,6 +67,10 @@ fmod PROBABILISTIC-TEMPORAL-LOGIC-META is
 		sorts SortSet-diff(getSorts(M), upSorts('PROBABILISTIC-TEMPORAL-LOGIC, true)) .
 		getSubsorts(M)
 		OpDeclSet-diff(getOps(M), upOpDecls('PROBABILISTIC-TEMPORAL-LOGIC, true))
+		if hasIntervalBound(QL) then
+			(op '`[_`,_`] : 'Nat 'Nat -> 'Bound [ctor] .)
+			(op '`[_`,_`] : 'Float 'Float -> 'Bound [ctor] .)
+		else none fi
 		getMbs(M)
 		getEqs(M)
 		getRls(M)
@@ -90,4 +91,12 @@ fmod PROBABILISTIC-TEMPORAL-LOGIC-META is
 
 	eq OpDeclSet-diff(Op Ops1, Op Ops2) = OpDeclSet-diff(Ops1, Ops2) .
 	eq OpDeclSet-diff(Ops1, Ops2) = Ops1 [owise] .
+
+	*** Scan the formula tokens to see whether an interval bound is used,
+	*** since these operators are likely to introduce name conflicts
+	op hasIntervalBound : QidList -> Bool .
+
+	eq hasIntervalBound(nil) = false .
+	eq hasIntervalBound('`[ Q QL) = if Q == '`] then hasIntervalBound(QL) else true fi .
+	eq hasIntervalBound(Q QL) = hasIntervalBound(QL) [owise] .
 endfm

@@ -2,7 +2,7 @@
 <html>
 <head>
 	<meta charset="utf8" />
-	<title>Strategy-aware model checker for Maude</title>
+	<title>Unified Maude model-checking tool</title>
 
 	<link rel="stylesheet" type="text/css" href="smcview.css">
 	<script src="smcview.js"></script>
@@ -10,7 +10,7 @@
 </head>
 <body>
 	<header>
-		<b style="font-size: 120%;">Strategy-aware model checker</b>
+		<b style="font-size: 120%;">Unified Maude model-checking tool</b>
 	</header>
 
 	<!-- Open file dialog -->
@@ -73,11 +73,33 @@
 		</div>
 		<div id="errorbar">
 		</div>
+		<div class="mcbar" id="advanced" style="margin-bottom: 1.5ex; display: none;">
+			<select id="command" onchange="pcheckToggle()">
+				<option value="ql">Qualitative (check)</option>
+				<option value="qt">Quantitative (pcheck)</option>
+			</select>
+			<select id="pmethod" style="margin-left: 1ex; display: none;" onchange="pcheckToggle()">
+				<option value="uniform">Uniform</option>
+				<option value="uaction">Weighted by actions</option>
+				<option value="term">Weighted by term</option>
+				<option value="metadata">Weighted by metadata</option>
+				<option value="strategy">Probabilistic strategy</option>
+			</select>
+			<input type="checkbox" id="mdp" style="margin-left: 1.5ex; display: none;"></input>
+			<label for="mdp" style="display: none;">MDP</label>
+			<label for="parg" style="margin-left: 1.5ex; display: none;">Weight term:</label>
+			<input type="text" id="parg" style="flex-grow: 1; display: none;" onchange="buttonToggle()"
+			       placeholder="A term on L, R, and/or A" />
+			<label for="reward" style="margin-left: 1.5ex; display: none;">Reward term:</label>
+			<input type="text" id="reward" style="flex-grow: 1; display: none;"
+			       placeholder="Either a single-variable term, 'steps', or nothing" />
+		</div>
 		<div class="mcbar">
 			<label for="initial">Initial term:</label>
 			<input type="text" id="initial" style="flex-grow: 1;" onchange="buttonToggle()" />
 			<label for="formula" style="margin-left: 1.5ex;">Formula:</label>
 			<input type="text" id="formula" style="flex-grow: 1;" onchange="buttonToggle()" />
+       			<button type="button" id="expandAdvanced" style="margin-left: 1.5ex;" onclick="advancedToggle()">+</button>
 		</div>
 		<div class="mcbar" style="margin-top: 1ex;">
 			<label for="strategy">Strategy:</label>

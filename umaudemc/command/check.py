@@ -7,15 +7,11 @@ import os.path
 import sys
 import tempfile
 
-from .. import resources
 from ..common import parse_initial_data, usermsgs
 from ..backends import kleene_backends, get_backends, backend_for, format_statistics,\
 	advance_counterexample, advance_kleene
 from ..counterprint import SimplePrinter, JSONPrinter, HTMLPrinter, DOTPrinter, print_counterexample
 from ..formulae import Parser, collect_aprops, add_path_premise, formula_list2str
-from ..formatter import get_formatters
-from ..wrappers import FailFreeGraph
-from ..opsem import OpSemKleeneInstance, KleeneMergedGraph, OpSemGraph
 from ..terminal import terminal as tmn
 
 # Emphasized text to be used when printing the model-checking result
@@ -25,6 +21,8 @@ _isnot = f'{tmn.bold}{tmn.bright_red}is not{tmn.reset}'
 
 def get_printer(args):
 	"""Get printer and formatter according to the program arguments"""
+
+	from ..formatter import get_formatters
 
 	# Get the state and edge label formatters
 	formatters = get_formatters(args.slabel, args.elabel, args.strategy is not None)
@@ -83,7 +81,7 @@ def generic_check(data, args, formula, logic, backend, handle):
 	# Print the input data if the verbose option is set
 	if args.verbose:
 		msg = ['Model checking', logic_name(logic), 'property', args.formula, 'from', data.term] + \
-		      (['using', data.strategy] if data.strategy is not None else []) + \
+		      (['using', data.strategy] if data.strategy else []) + \
 		      ['in module', data.module]
 
 		usermsgs.print_info(' '.join(map(str, msg)))
@@ -126,6 +124,11 @@ def generic_check(data, args, formula, logic, backend, handle):
 
 def kleene_check(data, args, formula, logic, backend, handle):
 	"""Check a model-checking problem under the Kleene semantics using the given backend"""
+
+	# Import some packages that are only needed for the Kleene case
+	from .. import resources
+	from ..opsem import OpSemKleeneInstance, KleeneMergedGraph, OpSemGraph
+	from ..wrappers import FailFreeGraph
 
 	# Instantiate the Kleene-aware operational semantics with the given problem
 	instance = OpSemKleeneInstance.make_instance(data.module, data.metamodule)
@@ -257,18 +260,18 @@ def suggest_install(backends, ftype):
 				'LTSmin cannot be found (after searching in the system path and the LTSMIN_PATH variable).\n'
 				'It can be downloaded from https://ltsmin.utwente.nl, but in order to use μ-calculus formulae \n'
 				'with both edge and state labels, a modified version is required that can be downloaded from\n'
-				'http://maude.ucm.estrategies/#downloads.')
+				'https://maude.ucm.es/strategies/#downloads.')
 
 		if not handler.find_maudemc():
 			usermsgs.print_error(
 				f'The Maude plugin for LTSmin cannot be found (libmaudemc{handler.module_suffix}).\n'
 				'Setting the environment variable MAUDEMC_PATH to its location helps.\n'
-				'It can be downloaded from http://maude.ucm.es/strategies/#downloads.')
+				'It can be downloaded from https://maude.ucm.es/strategies/#downloads.')
 
 	elif backend == 'nusmv':
 		usermsgs.print_error(
 			'NuSMV cannot be found (after searching in the system path and the NUSMV_PATH variable).\n'
-			'It can be downloaded from http://nusmv.fbk.eu.')
+			'It can be downloaded from https://nusmv.fbk.eu.')
 
 	elif backend == 'spot':
 		usermsgs.print_error(

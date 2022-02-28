@@ -16,7 +16,7 @@ dist/umaudemc: dist $(RESOURCES) $(CODE)
 	mkdir -p zip
 	cp -r umaudemc zip
 	# Create a __main__ file for the package that invokes the umaudemc one
-	echo 'import umaudemc.__main__' > zip/__main__.py
+	echo -e 'import sys\nfrom umaudemc.__main__ import main\nsys.exit(main())' > zip/__main__.py
 	touch -ma zip/* zip/*/*
 	# Compress that directory into a zip file
 	cd zip ; zip -q ../umaudemc.zip $(RESOURCES) $(CODE) __main__.py
