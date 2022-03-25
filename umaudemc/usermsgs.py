@@ -15,3 +15,9 @@ def print_error(msg):
 
 def print_info(msg):
 	print(msg)
+
+
+def print_error_loc(unit, line, column, msg):
+	"""Print an error with a location"""
+
+	print(f'{tmn.bold}{unit}:{line}:{column}: {tmn.red}error:{tmn.reset} {msg}')

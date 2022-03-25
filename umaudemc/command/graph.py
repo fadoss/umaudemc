@@ -62,14 +62,18 @@ def deduce_format(args):
 			return 'tikz'
 		elif extension == '.pm':
 			return 'prism'
+		elif extension == '.pml':
+			return 'spin'
+		elif extension == '.jani':
+			return 'jani'
 
 	elif extension == '.pdf' and oformat != 'dot':
 		usermsgs.print_warning('PDF output is only supported with DOT. Changing to DOT.')
 		return 'dot'
 
 	# Probabilitic information is not considered in some cases
-	if args.passign and oformat not in ('dot', 'prism', 'default'):
-		usermsgs.print_warning('Probabilistic graphs are only supported with PRISM and DOT output. '
+	if args.passign and oformat not in ('dot', 'prism', 'jani', 'default'):
+		usermsgs.print_warning('Probabilistic graphs are only supported with PRISM, JANI and DOT output. '
 		                       'Ignoring probabilities.')
 		args.passign = None
 
@@ -94,14 +98,13 @@ def graph(args):
 
 	# Select the appropriate rewriting graph
 	# (probabilistic, strategy-controlled, or standard)
-	if args.passign or oformat == 'prism':
-		from ..backend.prism import PRISMGenerator
+	if args.passign or oformat in ('prism', 'jani'):
 		from ..probabilistic import get_probabilistic_graph
 
 		rwgraph = get_probabilistic_graph(initial_data, args.passign or 'uniform',
-						allow_file=True,
-						purge_fails=args.purge_fails,
-						merge_states=args.merge_states)
+		                                  allow_file=True,
+		                                  purge_fails=args.purge_fails,
+		                                  merge_states=args.merge_states)
 
 	elif not with_strategy:
 		rwgraph = maude.RewriteGraph(initial_data.term)
@@ -130,10 +133,17 @@ def graph(args):
 
 	with output_stream(args.o, args.extra_args) as outfile:
 		if oformat == 'prism':
+			from ..backend.prism import PRISMGenerator
 			grapher = PRISMGenerator(outfile, aprops=aprops, slabel=slabel)
+		elif oformat == 'jani':
+			from ..jani import JANIGenerator
+			grapher = JANIGenerator(outfile, aprops=aprops, slabel=slabel)
 		elif oformat == 'nusmv':
 			from ..backend.nusmv import NuSMVGrapher
 			grapher = NuSMVGrapher(outfile, slabel=slabel, elabel=elabel, aprops=aprops)
+		elif oformat == 'spin':
+			from ..backend.spin import SpinGrapher
+			grapher = SpinGrapher(outfile, slabel=slabel, elabel=elabel)
 		elif oformat == 'tikz':
 			grapher = TikZGrapher(outfile, slabel=slabel, elabel=elabel)
 		elif args.passign:

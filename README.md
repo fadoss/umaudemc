@@ -13,6 +13,9 @@ temporal property on the given rewrite system.
 * `pcheck <filename> <initial term> <formula> [<strategy>] [--assign <method>] [--reward <term>]`
 to calculate probabilities and expected values for a temporal property on the
 given rewrite system extended with probabilities.
+* `scheck <filename> <initial term> <QuaTEx file> [<strategy>]` to estimate
+a quantitative temporal expression by simulation on a rewriting system extended
+with probabilities as in `pcheck`.
 * `graph <filename> <initial term> [<strategy>]` to generate a visual
 representation of the reachable rewrite graph from the given initial state
 in the [GraphViz](https://graphviz.org/)'s DOT format.
@@ -70,24 +73,27 @@ a ready-to-use distribution of a
 * [pyModelChecking](https://pypi.org/project/pyModelChecking/) is a simple
 Python model-checking library. It can be installed with
 `pip install pyModelChecking`.
-* [NuSMV](https://nusmv.fbk.eu/). The environment variable should be set to
-the path where the `NuSMV` binary is available (if not already in the system
-path).
+* [NuSMV](https://nusmv.fbk.eu/). The environment variable `NUSMV_PATH` should
+be set to the path where the `NuSMV` binary is available (if not already in
+the system path).
 * [Spot](https://spot.lrde.epita.fr/) is a platform for LTL and ω-automata
 manipulation. Its Python library should be installed as explained in its
 webpage.
+* [Spin](https://spinroot.com/) is a widely-used LTL model checker. The path
+containing the `spin` binary should be specified with the `SPIN_PATH`
+environment variable if not already in the system path.
 * The `umaudemc` tool includes a built-in μ-calculus implementation based on
 the procedure described [here](https://doi.org/10.1007/978-3-319-10575-8_26)
 and Zielonka's algorithm.
 
 The following table shows the temporal logics supported by each of them:
 
-| Logic      | `maude`     | `ltsmin`    | `pymc`   | `nusmv`  | `spot`   | `builtin` |
-| ---------- | ----------- | ----------- | -------- | -------- | -------- | --------- |
-| LTL        | on-the-fly  | on-the-fly  | tableau  | tableau  | automata |           |
-| CTL        |             | ✓           | ✓        | ✓        |          | ✓         |
-| CTL*       |             | ✓           | ✓        |          |          |           |
-| μ-calculus |             | ✓           |          |          |          | ✓         |
+| Logic      | `maude`     | `ltsmin`    | `pymc`   | `nusmv`  | `spot`   | `spin`   | `builtin` |
+| ---------- | ----------- | ----------- | -------- | -------- | -------- | -------- | --------- |
+| LTL        | on-the-fly  | on-the-fly  | tableau  | tableau  | automata | automata |           |
+| CTL        |             | ✓           | ✓        | ✓        |          |          | ✓         |
+| CTL*       |             | ✓           | ✓        |          |          |          |           |
+| μ-calculus |             | ✓           |          |          |          |          | ✓         |
 
 The first available and compatible backend in the order above will be used to
 model check the given formula. The default order can be overwritten using the
@@ -100,7 +106,11 @@ its location should be provided using the `PRISM_PATH` environment variable.
 * [Storm](https://www.stormchecker.org/). Its location should be specified
 with the `STORM_PATH` environment variable if not available in the system path.
 
-Moreover, to read test cases specifications in YAML, the 
+For the statistical model-checking command `scheck`, the [SciPy](https://scipy.org/)
+Python package is recommended. Otherwise, confidence intervals will be calculated
+with respect to the normal distribution instead of the Student's t-distribution.
+
+Moreover, to read test cases specifications in YAML, the
 [PyYAML](https://pypi.org/project/pyaml/) package is required.
 
 
@@ -146,19 +156,42 @@ if no `--assing` option is provided.
 * `uaction(a1=w1, ..., an=wn)` specifies weights for the actions (rule labels)
 of the model (omitted actions take a unitary weight), which are used to
 distribute the probability among them. If there are multiple successors for the
-same action, probabilities are shared uniformly among these successors. A fixed probability can also be assigned to an action with `a.p=x` instead of `a=w` (of course, they cannot sum more than 1).
+same action, probabilities are shared uniformly among these successors. A fixed
+probability can also be assigned to an action with `a.p=x` instead of `a=w`
+(of course, they cannot sum more than 1).
 * `metadata` uses the `metadata` attribute of the rules in Maude to specify
 weights for each transition. In case of multiple successors produced by the same
 rule, probability is distributed uniformly among them. 
 * `term(t)` evaluates a term on every transition of the model to calculate its
 weights. The term `t` may contain a variable `L` for the origin of the transition,
 `R` for the result, and `A` of sort `Qid` for the action name.
-* `strategy` extracts the probabilities of the model from a probabilistic strategy expression containing `choice` operators. This allows controlling
+* `strategy` extracts the probabilities of the model from a probabilistic strategy
+expression containing `choice` operators. This allows controlling
 rewriting and specifying probabilities at the same time.
 
-All methods from `uniform` to `term` produce discrete-time Markov chains (DTMC) from the input rewrite system. Their variants `mdp-uniform`, `mdp-metadata`, and `mdp-term`
+All methods from `uniform` to `term` produce discrete-time Markov chains (DTMC) from
+the input rewrite system. Their variants `mdp-uniform`, `mdp-metadata`, and `mdp-term`
 can be used instead to generate Markov decision processes (MDP) and calculate minimum
-and maximum probabilities. The `strategy` method may produce a DTMC if all nondeterministic options have been quantified, an MDP if nondeterministic choices precede quantified ones between rewrites, and fails with an error message otherwise.
+and maximum probabilities. The `strategy` method may produce a DTMC if all
+nondeterministic options have been quantified, an MDP if nondeterministic choices
+precede quantified ones between rewrites, and fails with an error message otherwise.
+
+### Statistical model checking
+
+The previous methods for assigning probabilities can also be used for statistical
+model checking with the `scheck` command, except the `mdp-` variants since they do
+not make sense in this context. Moreover, the `strategy` tool follows a simulation
+semantics that differs from the standard one on conditionals, where backtracking is
+not considered. The additional `strategy-full` method maintains the original semantics
+but needs to expand the whole graph before starting the simulation. Finally, the
+`pmaude` assignment method allows simulating
+[PMaude](https://doi.org/10.1016/j.entcs.2005.10.040) specifications.
+
+This command estimates quantitive expressions in the QuaTEx language of the
+[VeSta](https://doi.org/10.1109/QEST.2005.42) family of tools. More precisely,
+the syntax is compatible with [MultiVeSta](https://doi.org/10.4108/icst.valuetools.2013.254377)
+as described in the model checkers' [manual](https://maude.ucm.es/strategies/modelchecker-manual.pdf)
+without parametric queries.
 
 
 References

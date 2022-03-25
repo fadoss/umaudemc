@@ -296,7 +296,7 @@ class NuSMVGrapher:
 		for state in range(max_state + 1):
 			# Write the label for each state before its entry (unless empty)
 			comment = self.slabel(graph, state)
-			if str(comment) != '':
+			if str(comment):
 				print(f'    -- {comment}', file=self.outfile)
 
 			# NuSMV requires the case distinction to be exhaustive in the integer

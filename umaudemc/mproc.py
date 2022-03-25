@@ -19,7 +19,7 @@ class MaudeProcess:
 	as a dictionary.
 	"""
 
-	DEFAULT_BACKENDS = 'maude,ltsmin,pymc,nusmv,spot,builtin'
+	DEFAULT_BACKENDS = 'maude,ltsmin,pymc,nusmv,spot,spin,builtin'
 	DEFAULT_PBACKENDS = 'prism,storm'
 
 	def __init__(self, backends=DEFAULT_BACKENDS):

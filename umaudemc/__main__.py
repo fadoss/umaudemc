@@ -62,7 +62,7 @@ def add_backend_arg(parser):
 
 	parser.add_argument(
 		'--backend',
-		help='comma-separated prioritized list of model-checking backends (among maude, ltsmin, pymc, nusmv, spot, builtin)'
+		help='comma-separated prioritized list of model-checking backends (among maude, ltsmin, pymc, nusmv, spot, spin, builtin)'
 	)
 
 
@@ -184,7 +184,7 @@ def build_parser():
 	parser_graph.add_argument(
 		'--format',
 		help='select the output format',
-		choices=['default', 'dot', 'tikz', 'nusmv', 'prism'],
+		choices=['default', 'dot', 'tikz', 'nusmv', 'prism', 'spin', 'jani'],
 		default='default'
 	)
 	parser_graph.add_argument('-o', help='output to a file', metavar='FILENAME')
@@ -226,31 +226,26 @@ def build_parser():
 		metavar='METHOD',
 		default='uniform'
 	)
-
 	parser_pcheck.add_argument(
 		'--steps',
 		help='Calculate the mean cost in number of steps',
 		action='store_true'
 	)
-
 	parser_pcheck.add_argument(
 		'--reward',
 		help='Calculate the expected value of the given reward term on states '
 		     '(it may contain a single variable to be replaced by the state term)',
 		metavar='TERM'
 	)
-
 	parser_pcheck.add_argument(
 		'--raw-formula',
 		help='The formula argument is directly passed to the backend',
 		action='store_true'
 	)
-
 	parser_pcheck.add_argument(
 		'--backend',
 		help='comma-separated prioritized list of probabilistic model-checking backends (among prism, storm)'
 	)
-
 	parser_pcheck.add_argument(
 		'--fraction', '-f',
 		help='show approximated fractional probabilities',
@@ -258,6 +253,69 @@ def build_parser():
 	)
 
 	parser_pcheck.set_defaults(mode='pcheck')
+
+	#
+	# Statistical model checking
+	#
+
+	parser_scheck = subparsers.add_parser('scheck', help='Statistical model checking')
+
+	parser_scheck.add_argument('file', help='Maude source file specifying the model-checking problem')
+	parser_scheck.add_argument('initial', help='initial term')
+	parser_scheck.add_argument('query', help='QuaTEx query')
+	parser_scheck.add_argument('strategy', help='strategy expression', nargs='?')
+
+	add_initial_data_args(parser_scheck)
+
+	parser_scheck.add_argument(
+		'--assign',
+		help='Assign probabilities to the successors according to the given method',
+		metavar='METHOD'
+	)
+	parser_scheck.add_argument(
+		'--alpha', '-a',
+		help='Complement of the confidence level (probability outside the confidence interval)',
+		type=float,
+		default=0.05
+	)
+	parser_scheck.add_argument(
+		'--delta', '-d',
+		help='Maximum admissible radius for the confidence interval',
+		type=float,
+		default=0.5
+	)
+	parser_scheck.add_argument(
+		'--block', '-b',
+		help='Number of simulations before checking the confidence interval',
+		type=int,
+		default=30
+	)
+	parser_scheck.add_argument(
+		'--nsims', '-n',
+		help='Number of simulations (it can be a fixed number or a range min-max, where any of the limits can be omitted)',
+		default='30-'
+	)
+	parser_scheck.add_argument(
+		'--seed', '-s',
+		help='Random seed',
+		type=int
+	)
+	parser_scheck.add_argument(
+		'--jobs', '-j',
+		help='Number of parallel simulation threads',
+		type=int,
+		default=1
+	)
+	parser_scheck.add_argument(
+		'--format', '-f',
+		help='Output format for the simulation results',
+		choices=['text', 'json'],
+		default='text'
+	)
+
+	# TODO: añadir todos los atributos alpha, delta, tamaño de bloque, número de iteraciones, etc.
+
+	parser_scheck.set_defaults(mode='scheck')
 
 	#
 	# Test and benchmark test suites from the command line
@@ -428,6 +486,11 @@ def main():
 	elif args.mode == 'pcheck':
 		from .command.pcheck import pcheck
 		return pcheck(args)
+
+	# Statistical model-checking subcommand
+	elif args.mode == 'scheck':
+		from .command.scheck import scheck
+		return scheck(args)
 
 	# Batch test subcommand
 	elif args.mode == 'test':

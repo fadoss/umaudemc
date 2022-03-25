@@ -12,6 +12,7 @@ from ..backends import kleene_backends, get_backends, backend_for, format_statis
 	advance_counterexample, advance_kleene
 from ..counterprint import SimplePrinter, JSONPrinter, HTMLPrinter, DOTPrinter, print_counterexample
 from ..formulae import Parser, collect_aprops, add_path_premise, formula_list2str
+from ..wrappers import FailFreeGraph
 from ..terminal import terminal as tmn
 
 # Emphasized text to be used when printing the model-checking result
@@ -128,7 +129,6 @@ def kleene_check(data, args, formula, logic, backend, handle):
 	# Import some packages that are only needed for the Kleene case
 	from .. import resources
 	from ..opsem import OpSemKleeneInstance, KleeneMergedGraph, OpSemGraph
-	from ..wrappers import FailFreeGraph
 
 	# Instantiate the Kleene-aware operational semantics with the given problem
 	instance = OpSemKleeneInstance.make_instance(data.module, data.metamodule)

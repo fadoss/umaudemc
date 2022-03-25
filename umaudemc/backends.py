@@ -11,14 +11,15 @@ supported_logics = {
 	'pymc':    {'propLogic', 'LTL', 'CTL', 'CTL*'},
 	'nusmv':   {'propLogic', 'LTL', 'CTL'},
 	'spot':    {'propLogic', 'LTL'},
+	'spin':    {'propLogic', 'LTL'},
 	'builtin': {'propLogic', 'CTL', 'Mucalc'}
 }
 
 # List of backends in the default order
-DEFAULT_BACKENDS = 'maude,ltsmin,pymc,nusmv,spot,builtin'
+DEFAULT_BACKENDS = 'maude,ltsmin,pymc,nusmv,spot,spin,builtin'
 
 # Backends that support the generation of counterexamples
-counterexample_backends = {'maude', 'nusmv', 'spot'}
+counterexample_backends = {'maude', 'nusmv', 'spot', 'spin'}
 
 # Backend that directly support the Kleene star semantics of the iteration
 kleene_backends = {'spot'}
@@ -94,6 +95,9 @@ def get_backend(backend):
 	elif backend == 'spot':
 		from .backend.spot import SpotBackend
 		return SpotBackend()
+	elif backend == 'spin':
+		from .backend.spin import Spin
+		return Spin()
 	elif backend == 'builtin':
 		from .backend.bmcalc import BuiltinBackend
 		return BuiltinBackend()
