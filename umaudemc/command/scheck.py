@@ -76,8 +76,8 @@ def run(program, simulator):
 					has_next, jump, *args = value
 
 					pc[k] = jump
-					cvars[k] = dict(zip(program.varnames[pc[k]], args)) \
-						     | {'rval': simulator.rval}
+					cvars[k] = dict(zip(program.varnames[pc[k]], args),
+					                rval=simulator.rval)
 
 		# Execute a step of the simulation
 		simulator.next_step()
@@ -152,7 +152,7 @@ def run_single(program, num_sims, max_sim, simulator, alpha, delta, block_size, 
 
 		converged = check_interval(qdata, num_sims, alpha, delta, quantile, verbose)
 
-		if converged or max_sim and max_sim >= num_sims:
+		if converged or max_sim and num_sims >= max_sim:
 			break
 
 		num_sims += block_size
@@ -240,7 +240,7 @@ def run_parallel(program, num_sims, max_sim, simulator, alpha, delta, block_size
 
 		converged = check_interval(qdata, num_sims, alpha, delta, quantile, verbose)
 
-		if converged or max_sim and max_sim >= num_sims:
+		if converged or max_sim and num_sims >= max_sim:
 			break
 
 		num_sims += block_size

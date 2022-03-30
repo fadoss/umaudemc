@@ -1857,6 +1857,11 @@ class MarkovRunner(StratRunner):
 		# should be pushed to the DFS stack when the former are executed
 		self.push_state = {}
 
+		# Solution states, indexed by term (we introduce them as children
+		# of graph states where both a solution of the strategy and a
+		# different sucessor can be reached)
+		self.solution_states = {}
+
 	def resolve_choice(self, choice):
 		"""Resolve a choice with weights into probabilities"""
 
@@ -1895,6 +1900,17 @@ class MarkovRunner(StratRunner):
 
 		return new_choice
 
+	def get_solution_state(self, term):
+		"""Get the solution state for the given term"""
+
+		solution_state = self.solution_states.get(term)
+
+		if not solution_state:
+			solution_state = self.GraphState(term)
+			self.solution_states[term] = solution_state
+
+		return solution_state
+
 	def next_pending(self):
 		"""Change the current state to the next pending state"""
 
@@ -1927,6 +1943,14 @@ class MarkovRunner(StratRunner):
 			# Check whether the graph state is valid
 			graph_state.valid = graph_state.solution or graph_state.children or graph_state.child_choices
 
+			# Link a solution state if there are children
+			# (these states are needed to explicit the self-loop for the stuttering
+			# extension of finite traces without introducing spurious executions)
+			if graph_state.solution and (graph_state.children or graph_state.child_choices) and \
+			   graph_state not in graph_state.children:
+				solution_state = self.get_solution_state(graph_state.term)
+				graph_state.children.add(solution_state)
+
 			# Adjust the probilities of the choice operators
 			new_choices = []
 
@@ -1951,10 +1975,6 @@ class MarkovRunner(StratRunner):
 				if graph_state.valid and graph_state.term is not None:
 					self.dfs_stack[-1].children.add(graph_state)
 
-				# Transfer solutions from fake states
-				if graph_state.term is None and graph_state.solution:
-					self.dfs_stack[-1].solution = True
-
 		# No more pending work for the strategy
 		self.current_state = None
 		return False
@@ -1972,7 +1992,16 @@ class MarkovRunner(StratRunner):
 
 		# This is the root node, so we have found a solution and mark the state
 		else:
-			self.dfs_stack[-1].solution = True
+			graph_state = self.dfs_stack[-1]
+
+			# Fake states are not marked as solutions but added a
+			# solution state as a child (this is also done later to
+			# marked states unless they do not have successors)
+			if graph_state.term is None:
+				graph_state.children.add(self.get_solution_state(self.current_state.term))
+			else:
+				graph_state.solution = True
+
 			self.next_pending()
 
 	def choice(self, args, stack):

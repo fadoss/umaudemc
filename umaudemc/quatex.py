@@ -432,12 +432,15 @@ class QuaTExParser:
 
 					if ltype not in (self.lexer.LT_NAME, self.lexer.LT_STRING, self.lexer.LT_NUMBER):
 						self._eprint(f's.rval only admits string literals and variables, but "{token}" is found.')
+						return None
 
 					if not self._expect(')'):
 						return None
 
 					if ltype == self.lexer.LT_NAME:
 						argument = ast.Name(token, ast.Load())
+					elif ltype == self.lexer.LT_NUMBER:
+						argument = ast.Constant(int(token))
 					else:
 						token = token[1:-1]
 						self.observations.append(token)
@@ -679,7 +682,6 @@ class QuaTExParser:
 				             line=line, column=column)
 
 		for k, (line, column, expr) in enumerate(self.queries):
-
 			try:
 				expr = ast.Expression(expr)
 				ast.fix_missing_locations(expr)

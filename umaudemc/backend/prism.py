@@ -18,6 +18,8 @@ from ..wrappers import create_graph
 _RESULT_REGEX = re.compile(b'^Result: ([\\d.E-]+|Infinity|false|true)(.*)')
 # Additional information on the result
 _MORE_RESULT_REGEX = re.compile(b' \\(\\+/- ([\\d.E-]+) .*; rel err ([\\d.E-]+)')
+# Characters not admitted in PRISM labels
+_LABEL_ILLEGAL = re.compile('[^a-zA-Z0-9_]')
 
 # Translation of LTL, CTL and PCTL formulae
 
@@ -71,9 +73,14 @@ def _make_bound(bound):
 		return f'[{bound[1]}, {bound[2]}]'
 
 
+def _label_char_repl(match):
+	"""Replacement for illegal characters in labels"""
+	return f'u{ord(match[0]):04x}'
+
+
 def _translate_aprop(aprop):
 	"""Translate an atomic proposition to a PRISM label"""
-	return aprop.replace('"', '\\"').replace('(', '').replace(')', '').replace('-', '')
+	return _LABEL_ILLEGAL.sub(_label_char_repl, aprop)
 
 
 def _make_prism_formula(form, translation, out_prio=20):
