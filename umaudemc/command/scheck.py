@@ -32,25 +32,29 @@ def get_quantile_func():
 		return lambda _, p: normal.inv_cdf(p)
 
 
-def run(program, simulator):
+def run(program, qdata, simulator):
 	"""Run a program on a simulator"""
 
 	simulator.restart()
 
 	# Program counter (slot index) for each query
-	pc = list(range(program.ndefs, len(program.slots)))
+	pc = [program.ndefs + q.query for q in qdata]
 	# List where to store the results of each query
-	results = [None] * program.nqueries
+	results = [None] * len(qdata)
 	# Remaining queries for being processed
-	remaining = program.nqueries
+	remaining = list(range(len(qdata)))
 
 	# Variables when evaluating expressions
-	cvars = [{'rval': simulator.rval}] * program.nqueries
+	cvars = [{'rval': simulator.rval, **q.params} for q in qdata]
 
 	# Keep running until all queries have been calculated
 	while True:
 		# Every query is evaluated in the current simulation state
-		for k in range(program.nqueries):
+		index = 0
+
+		while index < len(remaining):
+			k = remaining[index]
+
 			# Expressions may call functions with or without the next
 			# operator. The following keep running slots until a call
 			# with next is encountered
@@ -62,7 +66,7 @@ def run(program, simulator):
 
 				# The evaluation of the k-th query has finished
 				if isinstance(value, float):
-					remaining -= 1
+					remaining.pop(index)
 					results[k] = value
 
 					# All queries have been calculated
@@ -79,6 +83,9 @@ def run(program, simulator):
 					cvars[k] = dict(zip(program.varnames[pc[k]], args),
 					                rval=simulator.rval)
 
+			if has_next:
+				index += 1
+
 		# Execute a step of the simulation
 		simulator.next_step()
 
@@ -86,7 +93,12 @@ def run(program, simulator):
 class QueryData:
 	"""Data associated to a query under evaluation"""
 
-	def __init__(self):
+	def __init__(self, query, params):
+		# Query expression index
+		self.query = query
+		# Initial dictionary of variable values
+		self.params = params
+
 		# Sum of the query outcomes
 		self.sum = 0.0
 		# Sum of the squares of the query outcomes
@@ -97,6 +109,20 @@ class QueryData:
 		self.s = 0.0
 		# Radius of the confidence interval
 		self.h = 0.0
+
+
+def make_parameter_dicts(qinfo):
+	"""Make the initial variable mapping for the parameters of a query"""
+
+	if qinfo is None:
+		yield {}
+
+	else:
+		var, x, step, end = qinfo
+
+		while x <= end:
+			yield {var: x}
+			x += step
 
 
 def check_interval(qdata, num_sims, alpha, delta, quantile, verbose):
@@ -126,7 +152,7 @@ def check_interval(qdata, num_sims, alpha, delta, quantile, verbose):
 	return converged
 
 
-def run_single(program, num_sims, max_sim, simulator, alpha, delta, block_size, verbose=False):
+def run_single(program, qdata, num_sims, max_sim, simulator, alpha, delta, block_size, verbose=False):
 	"""Run simulation in a single thread"""
 
 	# Size of the first block of execution (it coincides with num_sims
@@ -135,16 +161,12 @@ def run_single(program, num_sims, max_sim, simulator, alpha, delta, block_size, 
 
 	quantile = get_quantile_func()
 
-	# Each query maintains some data like the sum of the outcomes
-	# and the sum of their squares
-	qdata = [QueryData() for _ in range(program.nqueries)]
-
 	# This loop continues until the maximum number of simulation is reached
 	# or the confidence interval converges to the given delta
 	while True:
 		for _ in range(block):
 			# Run the simulation and compute all queries at once
-			values = run(program, simulator)
+			values = run(program, qdata, simulator)
 
 			for k, query in enumerate(qdata):
 				query.sum += values[k]
@@ -161,7 +183,7 @@ def run_single(program, num_sims, max_sim, simulator, alpha, delta, block_size, 
 	return num_sims, qdata
 
 
-def thread_main(program, simulator, num_sims, block_size, seed, queue, barrier, more):
+def thread_main(program, qdata, simulator, num_sims, block_size, seed, queue, barrier, more):
 	"""Entry point of a calculating thread"""
 
 	maude.setRandomSeed(seed)
@@ -169,17 +191,17 @@ def thread_main(program, simulator, num_sims, block_size, seed, queue, barrier, 
 
 	block = num_sims
 
-	sums = [0.0] * program.nqueries
-	sum_sq = [0.0] * program.nqueries
+	sums = [0.0] * len(qdata)
+	sum_sq = [0.0] * len(qdata)
 
 	# Repeat until the main process says we are done
 	while True:
 
 		for _ in range(block):
 			# Run the simulation and compute all queries at once
-			values = run(program, simulator)
+			values = run(program, qdata, simulator)
 
-			for k in range(program.nqueries):
+			for k in range(len(qdata)):
 				sums[k] += values[k]
 				sum_sq[k] += values[k] * values[k]
 
@@ -187,7 +209,7 @@ def thread_main(program, simulator, num_sims, block_size, seed, queue, barrier, 
 		queue.put((sums, sum_sq))
 		barrier.wait()
 
-		for k in range(program.nqueries):
+		for k in range(len(qdata)):
 			sums[k] = 0.0
 			sum_sq[k] = 0.0
 
@@ -198,7 +220,7 @@ def thread_main(program, simulator, num_sims, block_size, seed, queue, barrier, 
 		block = block_size
 
 
-def run_parallel(program, num_sims, max_sim, simulator, alpha, delta, block_size, jobs, verbose=False):
+def run_parallel(program, qdata, num_sims, max_sim, simulator, alpha, delta, block_size, jobs, verbose=False):
 	"""Run the simulation in multiple threads"""
 	import multiprocessing as mp
 
@@ -207,7 +229,6 @@ def run_parallel(program, num_sims, max_sim, simulator, alpha, delta, block_size
 		jobs = os.cpu_count()
 
 	# Like in run_single
-	qdata = [QueryData() for _ in range(program.nqueries)]
 	quantile = get_quantile_func()
 
 	# Process communication stuff
@@ -221,7 +242,7 @@ def run_parallel(program, num_sims, max_sim, simulator, alpha, delta, block_size
 
 	rest, rest_block = num_sims % jobs, block_size % jobs
 	processes = [mp.Process(target=thread_main,
-	                        args=(program, simulator, num_sims // jobs + (k < rest),
+	                        args=(program, qdata, simulator, num_sims // jobs + (k < rest),
 	                              block_size // jobs + (k < rest_block),
 	                              seeds[k], queue, barrier, more)) for k in range(jobs)]
 
@@ -231,7 +252,7 @@ def run_parallel(program, num_sims, max_sim, simulator, alpha, delta, block_size
 
 	# Exactly as in run_single but with several threads
 	while True:
-		for j in range(jobs):
+		for _ in range(jobs):
 			sums, sum_sq = queue.get()
 
 			for k, query in enumerate(qdata):
@@ -263,11 +284,25 @@ def show_results(program, nsims, qdata):
 
 	print(f'Number of simulations = {nsims}')
 
-	for k, query in enumerate(qdata):
+	# Iterator for qdata
+	qdata_it = iter(qdata)
+	q = next(qdata_it, None)
+
+	for k, (line, column, params) in enumerate(program.query_locations):
+		# Print the query name and location only if there are many
 		if program.nqueries > 1:
-			line, column = program.query_locations[k]
 			print(f'Query {k + 1} (line {line}:{column})')
-		print(f'  μ = {query.mu:<25} σ = {query.s:<25} r = {query.h}')
+
+		# For parametric queries, we show the result for every value
+		var = params[0] if params else None
+
+		while q and q.query == k:
+			if var:
+				print(f'  {var} = {q.params[var]:<10} μ = {q.mu:<20} σ = {q.s:<20} r = {q.h}')
+			else:
+				print(f'  μ = {q.mu:<25} σ = {q.s:<25} r = {q.h}')
+
+			q = next(qdata_it, None)
 
 
 def show_json(program, nsims, qdata):
@@ -275,14 +310,94 @@ def show_json(program, nsims, qdata):
 
 	print(f'{{"nsims": {nsims}, "queries": [')
 
-	for k, query in enumerate(qdata):
+	# Iterator for qdata
+	qdata_it = iter(qdata)
+	q = next(qdata_it, None)
+
+	for k, (line, column, params) in enumerate(program.query_locations):
 		if k > 0:
 			print(',')
-		line, column = program.query_locations[k]
-		print(f'  {{"mean": {query.mu}, "std": {query.s}, "radius": {query.h}, '
-	              f'"line": {line}, "column": {column}}}', end='')
+
+		# For parametric queries, we write arrays of values
+		if params:
+			mean, std, radius = [], [], []
+
+			while q and q.query == k:
+				mean.append(q.mu)
+				std.append(q.s)
+				radius.append(q.h)
+				q = next(qdata_it, None)
+
+			# We also write information about the parameter
+			name, start, step, stop = params
+			param_info = (f', "params": [{{"name": "{name}", "start": {start}, '
+			              f'"step": {step}, "stop": {stop}}}]')
+
+		else:
+			mean, std, radius = q.mu, q.s, q.h
+			param_info = ''
+
+		print(f'  {{"mean": {mean}, "std": {std}, "radius": {radius}, '
+		      f'"line": {line}, "column": {column}{param_info}}}', end='')
 
 	print(']}')
+
+
+def plot_results(program, qdata):
+	"""Plot the results of parametric queries"""
+
+	# Gather the results of parametric queries
+	xs, ys, rs, index, results = [], [], [], 0, []
+
+	for query in qdata:
+		if not query.params:
+			continue
+
+		if query.query == index:
+			x, = query.params.values()
+			xs.append(x)
+			ys.append(query.mu)
+			rs.append(query.h)
+
+		else:
+			# Parametric queries with less that two points are
+			# ignored (line plots do not make sense for them)
+			if len(xs) > 1:
+				results.append((index, xs, ys, rs))
+				xs, ys, rs = [], [], []
+
+			index = query.query
+
+	if len(xs) > 1:
+		results.append((index, xs, ys, rs))
+
+	if not results:
+		usermsgs.print_warning('Skipping plotting since there are no (non-trivial) parametric queries to plot.')
+		return
+
+	try:
+		import matplotlib.pyplot as plt
+
+	except ImportError:
+		usermsgs.print_warning('Skipping plotting since Matplotlib is not available. '
+		                       'It can be installed with pip install matplotlib.')
+		return
+
+	for k, xs, ys, rs in results:
+		line, column, _ = program.query_locations[k]
+
+		# Plot the mean
+		p = plt.plot(xs, ys, label=f'{line}:{column}')
+		# Plot the confidence interval
+		plt.fill_between(xs, [y - r for y, r in zip(ys, rs)],
+		                 [y + r for y, r in zip(ys, rs)],
+		                 color=p[0].get_color(), alpha=.1)
+
+	# Show a legend when there is more than one query
+	if len(results) > 1:
+		plt.legend()
+
+	plt.show()
 
 
 def parse_range(rtext):
@@ -324,6 +439,10 @@ def scheck(args):
 	if not program:
 		return 1
 
+	if not program.nqueries:
+		usermsgs.print_warning('No queries in the input file.')
+		return 0
+
 	# Get the simulator for the given assignment method
 	simulator = get_simulator(args.assign, data)
 
@@ -360,15 +479,25 @@ def scheck(args):
 		maude.setRandomSeed(args.seed)
 		random.seed(args.seed)
 
+	# Each query maintains some data like the sum of the outcomes
+	# and the sum of their squares
+	qdata = [QueryData(k, idict)
+	         for k, qinfo in enumerate(program.query_locations)
+	         for idict in make_parameter_dicts(qinfo[2])]
+
 	# Run the simulations
 	if args.jobs == 1:
-		num_sims, qdata = run_single(program, num_sims, max_sim, simulator, args.alpha,
+		num_sims, qdata = run_single(program, qdata, num_sims, max_sim, simulator, args.alpha,
 		                             args.delta, args.block, verbose=args.verbose)
 	else:
-		num_sims, qdata = run_parallel(program, num_sims, max_sim, simulator, args.alpha,
+		num_sims, qdata = run_parallel(program, qdata, num_sims, max_sim, simulator, args.alpha,
 		                               args.delta, args.block, args.jobs, verbose=args.verbose)
 
 	# Print the results on the terminal
 	(show_json if args.format == 'json' else show_results)(program, num_sims, qdata)
+
+	# Plot the result of parametric queries if requested
+	if args.plot:
+		plot_results(program, qdata)
 
 	return 0

@@ -21,3 +21,9 @@ def print_error_loc(unit, line, column, msg):
 	"""Print an error with a location"""
 
 	print(f'{tmn.bold}{unit}:{line}:{column}: {tmn.red}error:{tmn.reset} {msg}')
+
+
+def print_warning_loc(unit, line, column, msg):
+	"""Print a warning with a location"""
+
+	print(f'{tmn.bold}{unit}:{line}:{column}: {tmn.yellow}warning:{tmn.reset} {msg}')

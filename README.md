@@ -111,7 +111,7 @@ Python package is recommended. Otherwise, confidence intervals will be calculate
 with respect to the normal distribution instead of the Student's t-distribution.
 
 Moreover, to read test cases specifications in YAML, the
-[PyYAML](https://pypi.org/project/pyaml/) package is required.
+[PyYAML](https://pypi.org/project/pyaml/) package is required. [Matplotlib](https://matplotlib.org/) is needed to plot the results of parametric queries in `scheck`.
 
 
 Documentation
@@ -190,8 +190,7 @@ but needs to expand the whole graph before starting the simulation. Finally, the
 This command estimates quantitive expressions in the QuaTEx language of the
 [VeSta](https://doi.org/10.1109/QEST.2005.42) family of tools. More precisely,
 the syntax is compatible with [MultiVeSta](https://doi.org/10.4108/icst.valuetools.2013.254377)
-as described in the model checkers' [manual](https://maude.ucm.es/strategies/modelchecker-manual.pdf)
-without parametric queries.
+as described in the model checkers' [manual](https://maude.ucm.es/strategies/modelchecker-manual.pdf).
 
 
 References

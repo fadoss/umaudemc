@@ -2166,7 +2166,7 @@ class RandomRunner(StratRunner):
 		"""Notify the rewrite as a solution"""
 
 		# The notion of "solution" in this execution mode is "step" or "rewrite"
-		self.solution = pysl.rebuild_term(self.current_state.term, stack, args)
+		self.solution = rebuild_term(self.current_state.term, stack, args)
 		self.current_state.pc += 1
 
 	def pop(self, _, stack):

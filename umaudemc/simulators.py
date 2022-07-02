@@ -120,19 +120,12 @@ def all_children(graph, state):
 class UmaudemcSimulator(BaseSimulator):
 	"""Simulator that uses the probability assigners of pcheck"""
 
-	def __init__(self, initial, strategy=None, assigner='uniform', opaque=()):
+	def __init__(self, initial, graph, assigner):
 		super().__init__(initial)
 
-		from . import probabilistic as pb
 		self.state_nr = 0
-
-		if strategy:
-			self.graph = pb.maude.StrategyRewriteGraph(initial, strategy, opaque)
-		else:
-			self.graph = pb.maude.RewriteGraph(initial)
-
-		self.graph.strategyControlled = strategy is not None
-		self.assigner, _ = pb.get_local_assigner(initial.symbol().getModule(), assigner)
+		self.graph = graph
+		self.assigner = assigner
 
 	def restart(self):
 		"""Restart the simulator"""
@@ -150,6 +143,25 @@ class UmaudemcSimulator(BaseSimulator):
 			self.state_nr, = random.choices(successors, probs)
 			self.state = self.graph.getStateTerm(self.state_nr)
 			self.step += 1
+
+	@staticmethod
+	def new(initial, strategy=None, assigner='uniform', opaque=()):
+		"""Construct a UmaudemcSimulator, but may fail if the assigner is not valid"""
+
+		from . import probabilistic as pb
+
+		if strategy:
+			graph = pb.maude.StrategyRewriteGraph(initial, strategy, opaque)
+		else:
+			graph = pb.maude.RewriteGraph(initial)
+
+		graph.strategyControlled = strategy is not None
+		distr, found = pb.get_local_assigner(initial.symbol().getModule(), assigner)
+
+		if not found:
+			usermsgs.print_error(f'Unknown probability assignment method {assigner}.')
+
+		return UmaudemcSimulator(initial, graph, distr) if distr else None
 
 
 class StrategyPathSimulator(BaseSimulator):
@@ -352,4 +364,4 @@ def get_simulator(method, data):
 	if method == 'pmaude':
 		return PMaudeSimulator.new(data.module, data.term, data.strategy)
 
-	return UmaudemcSimulator(data.term, data.strategy, method, opaque=data.opaque)
+	return UmaudemcSimulator.new(data.term, data.strategy, method, opaque=data.opaque)

@@ -312,8 +312,11 @@ def build_parser():
 		choices=['text', 'json'],
 		default='text'
 	)
-
-	# TODO: añadir todos los atributos alpha, delta, tamaño de bloque, número de iteraciones, etc.
+	parser_scheck.add_argument(
+		'--plot', '-p',
+		help='Plot the results of parametric queries (using Matplotlib)',
+		action='store_true'
+	)
 
 	parser_scheck.set_defaults(mode='scheck')
 

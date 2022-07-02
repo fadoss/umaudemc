@@ -16,7 +16,7 @@ documentation, and examples.
 
 setuptools.setup(
 	name                          = 'umaudemc',
-	version                       = '0.9.1',
+	version                       = '0.10',
 	author                        = 'ningit',
 	author_email                  = 'ningit@users.noreply.github.com',
 	description                   = 'Unified Maude model-checking utility',
@@ -50,6 +50,7 @@ setuptools.setup(
 	],
 	extras_require                = {
 		'CTL*'	: ['pyModelChecking >= 1.3.3'],
-		'YAML'	: ['pyaml']
+		'YAML'	: ['pyaml'],
+		'Plot'  : ['matplotlib'],
 	}
 )

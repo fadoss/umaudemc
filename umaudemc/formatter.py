@@ -30,7 +30,7 @@ def apply_state_format(graph, index, sformat, terms, use_term=False, use_strat=F
 	args = {'index': index}
 	module = graph.getStateTerm(0).symbol().getModule()
 
-	if use_term or len(terms) > 0:
+	if use_term or terms:
 		reusable_term = graph.getStateTerm(index)
 		args['term'] = str(reusable_term)
 		reusable_term = reusable_term.prettyPrint(maude.PRINT_WITH_PARENS)
