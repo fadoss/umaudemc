@@ -6,7 +6,7 @@ Uniform interface for model checking LTL, CTL, CTL*, and μ-calculus properties
 on standard and [strategy](https://maude.ucm.es/strategies)-controlled
 [Maude](https://maude.cs.illinois.edu) specifications using built-in and
 external backends. Models can also be extended with quantitative information
-and be applied probabilistic model-checking techniques.
+and be applied probabilistic and statistical model-checking techniques.
 
 This tool can be used from the command line, from a graphical user interface,
 and as a Python library. See the
@@ -16,7 +16,7 @@ documentation, and examples.
 
 setuptools.setup(
 	name                          = 'umaudemc',
-	version                       = '0.10',
+	version                       = '0.11',
 	author                        = 'ningit',
 	author_email                  = 'ningit@users.noreply.github.com',
 	description                   = 'Unified Maude model-checking utility',

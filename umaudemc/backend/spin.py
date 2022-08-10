@@ -28,7 +28,7 @@ _translation = {
 	'_<->_'		: ('{} <-> {}',		14),
 	'_->_'		: ('{} -> {}',		15),
 	'_U_'		: ('({} U {})',		0),
-	'_R_'           : ('({} V {})',         0),
+	'_R_'		: ('({} V {})',		0),
 }
 
 # Regular expression for parsing NuSMV output
@@ -114,9 +114,9 @@ class Spin:
 
 			# Spin is called on the generated file
 			try:
-				status = subprocess.run((self.spin, '-run', 'model.pml', '-ltl', 'p') \
-			                                + tuple(extra_args), cwd=tmpdir,
-							capture_output=not raw, timeout=timeout)
+				status = subprocess.run((self.spin, '-run', 'model.pml', '-ltl', 'p')
+				                        + tuple(extra_args), cwd=tmpdir,
+				                        capture_output=not raw, timeout=timeout)
 
 			except subprocess.TimeoutExpired:
 				usermsgs.print_error(f'Spin execution timed out after {timeout} seconds.')
@@ -124,7 +124,7 @@ class Spin:
 
 			if status.returncode != 0:
 				usermsgs.print_error('An error was produced while running Spin:\n'
-						    + status.stdout[:-1].decode('utf-8'))
+				                     + status.stdout[:-1].decode('utf-8'))
 				os.remove(tmpfile.name)
 				return None, None
 			else:
@@ -140,13 +140,13 @@ class Spin:
 				# Spin writes a counterexample file when the property does not hold
 
 				result = not any(line.startswith(b'pan: wrote model.pml.trail')
-		                                 for line in status.stdout.splitlines())
+				                 for line in status.stdout.splitlines())
 
 				if not result:
 					# We have to call spin again with options -t -p to recover the
 					# counterexample trace
 					status = subprocess.run((self.spin, '-t', '-p', tmpfile_name),
-								capture_output=True, cwd=tmpdir)
+					                        capture_output=True, cwd=tmpdir)
 
 					if status.returncode != 0:
 						usermsgs.print_warning('An error was produced while recovering '

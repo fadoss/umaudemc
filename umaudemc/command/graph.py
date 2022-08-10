@@ -134,10 +134,12 @@ def graph(args):
 	with output_stream(args.o, args.extra_args) as outfile:
 		if oformat == 'prism':
 			from ..backend.prism import PRISMGenerator
-			grapher = PRISMGenerator(outfile, aprops=aprops, slabel=slabel)
+			grapher = PRISMGenerator(outfile, aprops=aprops, slabel=slabel,
+			                         ctmc=args.passign and args.passign.startswith('ctmc-'))
 		elif oformat == 'jani':
 			from ..jani import JANIGenerator
-			grapher = JANIGenerator(outfile, aprops=aprops, slabel=slabel)
+			grapher = JANIGenerator(outfile, aprops=aprops, slabel=slabel,
+			                        ctmc=args.passign and args.passign.startswith('ctmc-'))
 		elif oformat == 'nusmv':
 			from ..backend.nusmv import NuSMVGrapher
 			grapher = NuSMVGrapher(outfile, slabel=slabel, elabel=elabel, aprops=aprops)

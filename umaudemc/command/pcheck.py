@@ -225,7 +225,8 @@ def pcheck(args):
 	                              extra_args=args.extra_args,
 	                              cost=args.steps,
 	                              reward=reward,
-	                              graph=graph)
+	                              graph=graph,
+	                              ctmc=args.assign.startswith('ctmc-'))
 
 	# Show the results and additional information
 	if result is not None:

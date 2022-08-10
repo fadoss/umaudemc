@@ -126,12 +126,18 @@ class UmaudemcSimulator(BaseSimulator):
 		self.state_nr = 0
 		self.graph = graph
 		self.assigner = assigner
+		self.time = 0.0
 
 	def restart(self):
 		"""Restart the simulator"""
 
 		super().restart()
 		self.state_nr = 0
+		self.time = 0.0
+
+	def get_time(self):
+		"""Get the simulation time calculated as in a CTMC"""
+		return self.time
 
 	def next_step(self):
 		"""Perform a step of the simulation"""
@@ -139,13 +145,14 @@ class UmaudemcSimulator(BaseSimulator):
 		successors = all_children(self.graph, self.state_nr)
 
 		if successors:
-			probs = self.assigner(self.graph, self.state_nr, successors)
-			self.state_nr, = random.choices(successors, probs)
+			weights = self.assigner(self.graph, self.state_nr, successors)
+			self.state_nr, = random.choices(successors, weights)
 			self.state = self.graph.getStateTerm(self.state_nr)
 			self.step += 1
+			self.time += 1.0 / sum(weights)
 
 	@staticmethod
-	def new(initial, strategy=None, assigner='uniform', opaque=()):
+	def new(initial, strategy=None, assigner='uniform', opaque=(), stmt_weights=None):
 		"""Construct a UmaudemcSimulator, but may fail if the assigner is not valid"""
 
 		from . import probabilistic as pb
@@ -156,7 +163,7 @@ class UmaudemcSimulator(BaseSimulator):
 			graph = pb.maude.RewriteGraph(initial)
 
 		graph.strategyControlled = strategy is not None
-		distr, found = pb.get_local_assigner(initial.symbol().getModule(), assigner)
+		distr, found = pb.get_local_assigner(initial.symbol().getModule(), assigner, stmt_weights)
 
 		if not found:
 			usermsgs.print_error(f'Unknown probability assignment method {assigner}.')
@@ -209,6 +216,7 @@ class StrategyDTMCSimulator(BaseSimulator):
 		try:
 			self.graph = MarkovRunner(p, initial).run()
 			self.node = self.graph
+			self.time = 0.0
 
 		except BadProbStrategy as bps:
 			usermsgs.print_error(bps)
@@ -218,11 +226,16 @@ class StrategyDTMCSimulator(BaseSimulator):
 
 		super().restart()
 		self.node = self.graph
+		self.time = 0.0
+
+	def get_time(self):
+		"""Get the simulation time calculated as in a CTMC"""
+		return self.time
 
 	def next_step(self):
 		"""Perform a step of the simulation"""
 
-		nd_opts, qt_opts, next_node = len(self.node.children), len(self.node.child_choices), None
+		nd_opts, qt_opts, next_node, time_gap = len(self.node.children), len(self.node.child_choices), None, 1.0
 
 		if nd_opts + qt_opts > 1:
 			usermsgs.print_warning('Unquantified nondeterministic choices are present in the strategy.')
@@ -233,11 +246,13 @@ class StrategyDTMCSimulator(BaseSimulator):
 		elif qt_opts:
 			choice, *_ = self.node.child_choices
 			next_node = random.choices(list(choice.keys()), choice.values())[0]
+			time_gap = 1.0 / sum(choice.values())
 
 		if next_node:
 			self.node = next_node
 			self.state = self.node.term
 			self.step += 1
+			self.time += time_gap
 
 
 class PMaudeSimulator(BaseSimulator):
@@ -345,6 +360,53 @@ class PMaudeSimulator(BaseSimulator):
 		return PMaudeSimulator(initial, getTime, tick, nat_kind, val)
 
 
+class GeneralizedMetadataSimulator(BaseSimulator):
+	"""Simulator for the metadata method where weights are Maude terms"""
+
+	def __init__(self, initial, stmt_weights):
+		super().__init__(initial)
+		# Map from statements (rules) to their weights
+		self.stmt_weights = stmt_weights
+		self.time = 0.0
+
+	def restart(self):
+		"""Restart simulator"""
+
+		super().restart()
+		self.time = 0.0
+
+	def get_time(self):
+		"""Get the simulation time calculated as in a CTMC"""
+		return self.time
+
+	def next_step(self):
+		"""Executes a rewrite selected according to their metadata weights"""
+
+		states, weights = [], []
+
+		for term, subs, _, rl in self.state.apply(None):
+			weight = self.stmt_weights.get(rl, 1.0)
+
+			# The metadata attribute is a term we need to evaluate
+			if not isinstance(weight, float):
+				weight = subs.instantiate(weight)
+				weight.reduce()
+				weight = float(weight)
+
+			states.append(term)
+			weights.append(weight)
+
+		try:
+			self.state, = random.choices(states, weights)
+			self.state.reduce()
+			self.step += 1
+			self.time += 1.0 / sum(weights)
+
+		# No rewrite or all of them have null weight
+		except (ValueError, IndexError):
+			pass
+
+
 def get_simulator(method, data):
 	"""Get the simulator for the given assignment method"""
 
@@ -364,4 +426,19 @@ def get_simulator(method, data):
 	if method == 'pmaude':
 		return PMaudeSimulator.new(data.module, data.term, data.strategy)
 
-	return UmaudemcSimulator.new(data.term, data.strategy, method, opaque=data.opaque)
+	# Handle 'metadata' differently when some of these attributes are non-ground
+	stmt_weights = None
+
+	if method.endswith('metadata'):
+		from .probabilistic import parse_metadata_weights
+		stmt_weights, _, has_term = parse_metadata_weights(data.module)
+
+		if has_term:
+			if not data.strategy:
+				return GeneralizedMetadataSimulator(data.term, stmt_weights)
+
+			usermsgs.print_warning('Non-ground metadata attributes are not supported '
+			                       'yet for strategy-controlled systems. Ignoring those attributes.')
+			stmt_weights = {stmt: w for stmt, w in stmt_weights.items() if isinstance(w, float)}
+
+	return UmaudemcSimulator.new(data.term, data.strategy, method, opaque=data.opaque, stmt_weights=stmt_weights)

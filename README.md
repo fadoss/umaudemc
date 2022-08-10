@@ -161,13 +161,15 @@ probability can also be assigned to an action with `a.p=x` instead of `a=w`
 (of course, they cannot sum more than 1).
 * `metadata` uses the `metadata` attribute of the rules in Maude to specify
 weights for each transition. In case of multiple successors produced by the same
-rule, probability is distributed uniformly among them. 
+rule, probability is distributed uniformly among them. These weights can be numeric
+literals or Maude terms depending on the variables of the rule (except for
+strategy-controlled systems).
 * `term(t)` evaluates a term on every transition of the model to calculate its
 weights. The term `t` may contain a variable `L` for the origin of the transition,
 `R` for the result, and `A` of sort `Qid` for the action name.
 * `strategy` extracts the probabilities of the model from a probabilistic strategy
-expression containing `choice` operators. This allows controlling
-rewriting and specifying probabilities at the same time.
+expression containing `choice` and `matchrew with weight` operators. This allows
+controlling rewriting and specifying probabilities at the same time.
 
 All methods from `uniform` to `term` produce discrete-time Markov chains (DTMC) from
 the input rewrite system. Their variants `mdp-uniform`, `mdp-metadata`, and `mdp-term`
@@ -175,6 +177,9 @@ can be used instead to generate Markov decision processes (MDP) and calculate mi
 and maximum probabilities. The `strategy` method may produce a DTMC if all
 nondeterministic options have been quantified, an MDP if nondeterministic choices
 precede quantified ones between rewrites, and fails with an error message otherwise.
+Continous-time Markov chains (CTMC) can also be produced by prepending the assignment
+method name with `ctmc-`. In this case, weights are interpreted as firing rates instead
+of unnormalized probabilities, which provide the dicrete model of a notion of time.
 
 ### Statistical model checking
 
@@ -197,4 +202,5 @@ References
 ----------
 
 More details about the integration of the external classical model checkers can be found
-in [*Strategies, model checking and branching-time properties in Maude*](https://doi.org/10.1016/j.jlamp.2021.100700).
+in [*Strategies, model checking and branching-time properties in Maude*](https://doi.org/10.1016/j.jlamp.2021.100700)
+and in [*Model checking of strategy-controlled systems in rewriting logic*](https://eprints.ucm.es/71531).

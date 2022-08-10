@@ -154,7 +154,7 @@ class PRISMBasedBackend:
 		}
 
 	def run(self, graph, form, ftype, aprops, extra_args=(), raw=False, cost=False,
-	        formula_str=None, timeout=None, reward=None):
+	        formula_str=None, timeout=None, reward=None, ctmc=False):
 		"""Run the PRISM-based backend to solve the given problem"""
 
 		# If PRISM has not been found, end with None
@@ -175,7 +175,7 @@ class PRISMBasedBackend:
 		# The procedure is explained in the NuSMV backend source.
 
 		with tempfile.NamedTemporaryFile(mode='w', delete=False) as tmpfile:
-			grapher = PRISMGenerator(tmpfile, aprops=aprops)
+			grapher = PRISMGenerator(tmpfile, aprops=aprops, ctmc=ctmc)
 
 			# Output the DTMC or MDP for the model
 			# Expand the graph and calculate the output degrees
@@ -223,7 +223,7 @@ class PRISMBasedBackend:
 
 	def check(self, graph=None, module=None, formula=None, extra_args=(), get_graph=False,
 	          timeout=None, cost=False, formula_str=None, aprops=None, logic=None,
-	          dist=None, reward=None, **kwargs):
+	          dist=None, reward=None, ctmc=False, **kwargs):
 		"""Solves a model-checking problem with PRISM"""
 
 		# Extract the atomic proposition term from the raw formulae
@@ -235,7 +235,8 @@ class PRISMBasedBackend:
 		aprop_terms = [module.parseTerm(prop) for prop in aprops]
 
 		holds, stats = self.run(graph, formula, logic, aprop_terms, extra_args, cost=cost,
-		                        formula_str=formula_str, timeout=timeout, reward=reward)
+		                        formula_str=formula_str, timeout=timeout, reward=reward,
+		                        ctmc=ctmc)
 
 		return holds, stats
 
@@ -352,7 +353,7 @@ class PRISMBackend(PRISMBasedBackend):
 
 			try:
 				status = subprocess.run(cmd_args + list(extra_args),
-						        capture_output=not raw, timeout=timeout)
+				                        capture_output=not raw, timeout=timeout)
 
 			except subprocess.TimeoutExpired:
 				usermsgs.print_error(f'PRISM execution timed out after {timeout} seconds.')
@@ -361,7 +362,7 @@ class PRISMBackend(PRISMBasedBackend):
 			# The return code does not seem to be reliable
 			if b'Error:' in status.stdout or not os.path.exists(export_file):
 				usermsgs.print_error('An error was produced while running PRISM:\n'
-			                     + status.stdout[:-1].decode('utf-8'))
+				                     + status.stdout[:-1].decode('utf-8'))
 				return None, None
 
 			# The output file is a list of probabilities, one per line, for each state
@@ -378,7 +379,7 @@ class PRISMBackend(PRISMBasedBackend):
 class PRISMGenerator:
 	"""Generator of PRISM models"""
 
-	def __init__(self, outfile=sys.stdout, aprops=(), slabel=None):
+	def __init__(self, outfile=sys.stdout, aprops=(), slabel=None, ctmc=False):
 		self.visited = set()
 		self.aprops = aprops
 		self.outfile = outfile
@@ -387,6 +388,7 @@ class PRISMGenerator:
 		self.true_term = None
 
 		self.slabel = slabel
+		self.ctmc = ctmc
 
 		# Number of rewrites used to check atomic propositions
 		self.nrRewrites = 0
@@ -401,11 +403,10 @@ class PRISMGenerator:
 		boolkind = module.findSort('Bool').kind()
 
 		self.satisfies = module.findSymbol('_|=_', (module.findSort('State').kind(),
-							    module.findSort('Prop').kind()),
-						  boolkind)
+		                                            module.findSort('Prop').kind()),
+		                                   boolkind)
 
 		self.true_term = module.findSymbol('true', (), boolkind).makeTerm(())
-
 
 	def check_aprop(self, graph, propNr, stateNr):
 		"""Check whether a given atomic proposition holds in a state"""
@@ -423,9 +424,9 @@ class PRISMGenerator:
 		if self.aprops:
 			self.init_aprop(graph)
 
-
 		# Build the model specification in the PRISM format
-		model_type = 'mdp' if graph.nondeterminism else 'dtmc'
+		model_type = 'mdp' if graph.nondeterminism else ('ctmc' if self.ctmc else 'dtmc')
+		normalize = model_type == 'dtmc'
 
 		# A discrete-time Markov chain or Markov decision process module is created
 		print(f'{model_type}\n\nmodule M\n\tx : [0..{len(graph)}] init 0;\n', file=self.outfile)
@@ -439,7 +440,14 @@ class PRISMGenerator:
 			if self.slabel:
 				print(f'\t// {self.slabel(graph, state)}', file=self.outfile)
 
-			update = ' + '.join(f"{p}:(x'={nexts})" for p, nexts in children)
+			# Normalize weights for DTMC (MDP are already normalized)
+			if normalize:
+				children = tuple(children)
+				total_w = sum(w for w, _ in children)
+				update = ' + '.join(f"{w / total_w}:(x'={nexts})" for w, nexts in children)
+			else:
+				update = ' + '.join(f"{p}:(x'={nexts})" for p, nexts in children)
+
 			print(f'\t[] x={state} -> {update};', file=self.outfile)
 
 		print('\nendmodule', file=self.outfile)
@@ -450,7 +458,7 @@ class PRISMGenerator:
 			                       if self.check_aprop(graph, propNr, state))
 
 			print(f'label "{_translate_aprop(str(prop))}" = {satisfied if satisfied else "false"};',
-	                      file=self.outfile)
+			      file=self.outfile)
 
 		# Define a default reward specification for the number of steps
 		print('\nrewards\n\t[] true: 1;\nendrewards', file=self.outfile)

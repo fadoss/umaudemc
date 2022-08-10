@@ -192,8 +192,8 @@ class QuaTExLexer:
 
 			# Operators ==, !=, <=, >=, &&, and || are single tokens
 			if (c in '=!<>' and self._peek() == '=' or
-                            c == '&' and self._peek() == '&' or
-                            c == '|' and self._peek() == '|'):
+			    c == '&' and self._peek() == '&' or
+			    c == '|' and self._peek() == '|'):
 				self._next()
 
 			self._next()
@@ -214,8 +214,12 @@ class QuaTExParser:
 	# Binary operator and their precedences (as in C)
 	BINARY_OPS = ('+', '-', '*', '/', '%', '&&', '||', '==', '!=', '<', '<=', '>', '>=')
 	BINOPS_PREC = (4, 4, 3, 3, 3, 11, 12, 7, 7, 6, 6, 6, 6)
-	BINOPS_AST = (ast.Add, ast.Sub, ast.Mult, ast.Div, ast.Mod, ast.And, ast.Or, ast.Eq, ast.NotEq, ast.Lt, ast.LtE, ast.Gt, ast.GtE)
-	BINOPS_CMP = (0, ) * 5  + (1, ) * 2 + (2, ) * 6
+	BINOPS_AST = (ast.Add, ast.Sub, ast.Mult, ast.Div, ast.Mod, ast.And, ast.Or, ast.Eq,
+	              ast.NotEq, ast.Lt, ast.LtE, ast.Gt, ast.GtE)
+	BINOPS_CMP = (0, ) * 5 + (1, ) * 2 + (2, ) * 6
+	# Unary operator and its precedence (as in C)
+	UNARY_OPS = ('!', )
+	UNARY_AST = (ast.Not, )
 
 	def __init__(self, source, filename='<stdin>'):
 		self.lexer = QuaTExLexer(source)
@@ -246,9 +250,9 @@ class QuaTExParser:
 		"""Print an error message with line information"""
 
 		usermsgs.print_error_loc(self.filename,
-			                 line or self.lexer.sline,
-			                 column or self.lexer.scolumn,
-					 msg)
+		                         line or self.lexer.sline,
+		                         column or self.lexer.scolumn,
+		                         msg)
 
 	def _expect(self, *text):
 		"""Check whether the given expected tokens are present"""
@@ -283,6 +287,11 @@ class QuaTExParser:
 			return ast.BoolOp(self.BINOPS_AST[op_index](), [left, right])
 
 		return ast.BinOp(left, self.BINOPS_AST[op_index](), right)
+
+	def _do_unaryop(self, op_index, argument):
+		"""Build a unary operator in the AST"""
+
+		return ast.UnaryOp(self.UNARY_AST[op_index](), operand=argument)
 
 	def _parse_parameter(self):
 		"""Parse the parameter specification of a parametric query"""
@@ -349,7 +358,7 @@ class QuaTExParser:
 			while self._in_state(self.PS_ARITH) and current and token not in self.BINARY_OPS:
 				self.stack.pop()
 				left, op_index = arg_stack[-1]
-				current = self._do_binop(op_index, left, current)
+				current = self._do_binop(op_index, left, current) if left else self._do_unaryop(op_index, current)
 				arg_stack.pop()
 
 			if token == end_token:
@@ -556,7 +565,7 @@ class QuaTExParser:
 					else:
 						left, last_op_index = arg_stack[-1]
 
-						# The precendence of the previous operand is greater
+						# The precedence of the previous operand is greater
 						# or equal than that of the new one
 						if self.BINOPS_PREC[last_op_index] <= self.BINOPS_PREC[op_index]:
 							arg_stack[-1] = self._do_binop(last_op_index, left, current), op_index
@@ -565,6 +574,18 @@ class QuaTExParser:
 							self.stack.append(self.PS_ARITH)
 							arg_stack.append((current, op_index))
 							current = None
+
+				elif token in self.UNARY_OPS:
+					# There should be no left operand
+					if current:
+						self._eprint(f'misplaced "{token}" operator.')
+						return None
+
+					op_index = self.UNARY_OPS.index(token)
+
+					# Parse the argument
+					self.stack.append(self.PS_ARITH)
+					arg_stack.append((None, op_index))
 
 				else:
 					self._eprint(f'unexpected token "{token}".')
@@ -615,10 +636,10 @@ class QuaTExParser:
 				if not expr or not self._expect(';'):
 					return False
 
-				# Ignore paramterized expressions with empty range
+				# Ignore parameterized expressions with empty range
 				if parameter and parameter[1] > parameter[3]:
 					usermsgs.print_warning_loc(self.filename, line, column,
-								   'ignoring parametric query with empty range.')
+					                           'ignoring parametric query with empty range.')
 				else:
 					self.queries.append((line, column, expr, parameter))
 
@@ -647,7 +668,7 @@ class QuaTExParser:
 					if token == ')':
 						more_args = False
 					elif token == ',':
-						token  = self.lexer.get_token()
+						token = self.lexer.get_token()
 					else:
 						self._eprint(f'unexpected token "{token}" where "," or ")" is expected.')
 						return None
@@ -660,7 +681,6 @@ class QuaTExParser:
 				if not expr:
 					return False
 
-				# ¿Guardar posición de la definitión?
 				self.defs.append((fname, line, column, tuple(self.fvars), expr))
 				self.fvars.clear()
 
@@ -680,6 +700,9 @@ class QuaTExParser:
 				self._eprint('non-tail calls are not allowed.',
 				             line=expr.lineno, column=expr.col_offset)
 				return False
+
+			elif isinstance(expr, ast.UnaryOp):
+				pending.append((expr.operand, False))
 
 			elif isinstance(expr, ast.BinOp):
 				pending.append((expr.right, False))
@@ -710,7 +733,7 @@ class QuaTExParser:
 				arities[name] = len(args)
 
 		# Check whether all called are well defined
-		for name, line, column, arity  in self.calls:
+		for name, line, column, arity in self.calls:
 			def_arity = arities.get(name)
 
 			if def_arity is None:
@@ -757,6 +780,7 @@ class QuaTExParser:
 			except TypeError:
 				self._eprint(f'the definition of "{name}" cannot be compiled.',
 				             line=line, column=column)
+				ok = False
 
 		for k, (line, column, expr, _) in enumerate(self.queries):
 			try:
@@ -767,6 +791,10 @@ class QuaTExParser:
 			except TypeError:
 				self._eprint('this query cannot cannot be compiled.',
 				             line=line, column=column)
+				ok = False
+
+		if not ok:
+			return None
 
 		return QuaTExProgram(slots, varnames, len(self.fslots),
 		                     tuple((line, column, params) for line, column, _, params in self.queries))

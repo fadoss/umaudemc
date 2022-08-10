@@ -320,7 +320,7 @@ class LTSmin:
 	def check(self, filename=None, module_str=None, metamodule_str=None, labels=(),
 	          formula=None, logic=None, aprops=None, full_matchrew=False, opaque=(),
 	          strategy_str=None, term_str=None, merge_states='default',
-	          purge_fails='default', timeout=None, extra_args=(), verbose=False, **kwargs):
+	          purge_fails='default', timeout=None, extra_args=(), verbose=False, **_):
 		"""Check a model-checking problem directly with LTSmin"""
 
 		purge_fails, merge_states = default_model_settings(logic, purge_fails, merge_states,
@@ -561,7 +561,7 @@ class LTSminRunner:
 			# Run the LTSmin tool with the arguments prepared above
 			try:
 				status = subprocess.run([self.ltsmin.pins2lts[variant]] + args, capture_output=True,
-							env=dict(os.environ, MAUDE_LIB=new_maude_lib), timeout=timeout)
+				                        env=dict(os.environ, MAUDE_LIB=new_maude_lib), timeout=timeout)
 
 			except subprocess.TimeoutExpired:
 				usermsgs.print_error(f'LTSmin execution timed out after {timeout} seconds.')

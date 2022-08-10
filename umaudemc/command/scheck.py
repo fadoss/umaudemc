@@ -465,7 +465,7 @@ def scheck(args):
 
 	min_sim, max_sim = parse_range(args.nsims)
 
-	if min_sim is None:
+	if min_sim is None and max_sim is None:
 		return 1
 
 	# The number of simulations for the first block

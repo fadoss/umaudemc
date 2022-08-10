@@ -53,7 +53,8 @@ class StormBackend(prism.PRISMBackend):
 
 		if status.returncode != 0:
 			usermsgs.print_error('An error was produced while running Storm:\n'
-			                     + status.stdout[:-1].decode('utf-8'))
+			                     + status.stdout[:-1].decode('utf-8')
+			                     + status.stderr[:-1].decode('utf-8'))
 			return None
 
 		# Parse the Storm output to obtain the result
@@ -116,17 +117,18 @@ class StormBackend(prism.PRISMBackend):
 
 			try:
 				status = subprocess.run(cmd_args + list(extra_args),
-						        stdout=None if raw else subprocess.PIPE,
-						        stderr=subprocess.STDOUT, timeout=timeout)
+				                        stdout=None if raw else subprocess.PIPE,
+				                        stderr=subprocess.STDOUT, timeout=timeout)
 
 			except subprocess.TimeoutExpired:
-				usermsgs.print_error(f'PRISM execution timed out after {timeout} seconds.')
+				usermsgs.print_error(f'Storm execution timed out after {timeout} seconds.')
 				return None
 
 			# If something has go wrong...
 			if status.returncode != 0:
 				usermsgs.print_error('An error was produced while running Storm:\n'
-			                     + status.stdout[:-1].decode('utf-8'))
+				                     + status.stdout[:-1].decode('utf-8')
+				                     + status.stderr[:-1].decode('utf-8'))
 				return None, None
 
 			elif b'WARN' in status.stdout:

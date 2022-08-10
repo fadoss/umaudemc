@@ -440,7 +440,7 @@ class MuMaudeGame(ParityGame):
 				self.add_edge(parent, node)
 
 	def solve_mucalc(self):
-		"""Generate a solve the μ-calulus game"""
+		"""Generate a solve the μ-calculus game"""
 
 		self.build()
 		w0, w1 = self.solve()

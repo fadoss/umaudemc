@@ -24,7 +24,7 @@ JANI_HEADER = '''{
 class JANIGenerator:
 	"""Generator of JANI models"""
 
-	def __init__(self, outfile=sys.stdout, aprops=(), slabel=None):
+	def __init__(self, outfile=sys.stdout, aprops=(), slabel=None, ctmc=False):
 		self.visited = set()
 		self.aprops = aprops
 		self.outfile = outfile
@@ -33,6 +33,7 @@ class JANIGenerator:
 		self.true_term = None
 
 		self.slabel = slabel
+		self.ctmc = ctmc
 
 		# Number of rewrites used to check atomic propositions
 		self.nrRewrites = 0
@@ -69,7 +70,8 @@ class JANIGenerator:
 			self.init_aprop(graph)
 
 		# Build the model specification in the JANI format
-		model_type = 'mdp' if graph.nondeterminism else 'dtmc'
+		model_type = 'mdp' if graph.nondeterminism else ('ctmc' if self.ctmc else 'dtmc')
+		normalize = model_type == 'dtmc'
 
 		print(JANI_HEADER, end='', file=self.outfile)
 		print(f'\t\t\t"upper-bound": {len(graph)}\n\t\t}}\n\t}}],\n\t"type": "{model_type}",', file=self.outfile)
@@ -78,6 +80,7 @@ class JANIGenerator:
 		      '"initial-locations": ["l"], "edges": [', file=self.outfile)
 
 		first_edge = True
+		keyword = 'rate' if self.ctmc else 'probability'
 
 		# For each reachable state, we write a dictionary with all the transitions from it
 		for state, children in graph.transitions():
@@ -98,6 +101,12 @@ class JANIGenerator:
 
 			first_dest = True
 
+			# Probabilities are normalized for DTMC
+			if normalize:
+				children = tuple(children)
+				total_w = sum(w for w, _ in children)
+				children = ((w / total_w, nexts) for w, nexts in children)
+
 			for p, nexts in children:
 				if not first_dest:
 					self.outfile.write(',')
@@ -105,7 +114,7 @@ class JANIGenerator:
 					first_dest = False
 
 				print('\t\t\t{"location": "l", "assignments": [{"ref": "s", "value": '
-				      f'{nexts}}}], "probability": {{"exp": {p}}}}}', file=self.outfile)
+				      f'{nexts}}}], "{keyword}": {{"exp": {p}}}}}', file=self.outfile)
 
 			print('\t\t]}', file=self.outfile)
 

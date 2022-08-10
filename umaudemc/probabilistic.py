@@ -44,14 +44,23 @@ class QuantitativeResult:
 		return str(self.value)
 
 
-def get_local_assigner(module, name):
+def get_local_assigner(module, name, stmt_weights=None):
 	"""Instantiate probability assignment methods by their text descriptions"""
 
+	# Assignments for CTMC are the same as assignments for DTMC,
+	# but the caller should not normalize the weights
+	if name.startswith('ctmc-'):
+		name = name[5:]
+
+		# ctmc- and mdp- cannot be combined
+		if name.startswith('mdp-'):
+			return None, False
+
 	if name == 'metadata':
-		return MetadataAssigner(), True
+		return MetadataAssigner(stmt_weights), True
 
 	elif name == 'mdp-metadata':
-		return MetadataMDPAssigner(), True
+		return MetadataMDPAssigner(stmt_weights), True
 
 	elif name.startswith('uaction'):
 		return WeightedActionAssigner.parse(name), True
@@ -81,7 +90,7 @@ class UniformAssigner:
 	@staticmethod
 	def __call__(graph, state, successors):
 		degree = len(successors)
-		return [1.0 / degree] * degree
+		return [1.0] * degree
 
 
 def _get_transition_stmt(graph, origin, dest):
@@ -107,37 +116,74 @@ def _get_transition_stmt(graph, origin, dest):
 		return graph.getRule(origin, dest)
 
 
-def _parse_metadata(graph, origin, dest):
+def _get_metadata(graph, origin, dest, stmt_weights):
 	"""Parse the metadata for the given transition"""
 
-	# Get the statement producing the transition and its metadata attribute
+	# Get the statement producing the transition
 	stmt = _get_transition_stmt(graph, origin, dest)
-	mdata = stmt.getMetadata() if stmt else None
 
-	# If the metadata attribute is absent, weight 1 is considered by default
-	if mdata is None:
-		return 1
+	return stmt_weights.get(stmt, 1.0)
 
-	# If the metadata attribute cannot be parsed as a float, 1 is considered
-	try: return float(mdata)
-	except ValueError:
-		return 1
+
+def parse_metadata_weights(module):
+	"""Get a dictionary with the weights in the metadata of all statements in the module"""
+
+	meta_dict, num_errors, has_term = {}, 0, False
+
+	# Parse metadata from rules and strategies
+	for stmt in chain(module.getRules(), module.getStrategies()):
+		mdata = stmt.getMetadata()
+
+		if mdata:
+			try: meta_dict[stmt] = float(mdata)
+			except ValueError:
+				# Generalized metadata is not supported for strategies
+				if isinstance(stmt, maude.RewriteStrategy):
+					continue
+
+				# Get the variables in the rule to allow using
+				# them in the metadata attribute
+				bound_vars = set()
+				_find_bound_vars(stmt, bound_vars)
+
+				term = module.parseTerm(mdata, None, list(bound_vars))
+
+				# The attribute can be parsed as a term
+				if term:
+					# Check whether all variables are bound
+					attribute_vars = set()
+					_find_vars(term, attribute_vars)
+
+					if not attribute_vars <= bound_vars:
+						example, *_ = attribute_vars - bound_vars
+						usermsgs.print_warning(f'Unbound variable "{example}" in the metadata attribute '
+						                       f'of rule at {stmt.getLineNumber()}. Assuming weight 1.')
+						num_errors += 1
+					else:
+						meta_dict[stmt] = term
+						has_term = True
+				else:
+					usermsgs.print_warning('Cannot parse as a term the metadata attribute '
+					                       f'of rule at {stmt.getLineNumber()}. Assuming weight 1.')
+					num_errors += 1
+
+	return meta_dict, num_errors, has_term
 
 
 class MetadataAssigner:
-	"""Distribute the probability among the successors according
-	   to the weights in the metadata attribute"""
+	"""Distribute the weights among the successors according
+	   to the annotations in the metadata attribute"""
 
 	# Nondeterminism is completely avoided
 	nondeterminism = False
 
-	@staticmethod
-	def __call__(graph, state, successors):
+	def __init__(self, stmt_weights):
+		self.stmt_weights = stmt_weights
+
+	def __call__(self, graph, state, successors):
 		# Get the weights from the metadata attributes (assuming 1 by default)
-		weights = [_parse_metadata(graph, state, next_state) for next_state in successors]
-		# Normalize the probabilities
-		total = sum(weights)
-		return [w / total for w in weights]
+		return [_get_metadata(graph, state, next_state, self.stmt_weights)
+		        for next_state in successors]
 
 
 def _get_stmt_label(graph, origin, dest):
@@ -148,11 +194,7 @@ def _get_stmt_label(graph, origin, dest):
 	if stmt is None:
 		return stmt
 
-	elif hasattr(stmt, 'getLabel'):
-		return stmt.getLabel()
-
-	else:
-		return stmt.getName()
+	return stmt.getLabel() if hasattr(stmt, 'getLabel') else stmt.getName()
 
 
 def _assign_weights_by_actions(actions, weights, successors):
@@ -179,18 +221,20 @@ class MetadataMDPAssigner:
 	# This procedure gives a Markov decision process
 	nondeterminism = True
 
-	@staticmethod
-	def __call__(graph, state, successors):
+	def __init__(self, stmt_weights):
+		self.stmt_weights = stmt_weights
+
+	def __call__(self, graph, state, successors):
 		# Actions of the successors
 		actions = [_get_stmt_label(graph, state, next_state) for next_state in successors]
 		# Weights of the successors (1 by default)
-		weights = [_parse_metadata(graph, state, next_state) for next_state in successors]
+		weights = [_get_metadata(graph, state, next_state, self.stmt_weights) for next_state in successors]
 
 		return _assign_weights_by_actions(actions, weights, successors)
 
 
 class WeightedActionAssigner:
-	""""Weighted assignment of probabilisties among actions and then uniform among successors"""
+	""""Weighted selection among actions and then uniform selection among successors"""
 
 	# Nondeterminism is completely avoided
 	nondeterminism = False
@@ -241,7 +285,7 @@ class WeightedActionAssigner:
 		return cls(wactions, pactions)
 
 	def __call__(self, graph, state, successors):
-		"""Assign the probability on the actions according to the weights"""
+		"""Assign the weights or probabilities of the actions"""
 
 		# Actions leading to the successors
 		# (this will never be called without successors, so actions is not empty)
@@ -252,7 +296,7 @@ class WeightedActionAssigner:
 		action_fq = Counter(actions)
 
 		# Calculate the total probability and weight assigned
-		assigned_p, total_w = 0, 0
+		assigned_p, total_w = 0.0, 0
 
 		for action in action_fq.keys():
 			p = self.pactions.get(action, None)
@@ -264,22 +308,23 @@ class WeightedActionAssigner:
 
 		# Assigns the fixed probabilities first and then distributes the rest among the
 		# remaining actions according to their weights, if possible
-		if 0 <= assigned_p <= 1 and (assigned_p > 0 or total_w > 0):
+		if 0.0 < assigned_p <= 1.0:
 			# If assigned_p does not sum 1 and no weighted action is enabled
 		  	# to distribute the rest, probabilities are scaled to 1
-			p = 1 / assigned_p if total_w == 0 else (1 - assigned_p) / total_w
+			p = 1 / assigned_p if total_w == 0 else (1.0 - assigned_p) / total_w
 
-			action_fq = {action: self.pactions.get(action, p * self.wactions.get(action, 1)) / fq
+			action_fq = {action: self.pactions.get(action, p * self.wactions.get(action, 1.0)) / fq
 			             for action, fq in action_fq.items()}
 
-		# The total probability assigned surpass 1 or it is zero and no weight
-		# is assigned to the other actions
+		# There are no fixed probabilities (or they are not valid), so we distribute the
+		# probabilities among the actions by their weights without normalizing
 		else:
-			usermsgs.print_warning(f'Probabilities assigned to actions sum {assigned_p}. Ignoring.')
+			# The total probability assigned surpass 1, we ignore fixed probabilities
+			if assigned_p > 1.0:
+				usermsgs.print_warning(f'Probabilities assigned to actions sum {assigned_p}. Ignoring.')
 
 			# Uniform probabilities are assigned by default
-			p = 1.0 / len(action_fq)
-			action_fq = {action: p / fq for action, fq in action_fq.items()}
+			action_fq = {action: self.wactions.get(action, 1.0) / fq for action, fq in action_fq.items()}
 
 		return [action_fq[action] for action in actions]
 
@@ -292,6 +337,18 @@ def _find_vars(term, varset):
 	else:
 		for arg in term.arguments():
 			_find_vars(arg, varset)
+
+
+def _find_bound_vars(stmt, varset):
+	"""Find all bound variables in a rule (or equation)"""
+
+	_find_vars(stmt.getLhs(), varset)
+
+	for fragment in stmt.getCondition():
+		if isinstance(fragment, maude.AssignmentCondition):
+			_find_vars(fragment.getLhs(), varset)
+		elif isinstance(fragment, maude.RewriteCondition):
+			_find_vars(fragment.getRhs(), varset)
 
 
 class MaudeTermBaseAssigner:
@@ -348,11 +405,11 @@ class MaudeTermBaseAssigner:
 			if var_name in ('L', 'R'):
 				var_kind = v.getSort().kind()
 
-				# All ocurrences of the L and R variables in the term must belong to the same kind
+				# All occurrences of the L and R variables in the term must belong to the same kind
 				if state_kind:
 					if var_kind != state_kind:
 						usermsgs.print_warning(f'Variable {v} in weight assignment term belongs to a '
-					                       f'wrong kind {var_kind} ({state_kind} expected).')
+						                       f'wrong kind {var_kind} ({state_kind} expected).')
 						return None
 				else:
 					state_kind = var_kind
@@ -436,15 +493,8 @@ class MaudeTermFullAssigner(MaudeTermBaseAssigner):
 
 		term = graph.getStateTerm(state)
 
-		weights = [self.get_weight(graph, term, state, next_state) for next_state in successors]
-		total = sum(weights)
-
-		# If all weights are null, we at least avoid dividing by zero
-		if total == 0:
-			usermsgs.print_warning(f'The weights for all the successors of {term} are null. Errors should be expected.')
-			total = 1
-
-		return [w / total for w in weights]
+		return [self.get_weight(graph, term, state, next_state)
+		        for next_state in successors]
 
 
 class MaudeTermMDPAssigner(MaudeTermBaseAssigner):
@@ -480,7 +530,7 @@ class UniformMDPAssigner:
 		# Calculate the frequency of the actions to distribute the probability among them
 		action_fq = Counter(actions)
 
-		return [[(1 / action_fq[action], successors[k]) for k, a in enumerate(actions) if a == action]
+		return [[(1.0 / action_fq[action], successors[k]) for k, a in enumerate(actions) if a == action]
 	                for action in action_fq.keys()]
 
 
@@ -577,7 +627,7 @@ class AssignedGraph:
 					yield state, zip(probs, successors)
 
 	def expand(self):
-		"""Expand the underlaying graph"""
+		"""Expand the underlying graph"""
 
 		pending = [(0, self.graph.getNextStates(0))]
 		self.visited = {0}
@@ -597,8 +647,98 @@ class AssignedGraph:
 					pending.append((next_state, self.graph.getNextStates(next_state)))
 
 
+class GeneralizedMetadataGraph:
+	"""Graph with probabilities given by non-ground metadata"""
+
+	strategyControlled = False
+
+	def __init__(self, term, stmt_map, mdp=False):
+		self.terms = [term]
+		self.term_map = {term: 0}
+		self.edges = []
+		self.rewrite_count = term.reduce()
+		self.stmt_map = stmt_map
+
+		self.nondeterminism = mdp
+
+	def getStateTerm(self, state):
+		return self.terms[state]
+
+	def getNrRewrites(self):
+		return self.rewrite_count
+
+	def getNrRealStates(self):
+		return len(self.terms)
+
+	def __len__(self):
+		return len(self.terms)
+
+	def getRule(self, origin, dest):
+		return next((rl for succ, rl, _ in self.edges[origin] if succ == dest), None)
+
+	def states(self):
+		"""Iterator through the states (numbers) of the graph"""
+		return range(len(self.terms))
+
+	def transitions(self):
+		"""Iterator through the transitions of the graph"""
+
+		for state, edges in enumerate(self.edges):
+			if len(edges) == 1:
+				next_state, _, w = edges[0]
+				yield state, ((w, next_state),)
+
+			elif edges:
+				if self.nondeterminism:
+					successors, actions, weights = zip(*edges)
+					actions = [rl.getLabel() for rl in actions]
+
+					for action in _assign_weights_by_actions(actions, weights, successors):
+						yield state, action
+				else:
+					yield state, ((w, next_state) for next_state, _, w in edges)
+
+	def expand(self):
+		"""Expand the underlying graph"""
+
+		# States are numbered from zero
+		state, num_states = 0, 1
+
+		while state < num_states:
+			term = self.terms[state]
+
+			# Edges are rewrites obtained with Term.apply
+			edges = []
+
+			for child, subs, ctx, rl in term.apply(None):
+				# Term.apply do not reduce the terms itself
+				self.rewrite_count += 1 + child.reduce()
+				index = self.term_map.get(child)
+
+				# A new term, so a new state
+				if index is None:
+					index = len(self.terms)
+					self.terms.append(child)
+					self.term_map[child] = index
+					num_states += 1
+
+				# Evaluate the metadata weight
+				weight = self.stmt_map.get(rl, 1.0)
+
+				# If it is not a literal, we should reduce the term
+				if not isinstance(weight, float):
+					weight = subs.instantiate(weight)
+					self.rewrite_count += weight.reduce()
+					weight = float(weight)
+
+				edges.append((index, rl, weight))
+
+			self.edges.append(edges)
+			state += 1
+
+
 class StrategyMarkovGraph:
-	"""Graph with probabilities assigned by a strategy"""
+	"""Graph with weights assigned by a strategy"""
 
 	# This graph is always strategy-controlled
 	strategyControlled = True
@@ -634,10 +774,10 @@ class StrategyMarkovGraph:
 				yield state_nr, ((1.0, self.state_map[next_state]),)
 
 			for choice in state.child_choices:
-				yield state_nr, ((p, self.state_map[next_state]) for next_state, p in choice.items())
+				yield state_nr, ((w, self.state_map[next_state]) for next_state, w in choice.items())
 
 	def expand(self):
-		"""Expand the underlaying graph"""
+		"""Expand the underlying graph"""
 
 		for k, state in enumerate(self.state_list):
 			# Detect whether the graph contains unquantified nondeterminism
@@ -645,7 +785,7 @@ class StrategyMarkovGraph:
 				self.nondeterminism = True
 
 			for child in chain(state.children, (c for choice in state.child_choices
-				                              for c, _ in choice.items())):
+			                                    for c, _ in choice.items())):
 				if child not in self.state_map:
 					self.state_map[child] = len(self.state_list)
 					self.state_list.append(child)
@@ -665,6 +805,9 @@ def get_probabilistic_strategy_graph(module, strategy, term):
 	p = sc.compile(ml.upStrategy(strategy))
 
 	try:
+		# Reduce the term
+		term.reduce()
+
 		# Execute the strategy
 		root = pyslang.MarkovRunner(p, term).run()
 
@@ -682,8 +825,6 @@ def get_probabilistic_strategy_graph(module, strategy, term):
 def _get_assignment_method(data, spec, allow_file=False):
 	"""Parse the probability assignment method"""
 
-	distr, graph = None, None
-
 	# If the argument to assign begins with @ we load it from a file
 	if allow_file and spec.startswith('@'):
 		try:
@@ -695,20 +836,45 @@ def _get_assignment_method(data, spec, allow_file=False):
 
 			return None, None
 
+	# Special cases: the general case explained below cannot be applied for some assignment methods
+	# since the graphs obtained from the Maude library do not provide enough information
+
+	# The 'strategy' method uses a custom Python-based graph, since StrategyRewriteGraph
+	# in the Maude library chooses one of the probabilistic children at random
 	if spec == 'strategy':
 		if data.strategy is None:
 			usermsgs.print_error('A strategy expression must be provided to use the strategy assignment method.')
 
 		else:
-			graph = get_probabilistic_strategy_graph(data.module, data.strategy, data.term)
+			return None, get_probabilistic_strategy_graph(data.module, data.strategy, data.term)
 
-	else:
-		distr, found = get_local_assigner(data.module, spec)
+	# The 'metadata' attribute with non-ground weights also uses a custom graph, since the matching
+	# substitution of a transition cannot be obtained from the graph provided by the library
+	stmt_weights = None
 
-		if distr is None and not found:
-			usermsgs.print_error(f'Unknown probability assignment method {spec}.')
+	if spec.endswith('metadata'):
+		stmt_weights, num_errors, has_term = parse_metadata_weights(data.module)
 
-	return distr, graph
+		if has_term:
+			if data.strategy:
+				usermsgs.print_warning('Non-ground metadata attributes are not supported '
+				                       'yet for strategy-controlled systems. Ignoring those attributes.')
+				stmt_weights = {stmt: w for stmt, w in stmt_weights.items() if isinstance(w, float)}
+			else:
+				graph = GeneralizedMetadataGraph(data.term, stmt_weights, mdp=spec == 'mdp-metadata')
+				graph.expand()
+
+				return None, graph
+
+	# General case: a local assignment function is used to assign probabilities
+	# to the children of every node in the graphs provided by the Maude library
+
+	distr, found = get_local_assigner(data.module, spec, stmt_weights)
+
+	if distr is None and not found:
+		usermsgs.print_error(f'Unknown probability assignment method {spec}.')
+
+	return distr, None
 
 
 def get_probabilistic_graph(data, spec, allow_file=False, purge_fails='default', merge_states='default'):

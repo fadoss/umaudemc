@@ -70,8 +70,8 @@ class SpotModelBuilder:
 		# Map from Spot indices to Maude indices
 		state_inv = {v: k for k, v in self.state_map.items()}
 
-		prefix = [state_inv[automaton.state_number(step.s)] for step in run.prefix]
-		cycle = [state_inv[automaton.state_number(step.s)] for step in run.cycle]
+		prefix = [state_inv[automaton.state_number(step.s)] for step in prun.prefix]
+		cycle = [state_inv[automaton.state_number(step.s)] for step in prun.cycle]
 
 		# Spot includes the start of the loop twice, unlike Maude
 		if prefix and cycle and prefix[-1] == cycle[0]:
@@ -195,7 +195,7 @@ class KleeneModelBuilder(SpotModelBuilder):
 
 		# Set the acceptance condition
 		acc_condition = ' & '.join(f'(Fin({2 * n}) | Inf({2 * n + 1}))'
-					   for n in range(len(self.iter_map)))
+		                           for n in range(len(self.iter_map)))
 
 		if acc_condition != '':
 			twa.set_acceptance(2 * len(self.iter_map), acc_condition)

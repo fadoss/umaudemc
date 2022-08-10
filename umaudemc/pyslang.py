@@ -31,12 +31,13 @@ class Instruction:
 	RWCNEXT = 12  # list of (end pattern, condition, starting pattern/right-hand side)
 	NOTIFY = 13  # list of lists of variables of the nested pending matchrew subterms
 	SAMPLE = 14  # (variable, distribution callable, its arguments)
-	ONE = 15  # no arguments
-	CHECKPOINT = 16  # no arguments
+	WMATCHREW = 15  # like MATCHREW + (weight)
+	ONE = 16  # no arguments
+	CHECKPOINT = 17  # no arguments
 
 	NAMES = ['POP', 'JUMP', 'STRAT', 'RLAPP', 'TEST', 'CHOICE', 'CALL', 'SUBSEARCH',
 	         'NOFAIL', 'MATCHREW', 'NEXTSUBTERM', 'RWCSTART', 'RWCNEXT', 'NOTIFY',
-	         'SAMPLE', 'ONE', 'CHECKPOINT']
+	         'SAMPLE', 'WMATCHREW', 'ONE', 'CHECKPOINT']
 
 	def __init__(self, itype, extra=None):
 		self.type = itype
@@ -245,12 +246,9 @@ class StratCompiler:
 		self.bind_op('orelse', '_or-else_', st_kind, st_kind)
 		self.bind_op('ne_iter', '_+', st_kind)
 		self.bind_op('cond', '_?_:_', st_kind, st_kind, st_kind)
-		self.bind_op('match', 'match_s.t._', term_kind, condition_kind)
-		self.bind_op('xmatch', 'xmatch_s.t._', term_kind, condition_kind)
-		self.bind_op('amatch', 'amatch_s.t._', term_kind, condition_kind)
-		self.bind_op('mrew', 'matchrew_s.t._by_', term_kind, condition_kind, using_pair_kind)
-		self.bind_op('xmrew', 'xmatchrew_s.t._by_', term_kind, condition_kind, using_pair_kind)
-		self.bind_op('amrew', 'amatchrew_s.t._by_', term_kind, condition_kind, using_pair_kind)
+		for prefix in ('', 'x', 'a'):
+			self.bind_op(f'{prefix}match', f'{prefix}match_s.t._', term_kind, condition_kind)
+			self.bind_op(f'{prefix}mrew', f'{prefix}matchrew_s.t._by_', term_kind, condition_kind, using_pair_kind)
 		self.bind_op('call', '_[[_]]', term_kind, term_kind)
 		self.bind_op('one', 'one', st_kind)
 
@@ -266,6 +264,9 @@ class StratCompiler:
 		if choice_map_sort:
 			self.bind_op('choice', 'choice', choice_map_sort.kind())
 			self.bind_op('sample', 'sample_:=_in_', term_kind, term_kind, st_kind)
+			for prefix in ('', 'x', 'a'):
+				self.bind_op(f'{prefix}mrew_ww', f'{prefix}matchrew_s.t._with`weight_by_',
+				             term_kind, condition_kind, term_kind, using_pair_kind)
 
 		# Other auxiliary constants and symbols
 		self.idle_const = ml.findSymbol('idle', (), st_kind).makeTerm(())
@@ -527,18 +528,27 @@ class StratCompiler:
 		p.append(Instruction.TEST, extra=(mtype, pattern, condition))
 
 	def mrew(self, s, p, tail):
-		self.matchrew(s, p, -1, tail)
+		self.matchrew(s.arguments(), p, -1, tail)
 
 	def xmrew(self, s, p, tail):
-		self.matchrew(s, p, 0, tail)
+		self.matchrew(s.arguments(), p, 0, tail)
 
 	def amrew(self, s, p, tail):
-		self.matchrew(s, p, maude.UNBOUNDED, tail)
+		self.matchrew(s.arguments(), p, maude.UNBOUNDED, tail)
 
-	def matchrew(self, s, p, mtype, tail):
+	def mrew_ww(self, s, p, tail):
+		self.matchrew_weight(s, p, -1, tail)
+
+	def xmrew_ww(self, s, p, tail):
+		self.matchrew_weight(s, p, 0, tail)
+
+	def amrew_ww(self, s, p, tail):
+		self.matchrew_weight(s, p, maude.UNBOUNDED, tail)
+
+	def matchrew(self, sargs, p, mtype, tail):
 		"""Generate code for a matchrew"""
 
-		pattern, condition, clauses = s.arguments()
+		pattern, condition, clauses = sargs
 
 		if clauses.symbol() == self.using_symbol:
 			clauses = [clauses]
@@ -567,6 +577,20 @@ class StratCompiler:
 
 		condition = self.downCondition(condition)
 		initial_inst.extra = (mtype, pattern, condition, tuple(variables))
+
+		return initial_inst
+
+	def matchrew_weight(self, s, p, mtype, tail):
+		"""Generate code for a matchrew with weight"""
+
+		pattern, condition, weight, clauses = s.arguments()
+
+		# Generate the same code as a classical matchrew
+		initial_instr = self.matchrew((pattern, condition, clauses), p, mtype, tail)
+
+		# Change the instruction to weighted version
+		initial_instr.type = Instruction.WMATCHREW
+		initial_instr.extra += (self.m.downTerm(weight), )
 
 	def downCondition(self, condition):
 		"""Process a metalevel condition"""
@@ -1036,7 +1060,7 @@ class StratCompiler:
 						      inst.type == Instruction.CHOICE and len(inst.extra) > 1 or
 						      inst.type == Instruction.NEXTSUBTERM and not inst.extra[0] or
 						      inst.type in (Instruction.CALL, Instruction.SUBSEARCH, Instruction.MATCHREW,
-						                   Instruction.RWCSTART, Instruction.SAMPLE)):
+						                    Instruction.WMATCHREW, Instruction.RWCSTART, Instruction.SAMPLE)):
 							notify_points.append(k)
 							notify_pending = False
 
@@ -1114,7 +1138,7 @@ class StratCompiler:
 				if notify_points.next_equal(k):
 					np.append(Instruction.NOTIFY, extra=tuple(matchrew_vars))
 
-				if inst.type == Instruction.MATCHREW:
+				if inst.type in (Instruction.MATCHREW, Instruction.WMATCHREW):
 					matchrew_vars.append(inst.extra[3])
 
 				elif inst.type == Instruction.NEXTSUBTERM:
@@ -1328,6 +1352,7 @@ class StratRunner:
 			Instruction.RWCSTART: self.rwcstart,
 			Instruction.RWCNEXT: self.rwcnext,
 			Instruction.SAMPLE: self.sample,
+			Instruction.WMATCHREW: self.wmatchrew,
 			Instruction.ONE: self.one,
 			Instruction.CHECKPOINT: self.checkpoint,
 		}
@@ -1598,14 +1623,7 @@ class StratRunner:
 			condition = instantiate_condition(condition, stack.venv)
 
 		for match, ctx in self.current_state.term.match(pattern, condition, maxDepth=mtype):
-			# Merged substitution
-			merged_subs = merge_substitutions(match, stack.venv)
-			# Substitution without the variables of the subterms to be rewritten
-			safe_subs = maude.Substitution({var: val for var, val in merged_subs
-			                                if var not in variables}) if merged_subs else None
-
-			# The term where the rewritten subterms will be finally filled
-			context = ctx(safe_subs.instantiate(original_pattern) if safe_subs else original_pattern)
+			merged_subs, context = self.process_match(stack.venv, match, ctx, original_pattern, variables)
 
 			# Stack node that holds the information required for the matchrew
 			new_stack = SubtermNode(parent=stack,
@@ -1618,6 +1636,66 @@ class StratRunner:
 			                                            stack=new_stack))
 
 		self.next_pending()
+
+	def wmatchrew(self, args, stack):
+		"""Matchrew with weight"""
+
+		mtype, pattern, condition, variables, weight = args
+
+		# Original pattern without instantiation
+		original_pattern = pattern
+
+		# Pattern and condition must be instantiated before matching
+		if stack.venv:
+			pattern = stack.venv.instantiate(pattern)
+			condition = instantiate_condition(condition, stack.venv)
+
+		# Calculate the weight of every match and keep their substitutions and contexts
+		match_data, weights = [], []
+
+		for match, ctx in self.current_state.term.match(pattern, condition, maxDepth=mtype):
+			merged_subs, context = self.process_match(stack.venv, match, ctx, original_pattern, variables)
+
+			# Instantiated weight
+			this_weight = merged_subs.instantiate(weight)
+			this_weight.reduce()
+
+			match_data.append((merged_subs, context))
+			weights.append(float(this_weight))
+
+		# Select one of the matches
+		try:
+			(merged_subs, context), = random.choices(match_data, weights)
+
+		# All weights are zero or there are no weights
+		except (ValueError, IndexError):
+			self.next_pending()
+			return
+
+		# Stack node that holds the information required for the matchrew
+		new_stack = SubtermNode(parent=stack,
+		                        venv=merged_subs,
+		                        context=context,
+		                        pending=[merged_subs.instantiate(var) for var in variables[1:]])
+
+		# Start evaluating the first subterm
+		self.current_state = self.current_state.copy(term=merged_subs.instantiate(variables[0]),
+			                                         stack=new_stack)
+
+	@staticmethod
+	def process_match(venv, match, ctx, pattern, variables):
+		"""Instantiate the matching substitution in its context"""
+
+		# Merged substitution
+		merged_subs = merge_substitutions(match, venv)
+		# Substitution without the variables of the subterms to be rewritten
+		safe_subs = maude.Substitution({var: val for var, val in merged_subs
+		                                if var not in variables}) if merged_subs else None
+
+		# The term where the rewritten subterms will be finally filled
+		context = ctx(safe_subs.instantiate(pattern) if safe_subs else pattern)
+
+		return merged_subs, context
 
 	def nextsubterm(self, args, stack):
 		"""Finish a matchrew"""
@@ -1865,8 +1943,6 @@ class MarkovRunner(StratRunner):
 	def resolve_choice(self, choice):
 		"""Resolve a choice with weights into probabilities"""
 
-		total_w = sum(w for w, s in choice if s.valid)
-
 		# While choice is a sequence of (weight, state), new_choice is
 		# a dictionary from state to probability
 		new_choice = {}
@@ -1878,7 +1954,7 @@ class MarkovRunner(StratRunner):
 			# If s is not a fake state
 			if s.term is not None:
 				old_p = new_choice.get(s, 0.0)
-				new_choice[s] = old_p + w / total_w
+				new_choice[s] = old_p + w
 
 			else:
 				# Nondeteterministic and choice alternatives
@@ -1890,13 +1966,13 @@ class MarkovRunner(StratRunner):
 				if nd_opts:
 					s, = s.children
 					old_p = new_choice.get(s, 0.0)
-					new_choice[s] = old_p + w / total_w
+					new_choice[s] = old_p + w
 
 				if ch_opts:
 					child_choice, = s.child_choices
 					for cs, p in child_choice.items():
 						old_p = new_choice.get(cs, 0.0)
-						new_choice[cs] = old_p + p * (w / total_w)
+						new_choice[cs] = old_p + p * w
 
 		return new_choice
 
@@ -2033,6 +2109,68 @@ class MarkovRunner(StratRunner):
 				new_xs = self.current_state.copy(pc=target)
 				self.pending.append(new_xs)
 				self.push_state[new_xs] = new_states[k]
+
+			# Add the resolved choice to the graph state
+			graph_state.child_choices.add(tuple(zip(weights, new_states)))
+
+		self.next_pending()
+
+	def wmatchrew(self, args, stack):
+		"""A matchrew with weight node"""
+
+		mtype, pattern, condition, variables, weight = args
+
+		# Original pattern without instantiation
+		original_pattern = pattern
+
+		# Pattern and condition must be instantiated before matching
+		if stack.venv:
+			pattern = stack.venv.instantiate(pattern)
+			condition = instantiate_condition(condition, stack.venv)
+
+		# Calculate the weight of every match and keep their substitutions and contexts
+		targets, weights = [], []
+
+		for match, ctx in self.current_state.term.match(pattern, condition, maxDepth=mtype):
+			merged_subs, context = self.process_match(stack.venv, match, ctx, original_pattern, variables)
+
+			# Instantiated weight
+			this_weight = merged_subs.instantiate(weight)
+			this_weight.reduce()
+			this_weight = float(this_weight)
+
+			if this_weight > 0.0:
+				targets.append((merged_subs, context))
+				weights.append(float(this_weight))
+
+		# Execution states that start evaluating the first subterm
+		# with stacks that keep the information for the matchrew
+		new_xss = [self.current_state.copy(term=merged_subs.instantiate(variables[0]),
+		                                   stack=SubtermNode(parent=stack,
+		                                                     venv=merged_subs,
+		                                                     context=context,
+		                                                     pending=[merged_subs.instantiate(var)
+		                                                              for var in variables[1:]]))
+		           for merged_subs, context in targets]
+
+		# If there is only a positive weight, we can proceed with it
+		if len(weights) == 1:
+			self.current_state = new_xss[0]
+			return
+
+		# Otherwise, if there is at least one
+		if weights:
+			graph_state = self.dfs_stack[-1]
+
+			# Create a new graph state (without term) for each branch of the matchrew
+			new_states = [self.GraphState(None) for _ in range(len(weights))]
+
+			# These graph states cannot be pushed to the DFS stack (because we
+			# are not exploring them yet), they should be pushed when the
+			# execution state new_xss[k] is executed, so we add them to push_state
+			for k in range(len(targets)):
+				self.pending.append(new_xss[k])
+				self.push_state[new_xss[k]] = new_states[k]
 
 			# Add the resolved choice to the graph state
 			graph_state.child_choices.add(tuple(zip(weights, new_states)))

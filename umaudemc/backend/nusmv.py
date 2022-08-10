@@ -129,7 +129,7 @@ class NuSMV:
 		# NuSMV is called on the generated file
 		try:
 			status = subprocess.run((self.nusmv, tmpfile.name) + tuple(extra_args),
-						capture_output=not raw, timeout=timeout)
+			                        capture_output=not raw, timeout=timeout)
 
 		except subprocess.TimeoutExpired:
 			usermsgs.print_error(f'NuSMV execution timed out after {timeout} seconds.')
