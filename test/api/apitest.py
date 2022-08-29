@@ -65,6 +65,22 @@ class APITest(unittest.TestCase):
 		self.assertEqual(self.model.pcheck('<> hasCake')[0].value, 0.25)
 		self.assertFalse(self.model.pcheck('P >= 0.5 hasCake')[0].value)
 
+	def test_scheck(self):
+		"""Statistical model checking"""
+
+		# Literal QuaTEx file
+		quatex_file = '''HasCake(n) =
+			if (n == 0) then s.rval("M:Machine |= hasCake")
+			            else # HasCake(n - 1) fi ;
+			eval E[HasCake(2)] ;
+		'''
+
+		with io.StringIO(quatex_file) as quatex:
+			result = self.model.scheck(quatex, assign='uaction(put1=3)')
+
+			self.assertTrue(result['nsims'] >= 30)
+			self.assertEqual(result['queries'][0]['mean'], 0.0)
+
 
 if __name__ == '__main__':
 	unittest.main()

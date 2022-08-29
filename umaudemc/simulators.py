@@ -407,6 +407,56 @@ class GeneralizedMetadataSimulator(BaseSimulator):
 			pass
 
 
+class StrategyMetadataSimulator(BaseSimulator):
+	"""Strategic simulator for the metadata method where weights are Maude terms"""
+
+	def __init__(self, module, initial, strategy, stmt_weights):
+		super().__init__(initial)
+		self.stmt_weights = stmt_weights
+
+		from .pyslang import StratCompiler, MetadataRunner, BadProbStrategy
+
+		ml = maude.getModule('META-LEVEL')
+		sc = StratCompiler(module, ml, use_notify=True, ignore_one=True)
+		p = sc.compile(ml.upStrategy(strategy))
+
+		try:
+			self.graph = MetadataRunner(p, initial, stmt_weights).run()
+			self.node = self.graph
+			self.time = 0.0
+
+		except BadProbStrategy as bps:
+			usermsgs.print_error(bps)
+
+	def restart(self):
+		"""Restart simulator"""
+
+		super().restart()
+		self.node = self.graph
+		self.time = 0.0
+
+	def get_time(self):
+		"""Get the simulation time calculated as in a CTMC"""
+		return self.time
+
+	def next_step(self):
+		"""Perform a step of the simulation"""
+
+		successors = list(self.node.actions.keys())
+		weights = [(sum(w for _, w in actions) if actions else 1.0)
+		           for target, actions in self.node.actions.items()]
+
+		try:
+			self.node, = random.choices(successors, weights)
+			self.state = self.node.term
+			self.step += 1
+			self.time += 1.0 / sum(weights)
+
+		# No rewrite or all of them have null weight
+		except (ValueError, IndexError):
+			pass
+
+
 def get_simulator(method, data):
 	"""Get the simulator for the given assignment method"""
 
@@ -434,11 +484,10 @@ def get_simulator(method, data):
 		stmt_weights, _, has_term = parse_metadata_weights(data.module)
 
 		if has_term:
-			if not data.strategy:
+			if data.strategy:
+				return StrategyMetadataSimulator(data.module, data.term,
+				                                 data.strategy, stmt_weights)
+			else:
 				return GeneralizedMetadataSimulator(data.term, stmt_weights)
-
-			usermsgs.print_warning('Non-ground metadata attributes are not supported '
-			                       'yet for strategy-controlled systems. Ignoring those attributes.')
-			stmt_weights = {stmt: w for stmt, w in stmt_weights.items() if isinstance(w, float)}
 
 	return UmaudemcSimulator.new(data.term, data.strategy, method, opaque=data.opaque, stmt_weights=stmt_weights)

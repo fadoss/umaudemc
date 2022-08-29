@@ -800,9 +800,8 @@ class QuaTExParser:
 		                     tuple((line, column, params) for line, column, _, params in self.queries))
 
 
-def parse_quatex(filename):
+def parse_quatex(input_file, filename='<string>'):
 	"""Parse a QuaTEx formula"""
 
-	# Load, parse and compile the QuaTEx file
-	with open(filename) as qte_file:
-		return QuaTExParser(qte_file, filename=filename).parse()
+	# Load, parse, and compile the QuaTEx file
+	return QuaTExParser(input_file, filename=filename).parse()

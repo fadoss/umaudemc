@@ -12,7 +12,6 @@ import time
 
 from .. import probabilistic as pbs
 from ..common import usermsgs
-from ..wrappers import create_graph
 
 # Result line printed by PRISM
 _RESULT_REGEX = re.compile(b'^Result: ([\\d.E-]+|Infinity|false|true)(.*)')
@@ -78,7 +77,7 @@ def _label_char_repl(match):
 	return f'u{ord(match[0]):04x}'
 
 
-def _translate_aprop(aprop):
+def translate_aprop(aprop):
 	"""Translate an atomic proposition to a PRISM label"""
 	return _LABEL_ILLEGAL.sub(_label_char_repl, aprop)
 
@@ -88,7 +87,7 @@ def _make_prism_formula(form, translation, out_prio=20):
 	head, *rest = form
 
 	if head == 'Prop':
-		result, prio = '"{}"'.format(_translate_aprop(rest[0])), 0
+		result, prio = '"{}"'.format(translate_aprop(rest[0])), 0
 	else:
 		trans, prio, has_bound = translation[head]
 		# Bound annotation are always the first entry in the argument list
@@ -107,7 +106,46 @@ def make_prism_formula(form):
 	return _make_prism_formula(_preprocess_formula(form), _translation)
 
 
-def _collect_raw_aprops(form, aprops):
+def make_prism_query(form, aprops, deterministic, raw_form=None, cost=False, reward=None):
+	"""Build the PRISM query for the given formula and context"""
+
+	# Translate the Maude-parsed formula (if not raw)
+	if form is not None:
+		prism_formula = make_prism_formula(form)
+	else:
+		prism_formula = raw_form
+
+		# Translate identifiers to those admitted by PRISM
+		for ap in aprops:
+			prism_formula = prism_formula.replace(f'"{ap}"', f'"{translate_aprop(str(ap))}"')
+
+	# Whether probability or rewards are to be calculated
+	query = 'R' if cost else ('P' if reward is None else 'R{"user"}')
+
+	# A raw formula has been given
+	if form is None:
+		full_formula = prism_formula
+
+	# If the model is a DTMC, we calculate the probability
+	# (or reward expectation) that the property holds
+	elif deterministic:
+		# However, if the head of the formula is a P operator,
+		# we prefer a Boolean result
+		if form[0] == 'P__':
+			full_formula = prism_formula
+		else:
+			full_formula = f'{query}=? [ {prism_formula} ]'
+
+	# Otherwise, if the model is a MDP, we calculate the minimum
+	# and maximum probabilities for the formula
+	else:
+		# Multiple formulae are admitted separated by semicolon
+		full_formula = f'{query}min=? [ {prism_formula} ] ; {query}max=? [ {prism_formula} ]'
+
+	return full_formula
+
+
+def collect_raw_aprops(form, aprops):
 	"""Collect atomic propositions from raw formula"""
 
 	# The start of the last string, whether a escape character
@@ -161,16 +199,6 @@ class PRISMBasedBackend:
 		if self.command is None:
 			return None, None
 
-		# Translate the Maude-parsed formula (if not raw)
-		if form is not None:
-			prism_formula = make_prism_formula(form)
-		else:
-			prism_formula = formula_str
-
-			# Translate identifiers to those admitted by PRISM
-			for ap in aprops:
-				prism_formula = prism_formula.replace(f'"{ap}"', f'"{_translate_aprop(str(ap))}"')
-
 		# The model is written to a temporary file so that it can be read by PRISM.
 		# The procedure is explained in the NuSMV backend source.
 
@@ -186,28 +214,9 @@ class PRISMBasedBackend:
 
 			tmpfile.flush()
 
-		# Whether probability or rewards are to be calculated
-		query = 'R' if cost else ('P' if reward is None else 'R{"user"}')
-
-		# A raw formula has been given
-		if form is None:
-			full_formula = prism_formula
-
-		# If the model is a DTMC, we calculate the probability
-		# (or reward expectation) that the property holds
-		elif not graph.nondeterminism:
-			# However, if the head of the formula is a P operator,
-			# we prefer a Boolean result
-			if form[0] == 'P__':
-				full_formula = prism_formula
-			else:
-				full_formula = f'{query}=? [ {prism_formula} ]'
-
-		# Otherwise, if the model is a MDP, we calculate the minimum
-		# and maximum probabilities for the formula
-		else:
-			# Multiple formulae are admitted separated by semicolon
-			full_formula = f'{query}min=? [ {prism_formula} ] ; {query}max=? [ {prism_formula} ]'
+		# Obtain the query for the PRISM-based backend
+		full_formula = make_prism_query(form, aprops, not graph.nondeterminism,
+		                                cost=cost, raw_form=formula_str, reward=reward)
 
 		# Record the time when the actual backend has run for statistics
 		start_time = time.perf_counter_ns()
@@ -223,13 +232,13 @@ class PRISMBasedBackend:
 
 	def check(self, graph=None, module=None, formula=None, extra_args=(), get_graph=False,
 	          timeout=None, cost=False, formula_str=None, aprops=None, logic=None,
-	          dist=None, reward=None, ctmc=False, **kwargs):
+	          dist=None, reward=None, ctmc=False, **_):
 		"""Solves a model-checking problem with PRISM"""
 
 		# Extract the atomic proposition term from the raw formulae
 		if formula is None:
 			aprops = set()
-			_collect_raw_aprops(formula_str, aprops)
+			collect_raw_aprops(formula_str, aprops)
 
 		# Parse the atomic proposition to be evaluated on the states
 		aprop_terms = [module.parseTerm(prop) for prop in aprops]
@@ -457,7 +466,7 @@ class PRISMGenerator:
 			satisfied = ' | '.join(f'x={state}' for state in graph.states()
 			                       if self.check_aprop(graph, propNr, state))
 
-			print(f'label "{_translate_aprop(str(prop))}" = {satisfied if satisfied else "false"};',
+			print(f'label "{translate_aprop(str(prop))}" = {satisfied if satisfied else "false"};',
 			      file=self.outfile)
 
 		# Define a default reward specification for the number of steps

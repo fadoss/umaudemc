@@ -54,10 +54,11 @@ class DOTGrapher:
 class PDOTGrapher(DOTGrapher):
 	"""Graph writer in GraphViz's DOT format for probabilistic models"""
 
-	def __init__(self, *args, **kwargs):
+	def __init__(self, *args, ctmc=False, **kwargs):
 		super().__init__(*args, **kwargs)
 
 		self.visited = {}
+		self.ctmc = ctmc
 
 	def make_label(self, p, graph, start, end):
 		"""Build an extended label with the probability and standard label"""
@@ -68,27 +69,24 @@ class PDOTGrapher(DOTGrapher):
 		# Standard labels are used too
 		elabel = self.elabel(graph, start, end)
 
-		return f'{num}/{den} {elabel}' if den > 1 else elabel
+		return f'{num}/{den} {elabel}' if p != 1.0 else elabel
 
 	def exploreAndGraph(self, graph, stateNr, bound=-1):
 		# Visited is a dictionary from state number to depth
 		self.visited[stateNr] = 0
 		self.write_state(graph, stateNr)
 
-		# StrategyMarkovGraph does not record transition labels,
-		# so we make a dirty fix
-		if not hasattr(graph, 'getTransition'):
-			class FakeTransition:
-				def getType(self):
-					return 100
-
-			graph.getTransition = lambda *_: FakeTransition()
-
 		for state, children in graph.transitions():
 			depth = self.visited.get(state)
 
 			if depth is None or 0 <= bound <= depth:
 				continue
+
+			# Normalize if not a CTMC
+			if not self.ctmc:
+				children = tuple(children)
+				total_w = sum(w for w, _ in children)
+				children = ((w / total_w, child) for w, child in children)
 
 			for p, child in children:
 				child_depth = self.visited.get(child)

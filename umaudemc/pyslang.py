@@ -52,8 +52,7 @@ class StratProgram:
 
 	def __init__(self):
 		self.inst = []  # Instructions
-		self.defs = {}  # Strategy definition: pattern, conditions, and addresses
-		                # (keys are names, just for debugging)
+		self.defs = {}  # Strategy definition: pattern, conditions, and addresses (keys are names, just for debugging)
 
 	def append(self, itype, extra=None):
 		"""Append an instruction to the program"""
@@ -308,7 +307,6 @@ class StratCompiler:
 			return [term]
 
 		return list(term.arguments())
-
 
 	def substitution2dict(self, substitution):
 		"""Convert a metalevel substitution to a dictionary"""
@@ -1472,8 +1470,8 @@ class StratRunner:
 		# the strategy in the previous line or not, if it has failed)
 		self.next_pending()
 
-	def rlapp(self, args, stack):
-		"""Apply a rule"""
+	def get_rewrites(self, args, stack):
+		"""Apply a rule and get the rewrites"""
 
 		label, initial_subs, top = args
 
@@ -1487,10 +1485,15 @@ class StratRunner:
 
 			initial_subs = maude.Substitution(initial_subs)
 
+		return self.current_state.term.apply(label,
+		                                     initial_subs,
+		                                     maxDepth=-1 if top else maude.UNBOUNDED)
+
+	def rlapp(self, args, stack):
+		"""Apply a rule"""
+
 		self.pending += [self.current_state.copy(term=(t.reduce(), t)[1])
-		                 for t, *_ in self.current_state.term.apply(label,
-		                                                            initial_subs,
-		                                                            maxDepth=-1 if top else maude.UNBOUNDED)]
+		                 for t, *_ in self.get_rewrites(args, stack)]
 
 		self.next_pending()
 
@@ -1588,16 +1591,16 @@ class StratRunner:
 				# distinguished by its stack continuation.
 				if not tail:
 					new_stack = StackNode(parent=stack,
-							      pc=self.current_state.pc + 1,
-							      venv=match if len(match) > 0 else None,
+					                      pc=self.current_state.pc + 1,
+					                      venv=match if len(match) > 0 else None,
 					                      seen=stack.seen.fork(self.current_state.pc))
 				# In tail calls, the stack node can be a sibling of the current one,
 				# the return address is the same, and the seen table can be shared.
 				else:
 					new_stack = StackNode(parent=stack.parent,
 					                      pc=stack.pc,
-							      venv=match if len(match) > 0 else None,
-							      seen=stack.seen)
+					                      venv=match if len(match) > 0 else None,
+					                      seen=stack.seen)
 
 				pending.append(self.current_state.copy(pc=addr, stack=new_stack))
 
@@ -1859,11 +1862,14 @@ def rebuild_term(term, stack, args):
 class GraphExecutionState(StratRunner.State):
 	"""Execution state for generating a graph"""
 
-	def __init__(self, term, pc, stack, conditional=False, graph_node=0):
+	def __init__(self, term, pc, stack, conditional=False, graph_node=None, extra=None):
 		super().__init__(term, pc, stack, conditional)
+		# Node in the rewrite graph that is being built
 		self.graph_node = graph_node
+		# Additional information for the last rewrite
+		self.extra = extra
 
-	def copy(self, term=None, pc=None, stack=None, conditional=False, graph_node=None):
+	def copy(self, term=None, pc=None, stack=None, conditional=False, graph_node=None, extra=None):
 		"""Clone state with possibly some changes"""
 
 		return GraphExecutionState(
@@ -1872,6 +1878,7 @@ class GraphExecutionState(StratRunner.State):
 			self.stack if stack is None else stack,
 			conditional,
 			self.graph_node if graph_node is None else graph_node,
+			self.extra if extra is None else extra,
 		)
 
 
@@ -1916,6 +1923,9 @@ class MarkovRunner(StratRunner):
 			# Set of choice alternatives (each an association of
 			# weights or probabilities to graph states)
 			self.child_choices = set()
+			# Temporary information about the last rewrite
+			self.last_rewrite = None
+			self.actions = {}
 			self.solution = False
 			self.valid = True
 			# Each graph state has its own list of pending execution states
@@ -1940,7 +1950,7 @@ class MarkovRunner(StratRunner):
 		# different sucessor can be reached)
 		self.solution_states = {}
 
-	def resolve_choice(self, choice):
+	def resolve_choice(self, choice, actions):
 		"""Resolve a choice with weights into probabilities"""
 
 		# While choice is a sequence of (weight, state), new_choice is
@@ -1953,8 +1963,8 @@ class MarkovRunner(StratRunner):
 
 			# If s is not a fake state
 			if s.term is not None:
-				old_p = new_choice.get(s, 0.0)
-				new_choice[s] = old_p + w
+				old_w = new_choice.get(s, 0.0)
+				new_choice[s] = old_w + w
 
 			else:
 				# Nondeteterministic and choice alternatives
@@ -1963,16 +1973,26 @@ class MarkovRunner(StratRunner):
 				if nd_opts + ch_opts > 1:
 					raise BadProbStrategy
 
+				# Copy the action information
+				for target, info in s.actions.items():
+					old_info = actions.get(target)
+
+					if old_info:
+						old_info.extend(info)
+					else:
+						actions[target] = info
+
 				if nd_opts:
 					s, = s.children
-					old_p = new_choice.get(s, 0.0)
-					new_choice[s] = old_p + w
+					old_w = new_choice.get(s, 0.0)
+					new_choice[s] = old_w + w
 
 				if ch_opts:
 					child_choice, = s.child_choices
-					for cs, p in child_choice.items():
-						old_p = new_choice.get(cs, 0.0)
-						new_choice[cs] = old_p + p * w
+					total_cw = sum(child_choice.values())
+					for cs, cw in child_choice.items():
+						old_w = new_choice.get(cs, 0.0)
+						new_choice[cs] = old_w + cw * w / total_cw
 
 		return new_choice
 
@@ -2026,12 +2046,13 @@ class MarkovRunner(StratRunner):
 			   graph_state not in graph_state.children:
 				solution_state = self.get_solution_state(graph_state.term)
 				graph_state.children.add(solution_state)
+				graph_state.actions[solution_state] = None
 
 			# Adjust the probilities of the choice operators
 			new_choices = []
 
 			for choice in graph_state.child_choices:
-				resolved_choice = self.resolve_choice(choice)
+				resolved_choice = self.resolve_choice(choice, graph_state.actions)
 
 				if len(resolved_choice) == 1:
 					child, = resolved_choice.keys()
@@ -2045,11 +2066,14 @@ class MarkovRunner(StratRunner):
 			self.dfs_stack.pop()
 
 			if self.dfs_stack:
-				self.pending = self.dfs_stack[-1].pending
+				dfs_top = self.dfs_stack[-1]
+				self.pending = dfs_top.pending
 
 				# Add graph_state as a child if it is valid
 				if graph_state.valid and graph_state.term is not None:
-					self.dfs_stack[-1].children.add(graph_state)
+					dfs_top.children.add(graph_state)
+					dfs_top.actions.setdefault(graph_state, []).append(dfs_top.last_rewrite)
+					dfs_top.last_rewrite = None  # unneeded, but cleaner
 
 		# No more pending work for the strategy
 		self.current_state = None
@@ -2195,9 +2219,14 @@ class MarkovRunner(StratRunner):
 			self.dfs_stack.append(new_state)
 			self.pending = new_state.pending
 
+			# The extra information for the last rewrite is recorded
+			self.dfs_stack[-2].last_rewrite = state.extra
+
 		else:
 			if successor.valid:
-				self.dfs_stack[-1].children.add(successor)
+				dfs_top = self.dfs_stack[-1]
+				dfs_top.children.add(successor)
+				dfs_top.actions.setdefault(successor, []).append(state.extra)
 
 			# Handle the deactivation of the negative branch of
 			# a subsearch when this state leaded to a solution
@@ -2231,7 +2260,7 @@ class MarkovRunner(StratRunner):
 		subsearch_stack = SubsearchNode(parent=stack, pc=args,
 		                                seen=stack.seen.fork(self.current_state.pc),
 		                                dfs_base=len(self.dfs_stack),
-		                                subsearch_id = self.current_state.pc)
+		                                subsearch_id=self.current_state.pc)
 		self.current_state = self.current_state.copy(stack=subsearch_stack)
 
 		# Exactly the same as StratRunner.subsearch
@@ -2246,6 +2275,14 @@ class MarkovRunner(StratRunner):
 			node.solve_subsearch.add(stack.subsearch_id)
 
 		super().nofail(args, stack)
+
+	def rlapp(self, args, stack):
+		"""Apply a rule"""
+
+		self.pending += [self.current_state.copy(term=(t.reduce(), t)[1], extra=rl)
+		                 for t, _, _, rl in self.get_rewrites(args, stack)]
+
+		self.next_pending()
 
 	def run(self):
 		"""Run the strategy to generate the graph"""
@@ -2262,6 +2299,39 @@ class MarkovRunner(StratRunner):
 			self.handlers[inst.type](inst.extra, state.stack)
 
 		return self.root_node
+
+
+class MetadataRunner(MarkovRunner):
+	"""Runner for the metadata assignment method with non-ground weights"""
+
+	# Choice and matchrew with weight are simulated to match
+	# the behavior when all metadata weights are ground
+	choice = StratRunner.choice
+	wmatchrew = StratRunner.wmatchrew
+
+	def __init__(self, program, term, stmt_map):
+		super().__init__(program, term)
+		self.stmt_map = stmt_map
+
+	def rlapp(self, args, stack):
+		"""Apply a rule"""
+
+		for t, sb, _, rl in self.get_rewrites(args, stack):
+			# Term.apply does not normalize output terms
+			t.reduce()
+
+			# Evaluate the metadata weight
+			weight = self.stmt_map.get(rl, 1.0)
+
+			# If it is not a literal, we should reduce the term
+			if not isinstance(weight, float):
+				weight = sb.instantiate(weight)
+				weight.reduce()
+				weight = float(weight)
+
+			self.pending.append(self.current_state.copy(term=t, extra=(rl, weight)))
+
+		self.next_pending()
 
 
 class RandomRunner(StratRunner):

@@ -2,6 +2,7 @@
 # umaudemc API to be used by external programs or extensions
 #
 
+import os
 import sys
 
 import maude
@@ -12,14 +13,17 @@ from . import counterprint as _counterprint
 from . import formatter as _formatter
 from . import formulae as _formulae
 from . import grapher as _grapher
+from . import probabilistic as _probabilistic
+from . import quatex as _quatex
+from . import simulators as _simulators
+from . import statistical as _statistical
 from . import usermsgs as _usermsgs
 from . import wrappers as _wrappers
-from . import probabilistic as _probabilistic
 from .backend import prism as _prism
 from .backend import storm as _storm
 
 
-DEFAULT_BACKENDS = ('maude', 'ltsmin', 'pymc', 'nusmv', 'spot', 'builtin')
+DEFAULT_BACKENDS = tuple(_backends.DEFAULT_BACKENDS.split(','))
 
 
 # The API allows providing terms as objects, and they may need to be passed to
@@ -34,7 +38,7 @@ if hasattr(maude.Term, 'prettyPrint'):
 		return term.prettyPrint(maude.PRINT_WITH_PARENS | maude.PRINT_DISAMBIG_CONST)
 
 else:
-	PSEUDOSYMBOLS = ['<Strings>', '<Qids>', '<Floats>']
+	PSEUDOSYMBOLS = frozenset({'<Strings>', '<Qids>', '<Floats>'})
 
 	def _term2str(term):
 		"""Convert any term to a string in prefix form"""
@@ -93,9 +97,9 @@ class MaudeModel:
 		# File name
 
 		self.filename = filename
-		needs_loading = not isinstance(module, maude.Module) \
-		                and not isinstance(initial, maude.Term) \
-		                and not already_loaded
+		needs_loading = (not isinstance(module, maude.Module)
+		                 and not isinstance(initial, maude.Term)
+		                 and not already_loaded)
 
 		if needs_loading:
 			if self.filename is None:
@@ -332,8 +336,8 @@ class MaudeModel:
 		return holds, stats
 
 	def pcheck(self, formula, purge_fails='default', merge_states='default',
-		   backends=('prism', 'storm'), timeout=None, usermsgs=_usermsgs,
-		   extra_args=(), assign='uniform', steps=False, reward=None):
+	           backends=('prism', 'storm'), timeout=None, usermsgs=_usermsgs,
+	           extra_args=(), assign='uniform', steps=False, reward=None):
 		"""
 		Probabilistic model checking of a given temporal formula.
 
@@ -384,8 +388,8 @@ class MaudeModel:
 		data = self._make_data()
 
 		graph = _probabilistic.get_probabilistic_graph(data, assign,
-							       purge_fails=purge_fails,
-							       merge_states=merge_states)
+		                                               purge_fails=purge_fails,
+		                                               merge_states=merge_states)
 
 		# Parse the temporal formula
 		pparser = _formulae.ProbParser()
@@ -405,15 +409,76 @@ class MaudeModel:
 				reward = _probabilistic.RewardEvaluator.new(reward, self.initial.getSort().kind())
 
 		result, stats = backend.check(module=self.module,
-					      formula=pformula,
-					      logic='CTL',
-					      aprops=aprops,
-					      extra_args=extra_args,
-					      cost=steps,
-					      reward=reward,
-					      graph=graph)
+		                              formula=pformula,
+		                              logic='CTL',
+		                              aprops=aprops,
+		                              extra_args=extra_args,
+		                              cost=steps,
+		                              reward=reward,
+		                              graph=graph)
 
 		return result, stats
+
+	def scheck(self, quatex, assign='uniform', alpha=0.05, delta=0.5, block=30, nsims=(30, None),
+	           seed=None, jobs=1, usermsgs=_usermsgs, verbose=False):
+		"""
+		Statistical model checking of a given QuaTEx expression
+
+		:param quatex: Quantitative temporal expression (file name or file object)
+		:type quatex: str or text file object
+		:param assign: Probability assignment method
+		:type assign: string
+		:param alpha: Complement of the confidence level (probability outside the confidence interval)
+		:type alpha: float (between 0.0 and 1.0)
+		:param delta: Maximum admissible radius for the confidence interval
+		:type delta: float (positive)
+		:param block: Number of simulations before checking the confidence interval
+		:type block: int (positive)
+		:param nsims: Number of simulations (tuple of lower and upper limits)
+		:type nsims: (int or None, int or None)
+		:param seed: Random seed
+		:type seed: int
+		:type jobs: Number of parallel simulation threads
+		:type jobs: int
+		:param usermsgs: Partially override default user message printing functions
+		:type usermsgs: An object with print_error, print_warning and print_info methods
+		:param verbose: Enable verbose messages about the simulation state between blocks
+		:type verbose: bool
+		:returns: the probabilistic model-checking result and a dictionary with statistics
+		"""
+
+		# Parse the QuaTEx query
+		if isinstance(quatex, str) and os.path.exists(quatex):
+			with open(quatex) as quatex_file:
+				program = _quatex.parse_quatex(quatex_file, filename=quatex)
+		else:
+			program = _quatex.parse_quatex(quatex)
+
+		if not program:
+			return None
+
+		# Check the simulation parameters
+		if not (0 <= alpha <= 1) or delta < 0 or block <= 0:
+			usermsgs.print_error(f'Wrong simulation parameters: alpha, delta, or block are outside bounds.')
+			return None
+
+		# No queries in the input file
+		if not program.nqueries:
+			return {'nsims': 0, 'queries': ()}
+
+		# Get the simulator for the given assignment method
+		if not (simulator := _simulators.get_simulator(assign, self._make_data())):
+			return None
+
+		min_sim, max_sim = nsims
+
+		# Call the statistical model checker
+		num_sims, qdata = _statistical.check(program, simulator,
+		                                     seed, alpha, delta, block, min_sim, max_sim,
+		                                     jobs, verbose)
+
+		# Return cleaned-up version of the result
+		return _statistical.qdata_to_dict(num_sims, qdata, program)
 
 	def _get_depth(self, wgraph):
 		"""Get the depth of a bounded depth graph"""

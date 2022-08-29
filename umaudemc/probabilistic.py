@@ -743,6 +743,19 @@ class StrategyMarkovGraph:
 	# This graph is always strategy-controlled
 	strategyControlled = True
 
+	class Transition:
+		"""Transition of the StrategyMarkovGraph"""
+
+		def __init__(self, rule=None):
+			self.rule = rule
+
+		def getRule(self):
+			return self.rule
+
+		def getType(self):
+			return (maude.StrategyRewriteGraph.SOLUTION if self.rule is None
+			        else maude.StrategyRewriteGraph.RULE_APPLICATION)
+
 	def __init__(self, root):
 		self.state_list = [root]
 		self.state_map = {root: 0}
@@ -761,6 +774,10 @@ class StrategyMarkovGraph:
 	def __len__(self):
 		return len(self.state_list)
 
+	def getTransition(self, origin, dest):
+		actions = self.state_list[origin].actions[self.state_list[dest]]
+		return self.Transition(actions[0]) if actions else self.Transition()
+
 	def states(self):
 		"""Iterator through the states (numbers) of the graph"""
 		return range(len(self.state_list))
@@ -774,7 +791,12 @@ class StrategyMarkovGraph:
 				yield state_nr, ((1.0, self.state_map[next_state]),)
 
 			for choice in state.child_choices:
-				yield state_nr, ((w, self.state_map[next_state]) for next_state, w in choice.items())
+				# Normalize weights in the case of an MDP
+				if self.nondeterminism:
+					total_w = sum(choice.values())
+					yield state_nr, ((w / total_w, self.state_map[next_state]) for next_state, w in choice.items())
+				else:
+					yield state_nr, ((w, self.state_map[next_state]) for next_state, w in choice.items())
 
 	def expand(self):
 		"""Expand the underlying graph"""
@@ -791,7 +813,62 @@ class StrategyMarkovGraph:
 					self.state_list.append(child)
 
 
-def get_probabilistic_strategy_graph(module, strategy, term):
+class StrategyMetadataGraph(StrategyMarkovGraph):
+	"""Strategic graph with probabilities given by non-ground metadata"""
+
+	def __init__(self, root, mdp=False):
+		super().__init__(root)
+		self.nondeterminism = mdp
+
+	def getTransition(self, origin, dest):
+		actions = self.state_list[origin].actions[self.state_list[dest]]
+		return self.Transition(actions[0][0]) if actions else self.Transition()
+
+	def transitions(self):
+		"""Iterator through the transitions of the graph"""
+
+		# Strategies may be allowed to stop or continue when a solution
+		# is found, but stopping does not have a weight assigned by the
+		# metadata method, so we assume 1 as for unassigned rules
+		default_action = ((None, 1.0),)
+
+		for state_nr, state in enumerate(self.state_list):
+			action_map = state.actions
+
+			if self.nondeterminism:
+				successors = {}
+
+				# Group weights and successors by rule label
+				for target, rls in action_map.items():
+					target_nr = self.state_map[target]
+					for rl, w in rls:
+						label = rl.getLabel() if rl else None
+						succ4action = successors.setdefault(label, {})
+						succ4action[target_nr] = succ4action.get(target_nr, 0.0) + w
+
+				# Yield the distribution of successors for each action (normalized)
+				for action, succs in successors.items():
+					total_w = sum(succs.values())
+					yield state_nr, ((w / total_w, target) for target, w in succs.items())
+
+			else:
+				yield state_nr, ((sum(w for _, w in (action_map.get(next_state) or default_action)),
+				                  self.state_map[next_state]) for next_state in state.children)
+
+	def expand(self):
+		"""Expand the underlying graph"""
+
+		for k, state in enumerate(self.state_list):
+			# state.child_choices must be empty because
+			# MetadataRunner does not introduce choices
+
+			for child in chain(state.children):
+				if child not in self.state_map:
+					self.state_map[child] = len(self.state_list)
+					self.state_list.append(child)
+
+
+def get_probabilistic_strategy_graph(module, strategy, term, stmt_map=None, mdp=False):
 	"""Get the probabilistic graph of a probabilistic strategy"""
 
 	from . import pyslang
@@ -808,10 +885,14 @@ def get_probabilistic_strategy_graph(module, strategy, term):
 		# Reduce the term
 		term.reduce()
 
-		# Execute the strategy
-		root = pyslang.MarkovRunner(p, term).run()
+		# Execute the strategy with the corresponding runner
+		if stmt_map is None:
+			root = pyslang.MarkovRunner(p, term).run()
+			graph = StrategyMarkovGraph(root)
+		else:
+			root = pyslang.MetadataRunner(p, term, stmt_map).run()
+			graph = StrategyMetadataGraph(root, mdp)
 
-		graph = StrategyMarkovGraph(root)
 		graph.expand()
 
 		return graph
@@ -841,7 +922,7 @@ def _get_assignment_method(data, spec, allow_file=False):
 
 	# The 'strategy' method uses a custom Python-based graph, since StrategyRewriteGraph
 	# in the Maude library chooses one of the probabilistic children at random
-	if spec == 'strategy':
+	if spec in ('strategy', 'ctmc-strategy'):
 		if data.strategy is None:
 			usermsgs.print_error('A strategy expression must be provided to use the strategy assignment method.')
 
@@ -857,14 +938,14 @@ def _get_assignment_method(data, spec, allow_file=False):
 
 		if has_term:
 			if data.strategy:
-				usermsgs.print_warning('Non-ground metadata attributes are not supported '
-				                       'yet for strategy-controlled systems. Ignoring those attributes.')
-				stmt_weights = {stmt: w for stmt, w in stmt_weights.items() if isinstance(w, float)}
+				graph = get_probabilistic_strategy_graph(data.module, data.strategy, data.term,
+				                                         stmt_map=stmt_weights,
+				                                         mdp=spec == 'mdp-metadata')
 			else:
 				graph = GeneralizedMetadataGraph(data.term, stmt_weights, mdp=spec == 'mdp-metadata')
-				graph.expand()
 
-				return None, graph
+			graph.expand()
+			return None, graph
 
 	# General case: a local assignment function is used to assign probabilities
 	# to the children of every node in the graphs provided by the Maude library

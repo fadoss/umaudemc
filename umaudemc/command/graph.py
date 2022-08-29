@@ -131,15 +131,16 @@ def graph(args):
 
 	slabel, elabel = get_formatters(args.slabel, args.elabel, with_strategy, only_labels=True)
 
+	# Whether the graph should be seen as a CTMC and probabilities should not be normalized
+	is_ctmc = args.passign and args.passign.startswith('ctmc-')
+
 	with output_stream(args.o, args.extra_args) as outfile:
 		if oformat == 'prism':
 			from ..backend.prism import PRISMGenerator
-			grapher = PRISMGenerator(outfile, aprops=aprops, slabel=slabel,
-			                         ctmc=args.passign and args.passign.startswith('ctmc-'))
+			grapher = PRISMGenerator(outfile, aprops=aprops, slabel=slabel, ctmc=is_ctmc)
 		elif oformat == 'jani':
 			from ..jani import JANIGenerator
-			grapher = JANIGenerator(outfile, aprops=aprops, slabel=slabel,
-			                        ctmc=args.passign and args.passign.startswith('ctmc-'))
+			grapher = JANIGenerator(outfile, aprops=aprops, slabel=slabel, ctmc=is_ctmc)
 		elif oformat == 'nusmv':
 			from ..backend.nusmv import NuSMVGrapher
 			grapher = NuSMVGrapher(outfile, slabel=slabel, elabel=elabel, aprops=aprops)
@@ -149,7 +150,7 @@ def graph(args):
 		elif oformat == 'tikz':
 			grapher = TikZGrapher(outfile, slabel=slabel, elabel=elabel)
 		elif args.passign:
-			grapher = PDOTGrapher(outfile, slabel=slabel, elabel=elabel)
+			grapher = PDOTGrapher(outfile, slabel=slabel, elabel=elabel, ctmc=is_ctmc)
 		else:
 			grapher = DOTGrapher(outfile, slabel=slabel, elabel=elabel)
 
