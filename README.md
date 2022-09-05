@@ -104,14 +104,18 @@ For the probabilistic model-checking command `pcheck`, two backends are supporte
 * [PRISM](https://www.prismmodelchecker.org/). If not installed in the system path,
 its location should be provided using the `PRISM_PATH` environment variable.
 * [Storm](https://www.stormchecker.org/). Its location should be specified
-with the `STORM_PATH` environment variable if not available in the system path.
+with the `STORM_PATH` environment variable if not available in the system path. If
+its Python bindings [StormPy](https://moves-rwth.github.io/stormpy/) are available,
+i.e. the module `stormpy` is installed for the Python interpreter running `umaudemc`,
+ they will be used instead of the command-line communication.
 
 For the statistical model-checking command `scheck`, the [SciPy](https://scipy.org/)
 Python package is recommended. Otherwise, confidence intervals will be calculated
 with respect to the normal distribution instead of the Student's t-distribution.
 
 Moreover, to read test cases specifications in YAML, the
-[PyYAML](https://pypi.org/project/pyaml/) package is required. [Matplotlib](https://matplotlib.org/) is needed to plot the results of parametric queries in `scheck`.
+[PyYAML](https://pypi.org/project/pyaml/) package is required. [Matplotlib](https://matplotlib.org/)
+is needed to plot the results of parametric queries with `--plot` in `scheck`.
 
 
 Documentation
@@ -185,10 +189,10 @@ of unnormalized probabilities, which provide the dicrete model of a notion of ti
 
 The previous methods for assigning probabilities can also be used for statistical
 model checking with the `scheck` command, except the `mdp-` variants since they do
-not make sense in this context. Moreover, the `strategy` tool follows a simulation
-semantics that differs from the standard one on conditionals, where backtracking is
-not considered. The additional `strategy-full` method maintains the original semantics
-but needs to expand the whole graph before starting the simulation. Finally, the
+not make sense in this context. Moreover, the additional `strategy-fast` method follows
+a local simulation semantics without backtracking for strategies that are free of failures
+and unquantified nondeterminism. The semantics of the strategy may not be respected if these
+conditions are not met, when the standard `strategy` method is advised. Finally, the
 `pmaude` assignment method allows simulating
 [PMaude](https://doi.org/10.1016/j.entcs.2005.10.040) specifications.
 

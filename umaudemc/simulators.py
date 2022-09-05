@@ -185,6 +185,9 @@ class StrategyPathSimulator(BaseSimulator):
 
 		self.runner = RandomRunner(p, initial)
 
+		# Detect local nondeterminism and warn about it
+		self.runner.detect_nondeterminism(usermsgs)
+
 	def restart(self):
 		"""Restart simulator"""
 
@@ -464,13 +467,18 @@ def get_simulator(method, data):
 	if method is None:
 		method = 'step' if data.strategy else 'uniform'
 
+	# Check whether a strategy is provided for methods that require it
+	if not data.strategy and method in ('step', 'strategy-fast', 'strategy'):
+		usermsgs.print_error(f'No strategy is provided for the {method} assignment method.')
+		return None
+
 	if method == 'step':
 		return StrategyStepSimulator(data.term, data.strategy)
 
-	if method == 'strategy':
+	if method == 'strategy-fast':
 		return StrategyPathSimulator(data.module, data.term, data.strategy)
 
-	if method == 'strategy-full':
+	if method == 'strategy':
 		return StrategyDTMCSimulator(data.module, data.term, data.strategy)
 
 	if method == 'pmaude':

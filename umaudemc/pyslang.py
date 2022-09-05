@@ -765,7 +765,7 @@ class StratCompiler:
 
 			# Strategies without definitions are fails
 			if symbol is None:
-				p[call_pc] = Instruction(Instruction.JUMP, extra=())
+				p.inst[call_pc] = Instruction(Instruction.JUMP, extra=())
 			else:
 				p[call_pc].extra = (symbol(*args), strat_nr, tail)
 
@@ -1707,7 +1707,8 @@ class StratRunner:
 
 		if is_last:
 			# Instantiate the pattern in context with the rewritten subterms
-			self.current_state.term = maude.Substitution({**stack.done, **{var: self.current_state.term}}).instantiate(stack.context)
+			self.current_state.term = maude.Substitution({**stack.done,
+			                                              **{var: self.current_state.term}}).instantiate(stack.context)
 			# Get out of the matchrew stack node
 			self.current_state.stack = self.current_state.stack.parent
 		else:
@@ -2339,10 +2340,52 @@ class RandomRunner(StratRunner):
 
 	Instead of solutions of the strategy, the run method returns the succesive steps
 	of a single random rewriting path. Hence, conditionals do no work with this runner,
-	since exploration is not exhaustive."""
+	since exploration is not exhaustive, and failed executions are not discarded."""
 
 	def __init__(self, program, term):
 		super().__init__(program, term)
+
+	def detect_nondeterminism(self, usermsgs):
+		"""Discover local nondeterminism, rewrites the program, and warns about it"""
+
+		# Lines where the body of a strategy definition starts
+		entry_points = sorted(((line, name) for name, defs in self.code.defs for _, _, line in defs), reverse=True)
+		current_name = 'the given expression'
+		# Detect trivial subsearches
+		subsearches, trivial_subsearch = [], False
+
+		for k, inst in enumerate(self.code.inst):
+			# Jumps with multiple desinations
+			if inst.type == Instruction.JUMP and len(inst.extra) > 1:
+				inst.extra = inst.extra[:1]
+				usermsgs.print_warning(f'Unquantified nondeterminism detected in {current_name}. '
+				                       'It will be resolved arbitrarily.')
+
+			# Conditional expressions
+			elif inst.type == Instruction.SUBSEARCH:
+				subsearches.append(k)
+				trivial_subsearch = True
+
+			elif inst.type == Instruction.NOFAIL:
+				last_subsearch = subsearches.pop()
+
+				if not trivial_subsearch:
+					self.code.inst[last_subsearch].type = Instruction.JUMP
+					self.code.inst[last_subsearch].extra = (last_subsearch + 1,)
+					usermsgs.print_warning(f'Conditional expression detected in {current_name}. '
+					                       'Its semantics may not be respected.')
+
+				trivial_subsearch = False
+
+			# Update the current procedure name
+			elif inst.type == Instruction.POP:
+				if entry_points and entry_points[-1][0] == k + 1:
+					current_name = f'strategy {entry_points[-1][1]}'
+					entry_points.pop()
+
+			# Trivial subsearches can only contain tests
+			if trivial_subsearch and inst.type not in (Instruction.TEST, Instruction.SUBSEARCH):
+				trivial_subsearch = False
 
 	def next_pending(self):
 		"""Change the current state a random pending state"""
@@ -2375,6 +2418,39 @@ class RandomRunner(StratRunner):
 
 		# The notion of "solution" in this execution mode is "step" or "rewrite"
 		self.solution = rebuild_term(self.current_state.term, stack, args)
+		self.current_state.pc += 1
+
+	def subsearch(self, args, stack):
+		"""Handle trivial subsearches"""
+
+		# For subsearch and nofail, we are assuming that
+		# detect_nondeterminism has been called (*)
+
+		# The next instruction must be a test by (*)
+		state = self.current_state
+		state.pc += 1
+		inst = self.code.inst[state.pc]
+
+		while inst.type == Instruction.TEST:
+			self.test(inst.extra, stack)
+
+			# If the test succeeds the execution continues,
+			# otherwise the negative branch is run
+			if self.current_state:
+				inst = self.code.inst[state.pc]
+
+			else:
+				state.pc = args
+				self.current_state = state
+				return
+
+		# This should not happen by (*)
+		if inst.type != Instruction.NOFAIL:
+			self.current_state = None
+
+	def nofail(self, args, stack):
+		"""Subsearches are not opened, so it is enough to increment the PC"""
+
 		self.current_state.pc += 1
 
 	def pop(self, _, stack):
