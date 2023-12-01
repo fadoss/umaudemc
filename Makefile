@@ -8,7 +8,7 @@ PYTHON ?= /usr/bin/env python3
 # Bundle the all the Python and data file into single executable zip file
 # (based on Stack Overflow's question 17486578)
 
-RESOURCES = umaudemc/data/*.maude umaudemc/data/*.js umaudemc/data/*.css umaudemc/data/select.htm
+RESOURCES = umaudemc/data/*.maude umaudemc/data/*.js umaudemc/data/*.css umaudemc/data/*.htm
 CODE      = umaudemc/*.py umaudemc/*/*.py
 
 dist/umaudemc: dist $(RESOURCES) $(CODE)
@@ -22,13 +22,13 @@ dist/umaudemc: dist $(RESOURCES) $(CODE)
 	cd zip ; zip -q ../umaudemc.zip $(RESOURCES) $(CODE) __main__.py
 	rm -rf zip
 	# Put the shebang and then the zip file into the executable bundle
-	echo '#!$(PYTHON)' > dist/umaudemc
-	cat umaudemc.zip >> dist/umaudemc
+	echo '#!$(PYTHON)' > $@
+	cat umaudemc.zip >> $@
 	rm umaudemc.zip
-	chmod a+x dist/umaudemc
+	chmod a+x $@
 
 wheel:
-	python setup.py bdist_wheel
+	pip wheel --no-deps -w dist .
 
 dist:
 	mkdir -p dist

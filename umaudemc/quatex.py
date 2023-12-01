@@ -459,7 +459,7 @@ class QuaTExParser:
 
 					slot = self.fslots.setdefault(call_name, len(self.fslots))
 					current = ast.Tuple([ast.Constant(inside_next), ast.Constant(slot), *args],
-					                    ast.Load(), lineno=call_line, col_offset=call_column)
+					                    ast.Load(), custom_loc=(call_line, call_column))
 					self.calls.append((call_name, call_line, call_column, len(args)))
 					inside_next = False
 					call_name = None
@@ -698,7 +698,7 @@ class QuaTExParser:
 
 			if isinstance(expr, ast.Tuple) and not tail_pos:
 				self._eprint('non-tail calls are not allowed.',
-				             line=expr.lineno, column=expr.col_offset)
+				             line=expr.custom_loc[0], column=expr.custom_loc[1])
 				return False
 
 			elif isinstance(expr, ast.UnaryOp):
@@ -732,7 +732,7 @@ class QuaTExParser:
 			else:
 				arities[name] = len(args)
 
-		# Check whether all called are well defined
+		# Check whether all called are well-defined
 		for name, line, column, arity in self.calls:
 			def_arity = arities.get(name)
 

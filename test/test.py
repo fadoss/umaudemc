@@ -11,6 +11,8 @@ import stat
 import sys
 import tempfile
 
+from pathlib import Path
+
 
 class TestDriver:
 	"""Test driver for umaudemc by text output comparison"""
@@ -52,12 +54,9 @@ class TestDriver:
 		else:
 			adapter_name, adapter = 'umaudemc', self.POSIX_ADAPTER
 
-		adapter_name = os.path.join(self.extra_path.name, adapter_name)
-
-		with open(adapter_name, 'w') as adp:
-			adp.write(adapter)
-
-		os.chmod(adapter_name, stat.S_IRWXU)
+		adapter_name = Path(self.extra_path.name) / adapter_name
+		adapter_name.write_text(adapter)
+		adapter_name.chmod(stat.S_IRWXU)
 
 		# Detect the available backends
 		sys.path = [self.basedir] + sys.path
@@ -114,8 +113,7 @@ class TestDriver:
 	def compare_output(self, testname, expected_file, output):
 		"""Compare the expected and the actual output"""
 
-		with open(expected_file, 'rb') as ef:
-			expected = ef.read()
+		expected = Path(expected_file).read_bytes()
 
 		the_same = expected == output
 
@@ -183,8 +181,7 @@ class TestDriver:
 				os.remove(out_file)
 
 		if not the_same:
-			with open(out_file, 'wb') as of:
-				of.write(status.stdout)
+			Path(out_file).write_bytes(status.stdout)
 
 	def run_test(self, dirname, filename):
 		"""Run a single test taking its header into account"""

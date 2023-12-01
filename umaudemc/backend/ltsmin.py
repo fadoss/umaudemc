@@ -330,7 +330,7 @@ class LTSmin:
 			aprops = set()
 			collect_aprops(formula, aprops)
 
-		# Create a instance of LTSmin and run it
+		# Create an instance of LTSmin and run it
 		runner = self.new_runner()
 		runner.set_module(module_str, metamodule_str, labels, opaque)
 		runner.add_formula(formula, logic, aprops)

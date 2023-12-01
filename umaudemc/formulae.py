@@ -22,7 +22,7 @@ def collect_aprops(form, aprops):
 
 
 def _add_path_premise_ctl(form, premise):
-	"""Add a premise to every path quantification in CTL* formulae""" 
+	"""Add a premise to every path quantification in CTL* formulae"""
 	head, *rest = form
 
 	if head == 'A_' or head == 'E_':
@@ -102,7 +102,7 @@ def _actionSpecParse(acspec, labels):
 
 
 def _formula2List(form, *extra_args):
-	"""Convert the formula parsed by Maude into an pure Python list"""
+	"""Convert the formula parsed by Maude into a pure Python list"""
 	prop_sort, variable_sort, labels = extra_args
 
 	if form.getSort() <= prop_sort:
@@ -170,7 +170,7 @@ def _boundSpecParse(bound):
 
 
 def _probFormula2List(form, prop_sort, aprops):
-	"""Convert the probabilistic formula parsed by Maude into an pure Python list"""
+	"""Convert the probabilistic formula parsed by Maude into a pure Python list"""
 
 	if form.getSort() <= prop_sort:
 		aprops.add(str(form))
@@ -269,7 +269,7 @@ class BaseParser:
 			self.templog.parseTerm('tokenize("{}")'.format(formula.replace('"', '\"'))),
 			self.templog.parseTerm(label_list)
 		)
-		parser_metamod.reduce()
+
 		extmod = maude.downModule(parser_metamod)
 
 		formula_kind = extmod.findSort('Formula').kind()

@@ -1,6 +1,8 @@
 # Test for the Kleene star semantics
 #+ for: spot maude ltsmin
 
+# The number of rewrites in the second command is not deterministic for LTSmin
+
 umaudemc check cupsballs initial '[] <> uncovered' cups
 umaudemc check cupsballs initial '[] <> uncovered' cups -k
 umaudemc check cupsballs initial '[] <> uncovered' cups --kleene-iteration

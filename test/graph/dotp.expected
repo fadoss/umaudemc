@@ -66,34 +66,39 @@ digraph {
 digraph {
 	0 [label="head"];
 	1 [label="tail"];
-	0 -> 1 [label="8/13 "];
+	0 -> 1 [label="8/13 ttail"];
 	2 [label="head"];
-	0 -> 2 [label="5/13 "];
+	0 -> 2 [label="5/13 thead"];
 	3 [label="tail"];
-	1 -> 3;
-	2 -> 3;
+	1 -> 3 [label="ttail"];
+	2 -> 3 [label="ttail"];
+}
+digraph {
+	0 [label="head"];
+	1 [label="head"];
+	0 -> 1;
+	2 [label="tail"];
+	0 -> 2 [label="8/13 ttail"];
+	3 [label="head"];
+	0 -> 3 [label="5/13 thead"];
+	4 [label="tail"];
+	2 -> 4;
+	2 -> 2 [label="8/13 ttail"];
+	2 -> 3 [label="5/13 thead"];
+	3 -> 1;
+	3 -> 2 [label="8/13 ttail"];
+	3 -> 3 [label="5/13 thead"];
 }
 digraph {
 	0 [label="head"];
 	1 [label="tail"];
-	0 -> 1 [label="8/13 "];
+	0 -> 1 [label="8/13 ttail"];
 	2 [label="head"];
-	0 -> 2 [label="5/13 "];
-	1 -> 1 [label="8/13 "];
-	1 -> 2 [label="5/13 "];
-	2 -> 1 [label="8/13 "];
-	2 -> 2 [label="5/13 "];
-}
-digraph {
-	0 [label="head"];
-	1 [label="tail"];
-	0 -> 1 [label="8/13 "];
-	2 [label="head"];
-	0 -> 2 [label="5/13 "];
+	0 -> 2 [label="5/13 thead"];
 	3 [label="tail"];
-	1 -> 3 [label="3/10 "];
+	1 -> 3 [label="3/10 ttail"];
 	4 [label="head"];
-	1 -> 4 [label="7/10 "];
-	2 -> 3 [label="3/10 "];
-	2 -> 4 [label="7/10 "];
+	1 -> 4 [label="7/10 thead"];
+	2 -> 3 [label="3/10 ttail"];
+	2 -> 4 [label="7/10 thead"];
 }

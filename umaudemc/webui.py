@@ -5,6 +5,7 @@
 import cgi
 import http.server
 import json
+import math
 import os
 import pathlib
 import re
@@ -74,7 +75,7 @@ class PathHandler:
 			full_path = pathlib.Path(path).resolve()
 			relative_path = full_path
 
-		# With a explicit root, paths are given relative to it
+		# With an explicit root, paths are given relative to it
 		else:
 			full_path = (self.root / path.lstrip('/')).resolve()
 
@@ -281,6 +282,10 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
 			self.send_response(200)
 			self.send_header('Content-Type', 'text/json; charset=utf-8')
 			self.end_headers()
+
+			# JSON does not support infinity, so we translate it here
+			if result['rtype'] == 'n' and math.isinf(result['result']):
+				result['result'] = '∞'
 
 			response = {
 				'hasCounterexample': result['hasCounterexample'],

@@ -2,7 +2,7 @@
 # Separate Maude processes within Python
 #
 # When the Python interpreter loads the maude package a
-# a session of Maude is started and cannot be restarted
+# session of Maude is started and cannot be restarted
 # or stopped if something goes wrong.
 #
 

@@ -61,7 +61,7 @@ def plot_results(program, qdata):
 			rs.append(query.h)
 
 		else:
-			# Parametric queries with less that two points are
+			# Parametric queries with less than two points are
 			# ignored (line plots do not make sense for them)
 			if len(xs) > 1:
 				results.append((index, xs, ys, rs))

@@ -64,9 +64,9 @@ def load_cases(filename):
 
 	extension = os.path.splitext(filename)[1]
 
-	# The YAML package is only loaded if YAML will be used because
-	# it is an optional dependency
-	if extension in {'.yaml', '.yml'}:
+	# The YAML package is only loaded when needed
+	# (pyaml is an optional dependency)
+	if extension in ('.yaml', '.yml'):
 		try:
 			import yaml
 			from yaml.loader import SafeLoader
@@ -79,7 +79,7 @@ def load_cases(filename):
 
 		# The YAML loader is replaced so that entities have its line number
 		# associated to print more useful messages. This is not possible with
-		# the standard JSON library as easily.
+		# the standard JSON library.
 
 		class SafeLineLoader(SafeLoader):
 			def construct_mapping(self, node, deep=False):
@@ -89,16 +89,34 @@ def load_cases(filename):
 				return mapping
 
 		try:
-			with open(filename, 'r') as caspec:
+			with open(filename) as caspec:
 				return yaml.load(caspec, Loader=SafeLineLoader)
 
 		except yaml.error.YAMLError as ype:
 			usermsgs.print_error(f'Error while parsing test file: {ype}.')
 
+	# TOML format
+	if extension == '.toml':
+		try:
+			import tomllib
+
+		except ImportError:
+			usermsgs.print_error(
+				'Cannot load cases from TOML file, '
+				'which is only available since Python 3.10.')
+			return None
+
+		try:
+			with open(filename) as caspec:
+				return tomllib.load(caspec)
+
+		except tomllib.TOMLDecodeError as tde:
+			usermsgs.print_error(f'Error while parsing test file: {tde}.')
+
 	# JSON format
 	else:
 		try:
-			with open(filename, 'r') as caspec:
+			with open(filename) as caspec:
 				return json.load(caspec)
 
 		except json.JSONDecodeError as jde:
@@ -321,7 +339,7 @@ class ParameterSet:
 # Fields admitted by the test specification format
 # (some others keys are admitted but treated apart)
 #
-# They consists of a name, a type, the function that need to be called for
+# They consist of a name, a type, the function that need to be called for
 # parsing them, and the arguments that must be reparsed because of it.
 
 TEST_FIELDS = {
@@ -524,7 +542,7 @@ def read_cases(filename, source, parser, skip=0):
 			if test.initial is None or test.formula is None:
 				usermsgs.print_error((f'Missing initial state or formula for a test case in file {test.rel_filename}'
 				                      f'(line {test.line_number}).') if len(test_stack) > 0 else
-				                      f'Expected cases for file {test.rel_filename}.')
+				                     f'Expected cases for file {test.rel_filename}.')
 				return None, None
 
 			# Whether the model has changed
@@ -573,7 +591,7 @@ def _run_backend(name, backend, case, timeout, args):
 	                     timeout=timeout)
 
 
-def run_tests(suite, backends, args, only_file=None, only_logic=None, resume=None, **kwargs):
+def run_tests(suite, backends, args, only_file=None, only_logic=None, resume=None, **_):
 	"""Run the tests in the suite with the first backend available"""
 
 	for source, cases in suite:
@@ -964,7 +982,7 @@ def _memory_case(memusage, psutil, case, name, backend, args, log, maudebin=None
 	              total,
 	              peak,
 	              stack
-		))
+	              ))
 
 
 def memory_tests(suite, backends, args, only_file=None, only_logic=None,

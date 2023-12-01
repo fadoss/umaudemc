@@ -571,7 +571,7 @@ class RewardEvaluator:
 		term = maude.Substitution({self.variable: state}).instantiate(self.reward_term)
 		term.reduce()
 
-		# We do not warn if the term is not a Int or Float
+		# We do not warn if the term is not an Int or Float
 		return float(term)
 
 

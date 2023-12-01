@@ -11,5 +11,4 @@ umaudemc graph ../pcheck/coin head --passign metadata --format prism --aprops he
 umaudemc graph ../pcheck/coin head 'choice(8 : ttail, 5 : thead) ; ttail' --passign strategy --format prism --aprops head,tail
 umaudemc graph ../pcheck/coin head 'choice(8 : ttail, 5 : thead) *' --passign strategy --format prism --aprops head,tail
 
-# TODO: este no funciona como esperaba
-umaudemc graph ../pcheck/coin head 'choice(8 : ttail, 5 : thead) ; choice(3 : ttail, 7 : thead)' --passign strategy
+umaudemc graph ../pcheck/coin head 'choice(8 : ttail, 5 : thead) ; choice(3 : ttail, 7 : thead)' --passign strategy --format prism

@@ -7,8 +7,8 @@ The property is satisfied (2 system states, 8 rewrites).
 Result: 0.38461538461538464
 Result: 0.992211275420189
 The property is satisfied (2 system states, 8 rewrites).
-Result: 0.30000000000000004
-Result: 0.9717524751000003
+Result: 0.3
+Result: 0.9717524750999997
 The property is satisfied (2 system states, 8 rewrites).
 Result: 0.3
 Result: 0.9717524750999997
@@ -19,9 +19,9 @@ The property is satisfied (2 system states, 8 rewrites).
 Result: 0.3
 Result: 0.3
 The property is not satisfied (3 system states, 6 rewrites).
-Result: 0.3
-Result: 0.9717524750999997
-The property is satisfied (3 system states, 6 rewrites).
+Result: 0.0 to 0.3
+Result: 0.0 to 0.9717524750999997
+Result: 0.0
 Result: 0.3
 Result: 0.58
 The property is not satisfied (5 system states, 10 rewrites).

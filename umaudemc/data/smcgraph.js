@@ -63,6 +63,9 @@ function showPopup(state, nr)
 
 function transitionText(transition)
 {
+	if (!transition)
+		return '';
+
 	switch (transition.type)
 	{
 		case 0 : return 'idle' ; break

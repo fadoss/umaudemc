@@ -1,11 +1,11 @@
 Result: 2.0
 Result: 2.0
 Result: 2.5999999999999996
-Result: 3.333333333333333
+Result: 3.3333333333333335
 Result: 3.3333333333333335
 Result: 3.0
 Result: inf
-Result: 3.3333333333333335
+Result: 3.333327145961359 to inf (relative error 7.955213633130376e-06)
 Result: 4.0
 Result: 118.5
 Result: 303.5

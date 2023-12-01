@@ -119,7 +119,7 @@ def graph(args):
 		return 1
 
 	# It is possible to generate models of the NuSMV and PRISM model checkers instead of
-	# DOT graphs. They are can be annotated with atomic propositions that are checked in the states.
+	# DOT graphs. They can be annotated with atomic propositions that are checked in the states.
 	if args.aprops is not None:
 		aprops = [initial_data.module.parseTerm(prop) for prop in split_comma(args.aprops)]
 

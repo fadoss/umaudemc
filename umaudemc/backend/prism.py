@@ -136,7 +136,7 @@ def make_prism_query(form, aprops, deterministic, raw_form=None, cost=False, rew
 		else:
 			full_formula = f'{query}=? [ {prism_formula} ]'
 
-	# Otherwise, if the model is a MDP, we calculate the minimum
+	# Otherwise, if the model is an MDP, we calculate the minimum
 	# and maximum probabilities for the formula
 	else:
 		# Multiple formulae are admitted separated by semicolon
@@ -148,7 +148,7 @@ def make_prism_query(form, aprops, deterministic, raw_form=None, cost=False, rew
 def collect_raw_aprops(form, aprops):
 	"""Collect atomic propositions from raw formula"""
 
-	# The start of the last string, whether a escape character
+	# The start of the last string, whether an escape character
 	# has been just seen, the algorithm state (out, string or braces),
 	# and the position where the current proposition starts
 	last, escaped, state, pos = 0, False, 'o', 0
@@ -208,7 +208,7 @@ class PRISMBasedBackend:
 			# Output the DTMC or MDP for the model
 			# Expand the graph and calculate the output degrees
 			grapher.graph(graph)
-			# Output the map of an user-specified reward
+			# Output the map of a user-specified reward
 			if reward is not None:
 				grapher.make_reward(graph, 'user', reward)
 

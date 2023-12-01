@@ -9,17 +9,17 @@ import sys
 import maude
 import umaudemc.api as api
 
+# Init Maude and load its files
+maude.init(advise=False)
+maude.load('../check/vending')
+
 
 class APITest(unittest.TestCase):
 
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
 
-		import maude
-		maude.init(advise=False)
-		maude.load('../check/vending')
-
-		self.m = maude.getCurrentModule()
+		self.m = maude.getModule('VENDING-MACHINE-CHECK')
 		self.t = self.m.parseTerm('initial')
 		self.a = self.m.parseStrategy('put1 ; apple | put1 ; put1 ; cake')
 		self.b = self.m.parseStrategy('put1 ; (apple | put1 ; cake)')

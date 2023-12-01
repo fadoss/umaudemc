@@ -295,7 +295,7 @@ class SpinGrapher:
 		print('  od\n}', file=self.outfile)
 
 	def explore(self, graph, stateNr, bound=-1):
-		"""Explore the graph up to a optional given depth, adding the nodes to the visited set"""
+		"""Explore the graph up to an optional given depth, adding the nodes to the visited set"""
 		# Depth-first search with a stack
 		pending = [(stateNr, bound)]
 		self.visited.add(stateNr)

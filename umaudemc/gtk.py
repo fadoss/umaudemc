@@ -110,7 +110,7 @@ class Banner(Gtk.Bin):
 
 	@staticmethod
 	def composeSignature(prefix, signature):
-		"""Create a link with the signature of a atomic proposition or strategy"""
+		"""Create a link with the signature of an atomic proposition or strategy"""
 
 		# Displayed signature
 		composed = escape(signature[0]) if len(signature) == 1 else \
@@ -318,7 +318,7 @@ class ModelCheckerWindow(Gtk.ApplicationWindow):
 		self.maude_session = mproc.MaudeRemote()
 
 	def signal_entry_error(self, entry, value):
-		"""Mark a entry widget with a warning in case of syntax error"""
+		"""Mark an entry widget with a warning in case of syntax error"""
 
 		entry.set_icon_from_icon_name(Gtk.EntryIconPosition.SECONDARY,
 		                              'dialog-warning' if value else None)

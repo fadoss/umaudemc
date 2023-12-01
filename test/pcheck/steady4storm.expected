@@ -4,5 +4,4 @@
  0.3                  tail
  0.7                  head
  0.3                  tail
- 0.7                  head
- 0.3                  tail
+Transient and steady-state probabilities are only computed for DTMCs.

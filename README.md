@@ -22,7 +22,7 @@ in the [GraphViz](https://graphviz.org/)'s DOT format.
 * `gui [--web]` to model check from a graphical user interface.
 * `test [--benchmark] <filename>` to test or benchmark model-checking cases.
 
-Formulae are expressed in a syntax extending the `LTL` module of the 
+Formulae are expressed in a syntax extending the `LTL` module of the
 `model-checker.maude` file in the official distribution. For CTL and CTL*, the
 universal `A_` and existential `E_` path quantifiers are available. For the
 μ-calculus, there are the universal `[_]_` and existential `<_>_` modalities,
@@ -32,7 +32,7 @@ be a dot to mean that any action is fine, and the list may be preceded by a
 negation symbol `~` to indicate its complement.
 
 Probabilistic model checking is available through the `pcheck` command with a
-syntax similar to `check`. By default, it calculates the probability of the 
+syntax similar to `check`. By default, it calculates the probability of the
 given LTL, CTL, or PCTL formula. For a reachability formula, the options
 `--steps` and `--reward <term>` can be passed to calculate instead the expected
 number of steps or reward, respectively. Formulae
@@ -207,4 +207,5 @@ References
 
 More details about the integration of the external classical model checkers can be found
 in [*Strategies, model checking and branching-time properties in Maude*](https://doi.org/10.1016/j.jlamp.2021.100700)
-and in [*Model checking of strategy-controlled systems in rewriting logic*](https://eprints.ucm.es/71531).
+and in [*Model checking of strategy-controlled systems in rewriting logic*](https://hdl.handle.net/20.500.14352/3553).
+Support for quantitative model checking is described in [*QMaude: quantitative specification and verification in rewriting logic*](https://doi.org/10.1007/978-3-031-27481-7_15).

@@ -215,7 +215,7 @@ class MaudeModel:
 		:type merge_states: str
 		:param backends: Prioritized list of model checking backends to be used
 		:type backends: str or list of str
-		:param formula_str: Formula given a a string (in case formula is a list)
+		:param formula_str: Formula given a string (in case formula is a list)
 		:type formula_str: str or None
 		:param logic: Logic (in case formula is a list)
 		:type logic: str
@@ -517,7 +517,7 @@ class MaudeModel:
 
 	def print_counterexample(self, stats, printer=None, sformat=None, eformat=None):
 		"""
-		Pretty print an counterexample for a previous check (nothing is printed
+		Pretty print a counterexample for a previous check (nothing is printed
 		if no counterexample has been found)
 
 		:param stats: Statistics produced by the check method

@@ -62,7 +62,8 @@ def add_backend_arg(parser):
 
 	parser.add_argument(
 		'--backend',
-		help='comma-separated prioritized list of model-checking backends (among maude, ltsmin, pymc, nusmv, spot, spin, builtin)'
+		help='comma-separated prioritized list of model-checking backends '
+		     '(among maude, ltsmin, pymc, nusmv, spot, spin, builtin)'
 	)
 
 

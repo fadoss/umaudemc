@@ -85,21 +85,21 @@ class ParityGame:
 
 		# The recursive Zielonka's algorithm implemented in solve_rec does not
 		# take finite plays into account, which are handled here. The recursive
-		# algorithm receives a a game without deadlock states.
+		# algorithm receives a game without deadlock states.
 		# (this decomposition is sound, because if player i can force the game
 		# to reach a deadlock state for 1-i, player 1-i cannot force reaching a
 		# deadlock state for i nor an infinite play)
 		w0, w1 = self.solve_rec(whole_game - finite_win0 - finite_win1)
 
-		# The winning states for each player are the union of those in which
-		# they have an infinite and those in which they a finite winning strategy
+		# The winning states for each player are the union of those in which they
+		# have an infinite and those in which they have a finite winning strategy
 		return w0.union(finite_win0), w1.union(finite_win1)
 
 	def attractor(self, player, subgame, subset):
 		"""Compute the attractor of a subset on a subgraph for a player"""
 
-		# Iteratively extend subset with the states where it is sure that
-		# the given player can reach the previous subset.
+		# Iteratively extend subset with the states where it is certain
+		# that the given player can reach the previous subset.
 
 		while True:
 			# reach is what will be added to the attractor at each step
@@ -180,7 +180,7 @@ class ParityGame:
 
 			# Solve subgame once subgame - B has been solved
 			# (notice that the subgame variable is not really the
-			# subgame, which is not longer needed, but B)
+			# subgame, which is no longer needed, but B)
 			elif phase == 2:
 				B = subgame
 				result[1-player].update(B)
@@ -382,7 +382,7 @@ class MuMaudeGame(ParityGame):
 				node = self.add_state(player, 0)
 
 			elif head == '~_':
-				# Formulae is assumed to be in negative normal form
+				# Formulae are assumed to be in negative normal form
 				player = 0 if self.check_aprop(state, self.formula_nodes[fnode.children[0]].extra) else 1
 				node = self.add_state(player, 0)
 
@@ -440,7 +440,7 @@ class MuMaudeGame(ParityGame):
 				self.add_edge(parent, node)
 
 	def solve_mucalc(self):
-		"""Generate a solve the μ-calculus game"""
+		"""Solve the μ-calculus game"""
 
 		self.build()
 		w0, w1 = self.solve()
