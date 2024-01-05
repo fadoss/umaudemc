@@ -2,7 +2,6 @@
 # Web-based user interface
 #
 
-import cgi
 import http.server
 import json
 import math
@@ -156,10 +155,10 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
 	"""Object charged of handling the requests"""
 
 	STATIC_FILES = {
-		'/'		: ('select.htm', 'text/html; charset=utf-8'),
-		'/smcview.css'	: ('smcview.css', 'text/css; charset=utf-8'),
-		'/smcview.js'	: ('smcview.js', 'text/javascript; charset=utf-8'),
-		'/smcgraph.js'	: ('smcgraph.js', 'text/javascript; charset=utf-8'),
+		'/'            : ('select.htm', 'text/html; charset=utf-8'),
+		'/smcview.css' : ('smcview.css', 'text/css; charset=utf-8'),
+		'/smcview.js'  : ('smcview.js', 'text/javascript; charset=utf-8'),
+		'/smcgraph.js' : ('smcgraph.js', 'text/javascript; charset=utf-8'),
 	}
 
 	def do_GET(self):
@@ -176,12 +175,11 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
 			self.send_error(404)
 
 	def do_POST(self):
-		form = cgi.FieldStorage(fp=self.rfile, headers=self.headers,
-		                        environ={'REQUEST_METHOD': 'POST',
-		                                 'CONTENT_TYPE': self.headers['Content-Type']})
+		# Read the JSON body of the request
+		form = json.loads(self.rfile.read(int(self.headers['Content-Length'])))
 
-		question = form.getvalue('question')
-		url = form.getvalue('url', None)
+		question = form.get('question')
+		url = form.get('url', None)
 
 		if question == 'ls':
 			base, parent, dirs, files = self.server.info.path_handler.browse_dir(url)
@@ -194,10 +192,10 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
 				self.end_headers()
 
 				response = {
-					'base'		: base,
-					'parent'	: parent,
-					'dirs'		: dirs,
-					'files'		: files
+					'base'	 : base,
+					'parent' : parent,
+					'dirs'   : dirs,
+					'files'  : files
 				}
 				self.wfile.write(json.dumps(response).encode('utf-8'))
 		elif question == 'sourceinfo':
@@ -217,16 +215,16 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
 			self.send_response(200)
 			self.send_header('Content-Type', 'text/json; charset=utf-8')
 			self.end_headers()
-			mod = form.getvalue('mod')
+			mod = form.get('mod')
 			minfo = self.server.info.remote.getModuleInfo(mod)
 			response = {
-				'name'		: mod,
-				'type'		: minfo['type'],
-				'params'	: [],
-				'valid'		: minfo['valid'],
-				'stateSorts'	: minfo.get('state', []),
-				'strategies'	: [self.make_signature(signat) for signat in minfo.get('strat', ())],
-				'props'		: [self.make_signature(signat) for signat in minfo.get('prop', ())]
+				'name'       : mod,
+				'type'       : minfo['type'],
+				'params'     : [],
+				'valid'      : minfo['valid'],
+				'stateSorts' : minfo.get('state', []),
+				'strategies' : [self.make_signature(signat) for signat in minfo.get('strat', ())],
+				'props'      : [self.make_signature(signat) for signat in minfo.get('prop', ())]
 			}
 			self.wfile.write(json.dumps(response).encode('utf-8'))
 		elif question == 'modelcheck':
@@ -234,13 +232,13 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
 			self.send_header('Content-Type', 'text/json; charset=utf-8')
 			self.end_headers()
 			data = {
-				'module':  form.getvalue('mod'),
-				'initial': form.getvalue('initial'),
-				'formula': form.getvalue('formula'),
-				'strat':   form.getvalue('strategy'),
-				'opaques': form.getvalue('opaques'),
-				'passign': self.make_passign(form),
-				'reward':  form.getvalue('reward', None),
+				'module'  :  form.get('mod'),
+				'initial' : form.get('initial'),
+				'formula' : form.get('formula'),
+				'strat'   :   form.get('strategy'),
+				'opaques' : form.get('opaques'),
+				'passign' : self.make_passign(form),
+				'reward'  :  form.get('reward', None),
 			}
 			result = self.server.info.remote.modelCheck(data)
 			response = {
@@ -267,7 +265,7 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
 
 			self.wfile.write(json.dumps(response).encode('utf-8'))
 		elif question == 'wait':
-			mcref = int(form.getvalue('mcref'))
+			mcref = int(form.get('mcref'))
 
 			# Model checking is actually done here
 			result = self.server.info.remote.get_result(mcref)
@@ -327,16 +325,16 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
 	def make_passign(form):
 		"""Build a passign term from its name and argument"""
 
-		name = form.getvalue('pmethod', None)
+		name = form.get('pmethod', None)
 
 		if name is None:
 			return None
 
-		argument = form.getvalue('pargument', '')
+		argument = form.get('pargument', '')
 
 		# Add mdp- prefix when MDP is selected and admissible
 		can_mdp = name not in ('uaction', 'strategy')
-		mdp = 'mdp-' if can_mdp and form.getvalue('mdp') == 'true' else ''
+		mdp = 'mdp-' if can_mdp and form.get('mdp') == 'true' else ''
 
 		return f'{mdp}{name}({argument})' if argument else f'{mdp}{name}'
 

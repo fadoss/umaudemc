@@ -1,29 +1,29 @@
 The property is not satisfied in the initial state (5 system states, 13 rewrites, 1 Büchi state)
 | e e [empty]
-∨  rl e O:Soup [I:Soup] => O:Soup [e I:Soup] [label put1] . 
+∨  rl [put1] : e O:Soup [I:Soup] => O:Soup [e I:Soup] . 
 | e [e]
-∨  rl e O:Soup [I:Soup] => O:Soup [e I:Soup] [label put1] . 
+∨  rl [put1] : e O:Soup [I:Soup] => O:Soup [e I:Soup] . 
 | empty [e e]
-∨  rl O:Soup [e I:Soup] => a O:Soup [I:Soup] [label apple] . 
+∨  rl [apple] : O:Soup [e I:Soup] => a O:Soup [I:Soup] . 
 | a [e]
-∨  rl O:Soup [e I:Soup] => a O:Soup [I:Soup] [label apple] . 
+∨  rl [apple] : O:Soup [e I:Soup] => a O:Soup [I:Soup] . 
 X a a [empty]
 The property is not satisfied in the initial state (6 system states, 16 rewrites, 2 Büchi states)
 | e e [empty]
-∨  rl e O:Soup [I:Soup] => O:Soup [e I:Soup] [label put1] . 
+∨  rl [put1] : e O:Soup [I:Soup] => O:Soup [e I:Soup] . 
 | e [e]
-∨  rl e O:Soup [I:Soup] => O:Soup [e I:Soup] [label put1] . 
+∨  rl [put1] : e O:Soup [I:Soup] => O:Soup [e I:Soup] . 
 | empty [e e]
-∨  rl O:Soup [e e I:Soup] => c O:Soup [I:Soup] [label cake] . 
+∨  rl [cake] : O:Soup [e e I:Soup] => c O:Soup [I:Soup] . 
 X c [empty]
 The property is satisfied in the initial state (7 system states, 29 rewrites, 3 Büchi states)
 The property is not satisfied in the initial state (3 system states, 9 rewrites, 1 Büchi state)
 | e e [empty]
 |  @ put1 ; apple | put1 ; put1 ; cake 
-∨  rl e O:Soup [I:Soup] => O:Soup [e I:Soup] [label put1] . 
+∨  rl [put1] : e O:Soup [I:Soup] => O:Soup [e I:Soup] . 
 | e [e]
 |  @ apple 
-∨  rl O:Soup [e I:Soup] => a O:Soup [I:Soup] [label apple] . 
+∨  rl [apple] : O:Soup [e I:Soup] => a O:Soup [I:Soup] . 
 X e a [empty]
 The property is not satisfied in the initial state (6 system states, 15 rewrites, 2 Büchi states)
 | e e [empty] @ put1 ; apple | put1 ; put1 ; cake

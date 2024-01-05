@@ -125,7 +125,7 @@ class OpSemInstance:
 		return self.stack_state(term_meta, strategy_meta)
 
 	def make_graph(self, initial, strategy, opaques=()):
-		"""Get the strategy for the strategy-controlled rewriting"""
+		"""Get the graph for the strategy-controlled rewriting"""
 
 		# Build the initial term
 		t = self.make_initial_term(initial, strategy)

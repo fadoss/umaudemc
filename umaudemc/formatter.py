@@ -89,23 +89,18 @@ def parse_state_format(sformat, strategy):
 	                                                tused > 0, sused > 0))
 
 
-def apply_edge_format(graph, origin, dest, eformat):
+def apply_edge_format(stmt, eformat):
 	"""
 	Edge label generator using a prebuilt format string.
 
-	:param graph: Rewriting graph the transition belong to.
-	:type graph: Maude rewriting graph.
-	:param origin: Index of the origin state within the graph.
-	:type origin: int
-	:param dest: Index of the destination state within the graph.
-	:type dest: int
+	:param stmt: Rule that caused the transition
+	:type stmt: Rule
 	:param eformat: Prebuilt format string.
 	:type eformat: str
 	:returns: Formatted edge label.
 	:rtype str
 	"""
 
-	stmt = graph.getRule(origin, dest)
 	label = stmt.getLabel()
 	line = stmt.getLineNumber()
 	opaque = ''
@@ -116,9 +111,8 @@ def apply_edge_format(graph, origin, dest, eformat):
 	return eformat.format(stmt=stmt, label=label, line=line, opaque=opaque)
 
 
-def apply_edge_format_strat(graph, origin, dest, eformat):
+def apply_edge_format_strat(trans, eformat):
 	"""Edge label generator for strategy-controlled using a prebuilt format string"""
-	trans = graph.getTransition(origin, dest)
 	opaque, label, stmt, line = '', '', '', ''
 
 	if trans.getType() == maude.StrategyRewriteGraph.SOLUTION:
@@ -150,9 +144,9 @@ def parse_edge_format(eformat, strategy):
 	eformat = re.sub(r'%(.\d+)?n', r'{line:\1}', eformat)
 
 	if strategy:
-		return lambda graph, origin, dest: apply_edge_format_strat(graph, origin, dest, eformat)
+		return lambda trans: apply_edge_format_strat(trans, eformat)
 	else:
-		return lambda graph, origin, dest: apply_edge_format(graph, origin, dest, eformat)
+		return lambda stmt: apply_edge_format(stmt, eformat)
 
 
 #
@@ -165,29 +159,30 @@ def print_term(graph, index):
 	return graph.getStateTerm(index)
 
 
-def print_transition(graph, origin, dest):
+def print_transition(stmt):
 	"""Default edge-label printing function"""
-	return graph.getRule(origin, dest)
+	return stmt
 
 
-def print_transition_strat(graph, origin, dest):
+def print_transition_strat(trans):
 	"""Default edge-label printing function with strategies"""
-	trans = graph.getTransition(origin, dest)
-	return {
-		maude.StrategyRewriteGraph.RULE_APPLICATION	: trans.getRule(),
-		maude.StrategyRewriteGraph.OPAQUE_STRATEGY	: trans.getStrategy(),
-		maude.StrategyRewriteGraph.SOLUTION		: ''
-	}[trans.getType()]
+	ttype = trans.getType()
+
+	if ttype == maude.StrategyRewriteGraph.RULE_APPLICATION:
+		return trans.getRule()
+	elif ttype == maude.StrategyRewriteGraph.OPAQUE_STRATEGY:
+		return trans.getStrategy()
+	else:
+		return ''
 
 
-def print_transition_label(graph, origin, dest):
+def print_transition_label(stmt):
 	"""Alternative edge-label printing function (only rule label)"""
-	return graph.getRule(origin, dest).getLabel()
+	return stmt.getLabel()
 
 
-def print_transition_strat_label(graph, origin, dest):
+def print_transition_strat_label(trans):
 	"""Alternative edge-label printing function with strategies (only rule/strategy label)"""
-	trans = graph.getTransition(origin, dest)
 	ttype = trans.getType()
 
 	if ttype == maude.StrategyRewriteGraph.RULE_APPLICATION:

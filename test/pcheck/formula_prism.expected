@@ -18,12 +18,12 @@ Result: 0.9826584700841672
 The property is satisfied (2 system states, 8 rewrites).
 Result: 0.3
 Result: 0.3
-The property is not satisfied (3 system states, 6 rewrites).
+The property is not satisfied (3 system states, 8 rewrites).
 Result: 0.0 to 0.3
 Result: 0.0 to 0.9717524750999997
 Result: 0.0
 Result: 0.3
 Result: 0.58
-The property is not satisfied (5 system states, 10 rewrites).
+The property is not satisfied (5 system states, 16 rewrites).
 The property is not satisfied (2 system states, 8 rewrites).
 Result: 0.875

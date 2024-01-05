@@ -19,7 +19,7 @@ class Instruction:
 	POP = 0  # no arguments
 	JUMP = 1  # sequence of addresses
 	STRAT = 2  # strategy (at the object level, for potential optimizations only)
-	RLAPP = 3  # (label, intial substitution, whether it is applied on top)
+	RLAPP = 3  # (label, initial substitution, whether it is applied on top)
 	TEST = 4  # (match type, pattern, condition)
 	CHOICE = 5  # sequence of pairs of term (weight) and address
 	CALL = 6  # (call term, index of a named strategy within the program, whether the call is tail)
@@ -34,10 +34,11 @@ class Instruction:
 	WMATCHREW = 15  # like MATCHREW + (weight)
 	ONE = 16  # no arguments
 	CHECKPOINT = 17  # no arguments
+	KLEENE = 18  # (address of where the iteration begins, whether it enters or leaves)
 
 	NAMES = ['POP', 'JUMP', 'STRAT', 'RLAPP', 'TEST', 'CHOICE', 'CALL', 'SUBSEARCH',
 	         'NOFAIL', 'MATCHREW', 'NEXTSUBTERM', 'RWCSTART', 'RWCNEXT', 'NOTIFY',
-	         'SAMPLE', 'WMATCHREW', 'ONE', 'CHECKPOINT']
+	         'SAMPLE', 'WMATCHREW', 'ONE', 'CHECKPOINT', 'KLEENE']
 
 	def __init__(self, itype, extra=None):
 		self.type = itype
@@ -209,7 +210,7 @@ class ListWalker:
 class StratCompiler:
 	"""Compiler of strategy expressions"""
 
-	def __init__(self, m, ml, use_notify=False, ignore_one=False):
+	def __init__(self, m, ml, use_notify=False, use_kleene=False, ignore_one=False):
 		# Metalevel module
 		self.ml = ml
 		# Object-level module where the strategy lives
@@ -219,6 +220,8 @@ class StratCompiler:
 		self.use_notify = use_notify
 		# Whether the one combinator is ignored or not
 		self.use_one = not ignore_one
+		# Whether to delimit iterations with the Kleene instruction
+		self.use_kleene = use_kleene
 
 		# Table of strategy combinators
 		self.op_table = {}
@@ -453,21 +456,33 @@ class StratCompiler:
 	def ne_iter(self, s, p, tail):
 		initial_pc = p.pc
 
+		if self.use_kleene:
+			p.append(Instruction.KLEENE, (initial_pc, True))
+
 		# The non-empty iteration executes the body and then jumps
 		# to the next instruction or to the body again
 		self.generate(next(s.arguments()), p, False)
 
 		p.append(Instruction.JUMP, (p.pc + 1, initial_pc))
 
+		if self.use_kleene:
+			p.append(Instruction.KLEENE, (initial_pc, False))
+
 	def iter(self, s, p, tail):
 		# The empty iteration does the same with an additional initial jump
 		initial_jump = p.append(Instruction.JUMP)
 		initial_pc = p.pc
 
+		if self.use_kleene:
+			p.append(Instruction.KLEENE, (initial_pc, True))
+
 		self.generate(next(s.arguments()), p, False)
 
 		initial_jump.extra = (p.pc + 1, initial_pc)
 		p.append(Instruction.JUMP, (p.pc + 1, initial_pc))
+
+		if self.use_kleene:
+			p.append(Instruction.KLEENE, (initial_pc, False))
 
 	def cond(self, s, p, tail):
 		condition, true_branch, false_branch = s.arguments()
@@ -907,7 +922,7 @@ class StratCompiler:
 						visited.add(next_state)
 						dfs_stack.append(next_state)
 
-		# The reachable field has been calculated assumming that calls do not apply rewrites,
+		# The reachable field has been calculated assuming that calls do not apply rewrites,
 		# but we can consider they do if every definition for it applies a rewrite
 
 		# has_rewrite_strats holds for each strategy the definitions that do not apply a rewrite
@@ -979,7 +994,7 @@ class StratCompiler:
 		jump_over_notify = []  # Jumps that should be added to skip notifies
 		# Blocks that carry a notify to the block in the key
 		notifiers = {}
-		# Blocks that jump to to the block in the key without address
+		# Blocks that jump to the block in the key without address
 		not_notifiers = {}
 
 		# Backward jumps are always non-notifying
@@ -1198,6 +1213,13 @@ class StackNode:
 
 		self.seen[(pc, term, self.venv)] = value
 
+	def __eq__(self, other):
+		"""Deep comparison of stack nodes"""
+		return self.pc == other.pc and self.venv == other.venv and self.parent == other.parent
+
+	def __hash__(self):
+		return hash((self.pc, self.venv, self.parent))
+
 	def __repr__(self):
 		return f'StackNode({self.venv}, {self.pc})'
 
@@ -1214,6 +1236,12 @@ class RwcNode(StackNode):
 		self.subs = subs
 		# Matching context
 		self.context = context
+
+	def __eq__(self, other):
+		return self is other
+
+	def __hash__(self):
+		return id(self)
 
 	def __repr__(self):
 		return f'RwcNode({self.venv}, index={self.index})'
@@ -1238,6 +1266,13 @@ class SubtermNode(StackNode):
 		return type(self)(parent=self.parent, venv=self.venv, context=self.context,
 		                  pending=self.pending[1:], done={**self.done, **{var: value}},
 		                  seen=self.seen.fork((pc, value)))
+
+	def __eq__(self, other):
+		return type(other) is type(self) and self.context == other.context and \
+		       self.done == other.done and len(self.pending) == len(other.pending)
+
+	def __hash__(self):
+		return hash((self.context, self.donde, len(self.pending), super()))
 
 	def __repr__(self):
 		return f'SubtermNode({self.venv}, {self.context}, {self.done}, {self.pending})'
@@ -1353,12 +1388,17 @@ class StratRunner:
 			Instruction.WMATCHREW: self.wmatchrew,
 			Instruction.ONE: self.one,
 			Instruction.CHECKPOINT: self.checkpoint,
+			Instruction.KLEENE: self.kleene,
 		}
+
+		# Number of rewrites
+		self.nr_rewrites = 0
 
 	def reset(self, term):
 		"""Reset the runner with a given initial term"""
 
 		self.current_state = self.state_class(term, 0, self.stack_root)
+		self.nr_rewrites = 0
 		self.pending.clear()
 
 	def dump_state(self):
@@ -1481,7 +1521,7 @@ class StratRunner:
 				initial_subs = {var: stack.venv.instantiate(value) for var, value in initial_subs.items()}
 
 			for value in initial_subs.values():
-				value.reduce()
+				self.nr_rewrites += value.reduce()
 
 			initial_subs = maude.Substitution(initial_subs)
 
@@ -1489,10 +1529,15 @@ class StratRunner:
 		                                     initial_subs,
 		                                     maxDepth=-1 if top else maude.UNBOUNDED)
 
+	def reduced(self, t):
+		"""Return the given term reduced and count the rewrites"""
+		self.nr_rewrites += t.reduce() + 1
+		return t
+
 	def rlapp(self, args, stack):
 		"""Apply a rule"""
 
-		self.pending += [self.current_state.copy(term=(t.reduce(), t)[1])
+		self.pending += [self.current_state.copy(term=self.reduced(t))
 		                 for t, *_ in self.get_rewrites(args, stack)]
 
 		self.next_pending()
@@ -1550,8 +1595,7 @@ class StratRunner:
 		except ValueError:
 			self.next_pending()
 
-	@staticmethod
-	def compute_weights(weights, venv):
+	def compute_weights(self, weights, venv):
 		"""Obtain the weights of a choice"""
 
 		# Instantiate and reduce the weights
@@ -1559,7 +1603,7 @@ class StratRunner:
 			weights = [venv.instantiate(w) for w in weights]
 
 			for w in weights:
-				w.reduce()
+				self.nr_rewrites += w.reduce()
 
 		# Convert the weights to Python's float
 		# (unreduced weights will be silently converted to zero)
@@ -1578,7 +1622,7 @@ class StratRunner:
 		# Instantiate the call term with the variable context
 		if stack.venv:
 			call = stack.venv.instantiate(call)
-			call.reduce()
+			self.nr_rewrites += call.reduce()
 
 		# Match the call term with every definition
 		pending = []
@@ -1661,7 +1705,7 @@ class StratRunner:
 
 			# Instantiated weight
 			this_weight = merged_subs.instantiate(weight)
-			this_weight.reduce()
+			self.nr_rewrites += this_weight.reduce()
 
 			match_data.append((merged_subs, context))
 			weights.append(float(this_weight))
@@ -1683,7 +1727,7 @@ class StratRunner:
 
 		# Start evaluating the first subterm
 		self.current_state = self.current_state.copy(term=merged_subs.instantiate(variables[0]),
-			                                         stack=new_stack)
+		                                             stack=new_stack)
 
 	@staticmethod
 	def process_match(venv, match, ctx, pattern, variables):
@@ -1739,7 +1783,7 @@ class StratRunner:
 				initial_subs = {var: stack.venv.instantiate(value) for var, value in initial_subs.items()}
 
 			for value in initial_subs.values():
-				value.reduce()
+				self.nr_rewrites += value.reduce()
 
 			initial_subs_obj = maude.Substitution(initial_subs)
 
@@ -1758,7 +1802,7 @@ class StratRunner:
 				new_stack = RwcNode(parent=stack, index=k, subs=subs, context=(ctx(hole), hole))
 				# Start rewriting the left-hand side of the first condition fragment
 				new_term = subs.instantiate(rwc_lhs)
-				new_term.reduce()
+				self.nr_rewrites += new_term.reduce()
 				self.pending.append(self.current_state.copy(term=new_term, stack=new_stack))
 
 		self.next_pending()
@@ -1781,12 +1825,12 @@ class StratRunner:
 			if is_final:
 				context, hole = stack.context
 				new_term = maude.Substitution({hole: subs.instantiate(rwc_lhs)}).instantiate(context)
-				new_term.reduce()
+				self.nr_rewrites += new_term.reduce()
 				self.pending.append(self.current_state.copy(term=new_term, stack=stack.parent))
 			else:
 				new_stack = RwcNode(parent=stack.parent, index=stack.index, subs=subs, context=stack.context)
 				new_term = subs.instantiate(rwc_lhs)
-				new_term.reduce()
+				self.nr_rewrites += new_term.reduce()
 				self.pending.append(self.current_state.copy(term=new_term, stack=new_stack))
 
 		self.next_pending()
@@ -1801,7 +1845,7 @@ class StratRunner:
 
 		# Reduce them
 		for arg in dargs:
-			arg.reduce()
+			self.nr_rewrites += arg.reduce()
 
 		dargs = [float(arg) for arg in dargs]
 
@@ -1821,6 +1865,12 @@ class StratRunner:
 
 	def checkpoint(self, args, stack):
 		"""Check a loop without rewrites"""
+
+		# Do nothing (subclasses will)
+		self.current_state.pc += 1
+
+	def kleene(self, args, stack):
+		"""Keep track of iterations"""
 
 		# Do nothing (subclasses will)
 		self.current_state.pc += 1
@@ -1848,7 +1898,7 @@ def rebuild_term(term, stack, args):
 		subs = maude.Substitution({
 			# ...the subterms that have already been rewritten, and...
 			**mrew_stack.done,
-			# ..the current and the pending subterms.
+			# ...the current and the pending subterms.
 			**dict(zip(pending_vars, [new_term] + mrew_stack.pending))
 		})
 		# Rebuild the subterm
@@ -1882,6 +1932,35 @@ class GraphExecutionState(StratRunner.State):
 			self.extra if extra is None else extra,
 		)
 
+	def reset_extra(self):
+		"""Reset the extra field"""
+		pass  # subclasses will
+
+
+class GraphState:
+	"""State of the rewrite graph"""
+
+	def __init__(self, term):
+		self.term = term
+		# Set of graph states that follow by a rewrite
+		self.children = set()
+		# Temporary information about the last rewrite
+		self.last_rewrite = None
+		self.actions = {}
+		self.solution = False
+		self.valid = True
+		# Each graph state has its own list of pending execution states
+		self.pending = []
+		# Subsearches for which a solution is reachable from here
+		self.solve_subsearch = set()
+
+	@property
+	def has_children(self):
+		return self.children
+
+	def __repr__(self):
+		return f'GraphState({self.term}, {self.children}, {self.solution})'
+
 
 class BadProbStrategy(Exception):
 	"""Bad probabilitistic strategy that cannot engender MDPs or DTMCs"""
@@ -1906,40 +1985,14 @@ class SubsearchNode(StackNode):
 		return f'SubsearchNode(id={self.subsearch_id}, dfs_base={self.dfs_base})'
 
 
-class MarkovRunner(StratRunner):
-	"""Runner that extracts a DTMC or MDP"""
+class GraphRunner(StratRunner):
+	"""Runner that extracts a graph"""
 
-	class GraphState:
-		"""State of the graph
-
-		In addition to the actual states of the graph, there may be temporary fake
-		states used to gather the evolutions of the branches of a choice. They are
-		characterized by a None value in their term attribute.
-		"""
-
-		def __init__(self, term):
-			self.term = term
-			# Set of graph states that follow by a rewrite
-			self.children = set()
-			# Set of choice alternatives (each an association of
-			# weights or probabilities to graph states)
-			self.child_choices = set()
-			# Temporary information about the last rewrite
-			self.last_rewrite = None
-			self.actions = {}
-			self.solution = False
-			self.valid = True
-			# Each graph state has its own list of pending execution states
-			self.pending = []
-			# Subsearches for which a solution is reachable from here
-			self.solve_subsearch = set()
-
-		def __repr__(self):
-			return f'GraphState({self.term}, {self.children}, {self.child_choices}, {self.solution})'
-
-	def __init__(self, program, term):
-		super().__init__(program, term, state_class=GraphExecutionState, seen_class=dict)
-		self.root_node = self.GraphState(term)
+	def __init__(self, program, term, state_class=GraphExecutionState, graph_state_class=GraphState):
+		super().__init__(program, term, state_class=state_class, seen_class=dict)
+		# Class of the states of the graph
+		self.graph_state_class = graph_state_class
+		self.root_node = graph_state_class(term)
 		self.dfs_stack = [self.root_node]
 
 		# A dictionary from execution states to graph states: the latter
@@ -1950,6 +2003,236 @@ class MarkovRunner(StratRunner):
 		# of graph states where both a solution of the strategy and a
 		# different sucessor can be reached)
 		self.solution_states = {}
+
+	def get_solution_state(self, term):
+		"""Get the solution state for the given term"""
+
+		solution_state = self.solution_states.get(term)
+
+		if not solution_state:
+			solution_state = self.graph_state_class(term)
+			self.solution_states[term] = solution_state
+
+		return solution_state
+
+	def next_pending(self):
+		"""Change the current state to the next pending state"""
+
+		# While the DFS is still alive
+		while self.dfs_stack:
+			graph_state = self.dfs_stack[-1]
+
+			# If there is pending work, lets go for it
+			while graph_state.pending:
+				self.current_state = self.pending.pop()
+				push_state = self.push_state.get(self.current_state)
+
+				# The same as StratRunner.next_pending
+				if self.current_state.conditional:
+					if self.current_state.stack.pc is not None:
+						self.current_state.stack = self.current_state.stack.parent
+						self.current_state.conditional = False
+						return True
+
+				# This execution state is linked to a fake choice-generated graph state
+				# that should be pushed to the DFS stack
+				elif push_state:
+					self.dfs_stack.append(push_state)
+					self.pending = push_state.pending
+					return True
+
+				else:
+					return True
+
+			# Check whether the graph state is valid
+			graph_state.valid = graph_state.solution or graph_state.has_children
+
+			# Link a solution state if there are children
+			# (these states are needed to explicit the self-loop for the stuttering
+			# extension of finite traces without introducing spurious executions)
+			if graph_state.solution and graph_state.has_children and \
+			   graph_state not in graph_state.children:
+				solution_state = self.get_solution_state(graph_state.term)
+				graph_state.children.add(solution_state)
+				graph_state.actions[solution_state] = None
+
+			self._on_state_exhausted(graph_state)
+
+			self.dfs_stack.pop()
+
+			if self.dfs_stack:
+				dfs_top = self.dfs_stack[-1]
+				self.pending = self.dfs_stack[-1].pending
+
+				# Add graph_state as a child if it is valid
+				if graph_state.valid and graph_state.term is not None:
+					dfs_top.children.add(graph_state)
+					dfs_top.actions.setdefault(graph_state, []).append(dfs_top.last_rewrite)
+					dfs_top.last_rewrite = None  # unneeded, but cleaner
+
+		# No more pending work for the strategy
+		self.current_state = None
+		return False
+
+	def _on_state_exhausted(self, graph_state):
+		pass  # nothing to do here
+
+	def pop(self, _, stack):
+		"""Return from a strategy call or similar construct"""
+
+		# Return from a strategy call
+		if stack.pc:
+			self.current_state.pc = stack.pc
+
+		# Actually pop the stack node
+		if stack.parent:
+			self.current_state.stack = self.current_state.stack.parent
+
+		# This is the root node, so we have found a solution and mark the state
+		else:
+			graph_state = self.dfs_stack[-1]
+
+			# Fake states (used in the subclass MarkovRunner) are not marked
+			# as solutions but added a solution state as a child (this is also
+			# done later to marked states unless they do not have successors)
+			if graph_state.term is None:
+				graph_state.children.add(self.get_solution_state(self.current_state.term))
+			else:
+				graph_state.solution = True
+
+			self.next_pending()
+
+	def notify(self, args, stack):
+		"""Record a transition in the graph"""
+
+		state = self.current_state
+		state.pc += 1
+
+		# Check whether this state has already been visited
+		successor = stack.already_seen_table(state.pc, state.term)
+
+		# This is a new state, so add it to the graph
+		if successor is None:
+			new_term = rebuild_term(state.term, stack, args)
+
+			new_state = self.graph_state_class(new_term)
+			stack.add_to_seen_table(state.pc, state.term, new_state)
+			self.dfs_stack.append(new_state)
+			self.pending = new_state.pending
+
+			# The extra information for the last rewrite is recorded
+			self.dfs_stack[-2].last_rewrite = state.extra
+			state.reset_extra()
+
+		else:
+			if successor.valid:
+				dfs_top = self.dfs_stack[-1]
+				dfs_top.children.add(successor)
+				dfs_top.actions.setdefault(successor, []).append(state.extra)
+
+			state.reset_extra()
+
+			# Handle the deactivation of the negative branch of
+			# a subsearch when this state leaded to a solution
+			to_be_solved = len(successor.solve_subsearch)
+
+			while stack and to_be_solved:
+				subsearch_id = getattr(stack, 'subsearch_id', None)
+				if subsearch_id in successor.solve_subsearch:
+					stack.pc = None
+					to_be_solved -= 1
+				stack = stack.parent
+
+			self.next_pending()
+
+	def checkpoint(self, args, stack):
+		"""Check whether this state has been visited and interrupt the execution"""
+
+		if stack.already_seen_table(self.current_state.pc, self.dfs_stack[-1]):
+			self.next_pending()
+
+		else:
+			stack.add_to_seen_table(self.current_state.pc, self.dfs_stack[-1], True)
+			self.current_state.pc += 1
+
+	def subsearch(self, args, stack):
+		"""Start a subsearch by pushing a stack node with continuation"""
+
+		# The same as StratRunner.subsearch, but forking the seen set. Moreover,
+		# the size of the DFS stack is recorded to allow finding out which states
+		# lead to solutions within the search (identified by the current PC)
+		subsearch_stack = SubsearchNode(parent=stack, pc=args,
+		                                seen=stack.seen.fork(self.current_state.pc),
+		                                dfs_base=len(self.dfs_stack),
+		                                subsearch_id=self.current_state.pc)
+		self.current_state = self.current_state.copy(stack=subsearch_stack)
+
+		# Exactly the same as StratRunner.subsearch
+		self.pending.append(self.current_state.copy(pc=args, stack=subsearch_stack, conditional=True))
+
+	def nofail(self, args, stack):
+		"""Pop the stack and discard the continuation on failure"""
+
+		# Annotate the graph states with the current subsearch,
+		# for which they provide a solution
+		for node in self.dfs_stack[stack.dfs_base:]:
+			node.solve_subsearch.add(stack.subsearch_id)
+
+		super().nofail(args, stack)
+
+	def rlapp(self, args, stack):
+		"""Apply a rule"""
+
+		# Like the parent implementation, but the rule is recorded
+		self.pending += [self.current_state.copy(term=self.reduced(t), extra=rl)
+		                 for t, _, _, rl in self.get_rewrites(args, stack)]
+
+		self.next_pending()
+
+	def run(self):
+		"""Run the strategy to generate the graph"""
+
+		self.solution = None
+		self.pending = self.root_node.pending
+
+		while self.current_state:
+			state = self.current_state
+
+			# The instruction to be executed
+			inst = self.code[state.pc]
+
+			self.handlers[inst.type](inst.extra, state.stack)
+
+		return self.root_node, self.nr_rewrites
+
+
+class MarkovRunner(GraphRunner):
+	"""Runner that extracts a DTMC or MDP"""
+
+	class GraphState(GraphState):
+		"""State of the graph
+
+		In addition to the actual states of the graph, there may be temporary fake
+		states used to gather the evolutions of the branches of a choice. They are
+		characterized by a None value in their term attribute.
+		"""
+
+		def __init__(self, term):
+			super().__init__(term)
+
+			# Set of choice alternatives (each an association of
+			# weights or probabilities to graph states)
+			self.child_choices = set()
+
+		@property
+		def has_children(self):
+			return self.children or self.child_choices
+
+		def __repr__(self):
+			return f'GraphState({self.term}, {self.children}, {self.child_choices}, {self.solution})'
+
+	def __init__(self, program, term):
+		super().__init__(program, term, graph_state_class=self.GraphState)
 
 	def resolve_choice(self, choice, actions):
 		"""Resolve a choice with weights into probabilities"""
@@ -1968,7 +2251,7 @@ class MarkovRunner(StratRunner):
 				new_choice[s] = old_w + w
 
 			else:
-				# Nondeteterministic and choice alternatives
+				# Nondeterministic and choice alternatives
 				nd_opts, ch_opts = len(s.children), len(s.child_choices)
 
 				if nd_opts + ch_opts > 1:
@@ -1997,113 +2280,23 @@ class MarkovRunner(StratRunner):
 
 		return new_choice
 
-	def get_solution_state(self, term):
-		"""Get the solution state for the given term"""
+	def _on_state_exhausted(self, graph_state):
+		"""When a graph state is exhausted"""
 
-		solution_state = self.solution_states.get(term)
+		# Adjust the probabilities of the choice operators
+		new_choices = []
 
-		if not solution_state:
-			solution_state = self.GraphState(term)
-			self.solution_states[term] = solution_state
+		for choice in graph_state.child_choices:
+			resolved_choice = self.resolve_choice(choice, graph_state.actions)
 
-		return solution_state
+			if len(resolved_choice) == 1:
+				child, = resolved_choice.keys()
+				graph_state.children.add(child)
 
-	def next_pending(self):
-		"""Change the current state to the next pending state"""
+			elif resolved_choice:
+				new_choices.append(resolved_choice)
 
-		# While the DFS is still alive
-		while self.dfs_stack:
-			graph_state = self.dfs_stack[-1]
-
-			# If there is pending work, lets go for it
-			while graph_state.pending:
-				self.current_state = self.pending.pop()
-				push_state = self.push_state.get(self.current_state)
-
-				# The same as StratRunner.next_pending
-				if self.current_state.conditional:
-					if self.current_state.stack.pc is not None:
-						self.current_state.stack = self.current_state.stack.parent
-						self.current_state.conditional = False
-						return True
-
-				# This execution state is linked to a fake choice-generated graph state
-				# that should be pused to the DFS stack
-				elif push_state:
-					self.dfs_stack.append(push_state)
-					self.pending = push_state.pending
-					return True
-
-				else:
-					return True
-
-			# Check whether the graph state is valid
-			graph_state.valid = graph_state.solution or graph_state.children or graph_state.child_choices
-
-			# Link a solution state if there are children
-			# (these states are needed to explicit the self-loop for the stuttering
-			# extension of finite traces without introducing spurious executions)
-			if graph_state.solution and (graph_state.children or graph_state.child_choices) and \
-			   graph_state not in graph_state.children:
-				solution_state = self.get_solution_state(graph_state.term)
-				graph_state.children.add(solution_state)
-				graph_state.actions[solution_state] = None
-
-			# Adjust the probilities of the choice operators
-			new_choices = []
-
-			for choice in graph_state.child_choices:
-				resolved_choice = self.resolve_choice(choice, graph_state.actions)
-
-				if len(resolved_choice) == 1:
-					child, = resolved_choice.keys()
-					graph_state.children.add(child)
-
-				elif resolved_choice:
-					new_choices.append(resolved_choice)
-
-			graph_state.child_choices = tuple(new_choices)
-
-			self.dfs_stack.pop()
-
-			if self.dfs_stack:
-				dfs_top = self.dfs_stack[-1]
-				self.pending = dfs_top.pending
-
-				# Add graph_state as a child if it is valid
-				if graph_state.valid and graph_state.term is not None:
-					dfs_top.children.add(graph_state)
-					dfs_top.actions.setdefault(graph_state, []).append(dfs_top.last_rewrite)
-					dfs_top.last_rewrite = None  # unneeded, but cleaner
-
-		# No more pending work for the strategy
-		self.current_state = None
-		return False
-
-	def pop(self, _, stack):
-		"""Return from a strategy call or similar construct"""
-
-		# Return from a strategy call
-		if stack.pc:
-			self.current_state.pc = stack.pc
-
-		# Actually pop the stack node
-		if stack.parent:
-			self.current_state.stack = self.current_state.stack.parent
-
-		# This is the root node, so we have found a solution and mark the state
-		else:
-			graph_state = self.dfs_stack[-1]
-
-			# Fake states are not marked as solutions but added a
-			# solution state as a child (this is also done later to
-			# marked states unless they do not have successors)
-			if graph_state.term is None:
-				graph_state.children.add(self.get_solution_state(self.current_state.term))
-			else:
-				graph_state.solution = True
-
-			self.next_pending()
+		graph_state.child_choices = tuple(new_choices)
 
 	def choice(self, args, stack):
 		"""A choice node"""
@@ -2161,7 +2354,7 @@ class MarkovRunner(StratRunner):
 
 			# Instantiated weight
 			this_weight = merged_subs.instantiate(weight)
-			this_weight.reduce()
+			self.nr_rewrites += this_weight.reduce()
 			this_weight = float(this_weight)
 
 			if this_weight > 0.0:
@@ -2242,65 +2435,6 @@ class MarkovRunner(StratRunner):
 
 			self.next_pending()
 
-	def checkpoint(self, args, stack):
-		"""Check whether this state has been visited and interrupt the execution"""
-
-		if stack.already_seen_table(self.current_state.pc, self.dfs_stack[-1]):
-			self.next_pending()
-
-		else:
-			stack.add_to_seen_table(self.current_state.pc, self.dfs_stack[-1], True)
-			self.current_state.pc += 1
-
-	def subsearch(self, args, stack):
-		"""Start a subsearch by pushing a stack node with continuation"""
-
-		# The same as StratRunner.subsearch, but forking the seen set. Moreover,
-		# the size of the DFS stack is recorded to allow finding out which states
-		# lead to solutions within the search (identified by the current PC)
-		subsearch_stack = SubsearchNode(parent=stack, pc=args,
-		                                seen=stack.seen.fork(self.current_state.pc),
-		                                dfs_base=len(self.dfs_stack),
-		                                subsearch_id=self.current_state.pc)
-		self.current_state = self.current_state.copy(stack=subsearch_stack)
-
-		# Exactly the same as StratRunner.subsearch
-		self.pending.append(self.current_state.copy(pc=args, stack=subsearch_stack, conditional=True))
-
-	def nofail(self, args, stack):
-		"""Pop the stack and discard the continuation on failure"""
-
-		# Annotate the graph states with the current subsearch,
-		# for which they provides a solution
-		for node in self.dfs_stack[stack.dfs_base:]:
-			node.solve_subsearch.add(stack.subsearch_id)
-
-		super().nofail(args, stack)
-
-	def rlapp(self, args, stack):
-		"""Apply a rule"""
-
-		self.pending += [self.current_state.copy(term=(t.reduce(), t)[1], extra=rl)
-		                 for t, _, _, rl in self.get_rewrites(args, stack)]
-
-		self.next_pending()
-
-	def run(self):
-		"""Run the strategy to generate the graph"""
-
-		self.solution = None
-		self.pending = self.root_node.pending
-
-		while self.current_state:
-			state = self.current_state
-
-			# The instruction to be executed
-			inst = self.code[state.pc]
-
-			self.handlers[inst.type](inst.extra, state.stack)
-
-		return self.root_node
-
 
 class MetadataRunner(MarkovRunner):
 	"""Runner for the metadata assignment method with non-ground weights"""
@@ -2319,7 +2453,7 @@ class MetadataRunner(MarkovRunner):
 
 		for t, sb, _, rl in self.get_rewrites(args, stack):
 			# Term.apply does not normalize output terms
-			t.reduce()
+			self.nr_rewrites += t.reduce() + 1
 
 			# Evaluate the metadata weight
 			weight = self.stmt_map.get(rl, 1.0)
@@ -2327,7 +2461,7 @@ class MetadataRunner(MarkovRunner):
 			# If it is not a literal, we should reduce the term
 			if not isinstance(weight, float):
 				weight = sb.instantiate(weight)
-				weight.reduce()
+				self.nr_rewrites += weight.reduce()
 				weight = float(weight)
 
 			self.pending.append(self.current_state.copy(term=t, extra=(rl, weight)))
@@ -2338,7 +2472,7 @@ class MetadataRunner(MarkovRunner):
 class RandomRunner(StratRunner):
 	"""Runner that resolves every choice locally at random without backtracking.
 
-	Instead of solutions of the strategy, the run method returns the succesive steps
+	Instead of solutions of the strategy, the run method returns the successive steps
 	of a single random rewriting path. Hence, conditionals do no work with this runner,
 	since exploration is not exhaustive, and failed executions are not discarded."""
 
@@ -2355,7 +2489,7 @@ class RandomRunner(StratRunner):
 		subsearches, trivial_subsearch = [], False
 
 		for k, inst in enumerate(self.code.inst):
-			# Jumps with multiple desinations
+			# Jumps with multiple destinations
 			if inst.type == Instruction.JUMP and len(inst.extra) > 1:
 				inst.extra = inst.extra[:1]
 				usermsgs.print_warning(f'Unquantified nondeterminism detected in {current_name}. '
@@ -2396,9 +2530,9 @@ class RandomRunner(StratRunner):
 			return False
 
 		# Otherwise, a pending state is chosen at random and all other pending
-		# states are discarded. Indeed, pending states are not actually pending but
+		# states are discarded. Indeed, pending states are not actually pending, but
 		# they have just been generated by a nondeterministic instruction (rule
-		# application, call, matchrew...) before calling this method. Reimplemeting
+		# application, call, matchrew...) before calling this method. Reimplementing
 		# these instructions is avoided by this trick.
 		self.current_state = random.choice(self.pending)
 		self.pending.clear()

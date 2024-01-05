@@ -43,8 +43,8 @@ class DOTGrapher:
 		if bound == 0:
 			return
 
-		for next_state in graph.getNextStates(stateNr):
-			elabel = self.elabel(graph, stateNr, next_state) if self.elabel else None
+		for next_state, edge in graph.getTransitions(stateNr):
+			elabel = self.elabel(edge) if self.elabel else None
 			self.write_transition(stateNr, next_state, elabel)
 
 			if next_state not in self.visited:
@@ -67,7 +67,8 @@ class PDOTGrapher(DOTGrapher):
 		num, den = Fraction(p).limit_denominator().as_integer_ratio()
 
 		# Standard labels are used too
-		elabel = self.elabel(graph, start, end)
+		stmt = graph.getTransition(start, end) if graph.strategyControlled else graph.getRule(start, end)
+		elabel = self.elabel(stmt)
 
 		return f'{num}/{den} {elabel}' if p != 1.0 else elabel
 
@@ -123,14 +124,14 @@ class TikZGrapher:
 		if bound == 0:
 			return
 
-		for next_state in graph.getNextStates(stateNr):
+		for next_state, edge in graph.getTransitions(stateNr):
 			print(f'\t{self.printState(graph, stateNr)}', file=self.outfile, end='')
 			next_visited = next_state in self.visited
 
 			if self.elabel is None:
 				print(f' -> ', file=self.outfile, end='')
 			else:
-				label = str(self.elabel(graph, stateNr, next_state)).replace('"', '""')
+				label = str(self.elabel(edge)).replace('"', '""')
 				print(f' ->["{label}"] ', file=self.outfile, end='')
 
 			print(f'{self.printState(graph, next_state)};', file=self.outfile)

@@ -297,7 +297,7 @@ class MaudeModel:
 				wgraph = _wrappers.BoundedGraph(self.graph, depth) if depth > 0 else self.graph
 
 				# Create and store the wrapped graph
-				wgraph = _wrappers.wrapGraph(wgraph, purge, merge)
+				wgraph = _wrappers.wrap_graph(wgraph, purge, merge)
 				self.wgraphs[(purge, merge, depth > 0)] = wgraph
 
 				# In case both purge and merge are used, we keep the purged

@@ -1,14 +1,14 @@
 The property is not satisfied in the initial state (22 system states, 71 rewrites, 2 Büchi states)
 | nothing ball nothing
-∨  rl B?:MaybeBall => cup(B?:MaybeBall) [label cover] . 
+∨  rl [cover] : B?:MaybeBall => cup(B?:MaybeBall) . 
 | cup(nothing) ball nothing
-∨  rl B?:MaybeBall => cup(B?:MaybeBall) [label cover] . 
+∨  rl [cover] : B?:MaybeBall => cup(B?:MaybeBall) . 
 | cup(nothing) cup(ball) nothing
-∨  rl B?:MaybeBall => cup(B?:MaybeBall) [label cover] . 
+∨  rl [cover] : B?:MaybeBall => cup(B?:MaybeBall) . 
 | cup(nothing) cup(ball) cup(nothing)
-∨  rl cup(B1?:MaybeBall) T:Table cup(B2?:MaybeBall) => cup(B2?:MaybeBall) T:Table cup(B1?:MaybeBall) [label swap] . 
+∨  rl [swap] : cup(B1?:MaybeBall) T:Table cup(B2?:MaybeBall) => cup(B2?:MaybeBall) T:Table cup(B1?:MaybeBall) . 
 | | cup(nothing) cup(nothing) cup(ball)
-| ∨  rl cup(B1?:MaybeBall) T:Table cup(B2?:MaybeBall) => cup(B2?:MaybeBall) T:Table cup(B1?:MaybeBall) [label swap] . 
+| ∨  rl [swap] : cup(B1?:MaybeBall) T:Table cup(B2?:MaybeBall) => cup(B2?:MaybeBall) T:Table cup(B1?:MaybeBall) . 
 < ∨
-The property is satisfied in the initial state (48 system states, 12944 rewrites, 2 Büchi states)
-The property is satisfied in the initial state (48 system states, 12944 rewrites, 2 Büchi states)
+The property is satisfied in the initial state (23 system states, 126 rewrites, 2 Büchi states)
+The property is satisfied in the initial state (23 system states, 126 rewrites, 2 Büchi states)

@@ -11,7 +11,7 @@ from shutil import which
 from ..common import maude, usermsgs, default_model_settings, parse_initial_data, split_comma
 from ..formatter import get_formatters
 from ..grapher import DOTGrapher, PDOTGrapher, TikZGrapher
-from ..wrappers import wrapGraph
+from ..wrappers import wrap_graph
 
 
 class ProcessStream:
@@ -96,6 +96,18 @@ def graph(args):
 	                                                   args.merge_states,
 	                                                   args.strategy)
 
+	# Check the Kleene iteration flag
+	kleene_graph = False
+
+	if args.kleene_iteration:
+		if not with_strategy:
+			usermsgs.print_warning('The --kleene-iteration flag should only be used with a strategy. Ignoring.')
+		elif args.passign:
+			usermsgs.print_warning('The --kleene-iteration flag cannot be used with probabilities. Ignoring.')
+		else:
+			kleene_graph = True
+
+
 	# Select the appropriate rewriting graph
 	# (probabilistic, strategy-controlled, or standard)
 	if args.passign or oformat in ('prism', 'jani'):
@@ -106,13 +118,18 @@ def graph(args):
 		                                  purge_fails=args.purge_fails,
 		                                  merge_states=args.merge_states)
 
+	elif kleene_graph:
+		from ..kleene import get_kleene_graph
+		rwgraph = get_kleene_graph(initial_data)
+		rwgraph = wrap_graph(rwgraph, purge_fails, merge_states)
+
 	elif not with_strategy:
 		rwgraph = maude.RewriteGraph(initial_data.term)
 
 	else:
 		rwgraph = maude.StrategyRewriteGraph(initial_data.term, initial_data.strategy,
 		                                     initial_data.opaque, initial_data.full_matchrew)
-		rwgraph = wrapGraph(rwgraph, purge_fails, merge_states)
+		rwgraph = wrap_graph(rwgraph, purge_fails, merge_states)
 
 	# If something has failed when creating the graph
 	if rwgraph is None:
@@ -129,7 +146,18 @@ def graph(args):
 	else:
 		aprops = []
 
+	# State and edge labels
 	slabel, elabel = get_formatters(args.slabel, args.elabel, with_strategy, only_labels=True)
+
+	if kleene_graph:
+		# Extend the label with the iteration flags
+		original_elabel = elabel
+
+		def kleene_elabel(stmt):
+			iterations_txt = ''.join(f'{" +" if enter else " -"}{iid}' for iid, enter in stmt.iterations)
+			return f'{original_elabel(stmt)}{iterations_txt}'
+
+		elabel = kleene_elabel
 
 	# Whether the graph should be seen as a CTMC and probabilities should not be normalized
 	is_ctmc = args.passign and args.passign.startswith('ctmc-')

@@ -130,19 +130,19 @@ digraph {
 }
 digraph {
 	0 [label="0"];
-	0 -> 1 [label="rl e O:Soup [I:Soup] => O:Soup [e I:Soup] [label put1] ."];
+	0 -> 1 [label="rl [put1] : e O:Soup [I:Soup] => O:Soup [e I:Soup] ."];
 	1 [label="1"];
-	1 -> 2 [label="rl e O:Soup [I:Soup] => O:Soup [e I:Soup] [label put1] ."];
+	1 -> 2 [label="rl [put1] : e O:Soup [I:Soup] => O:Soup [e I:Soup] ."];
 	2 [label="2"];
-	2 -> 3 [label="rl O:Soup [e I:Soup] => a O:Soup [I:Soup] [label apple] ."];
+	2 -> 3 [label="rl [apple] : O:Soup [e I:Soup] => a O:Soup [I:Soup] ."];
 	3 [label="3"];
-	3 -> 4 [label="rl O:Soup [e I:Soup] => a O:Soup [I:Soup] [label apple] ."];
+	3 -> 4 [label="rl [apple] : O:Soup [e I:Soup] => a O:Soup [I:Soup] ."];
 	4 [label="4"];
-	2 -> 5 [label="rl O:Soup [e e I:Soup] => c O:Soup [I:Soup] [label cake] ."];
+	2 -> 5 [label="rl [cake] : O:Soup [e e I:Soup] => c O:Soup [I:Soup] ."];
 	5 [label="5"];
-	1 -> 6 [label="rl O:Soup [e I:Soup] => a O:Soup [I:Soup] [label apple] ."];
+	1 -> 6 [label="rl [apple] : O:Soup [e I:Soup] => a O:Soup [I:Soup] ."];
 	6 [label="6"];
-	6 -> 3 [label="rl e O:Soup [I:Soup] => O:Soup [e I:Soup] [label put1] ."];
+	6 -> 3 [label="rl [put1] : e O:Soup [I:Soup] => O:Soup [e I:Soup] ."];
 }
 digraph {
 	0 [label="e e [empty] @ alpha     "];

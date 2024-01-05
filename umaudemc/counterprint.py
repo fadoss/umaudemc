@@ -78,17 +78,21 @@ def print_counterexample(graph, counter, printer_triple):
 		next_index = lead_in[i+1] if i+1 < len(lead_in) else cycle[0]
 
 		if graph.strategyControlled:
+			trans = graph.getTransition(index, next_index)
+
 			printer.next_step_strat(
 				sformat(graph, index),
 				graph.getStateStrategy(index),
-				eformat(graph, index, next_index),
+				eformat(trans),
 				sformat(graph, next_index),
 				first_index=index,
 				second_index=next_index)
 		else:
+			rule = graph.getRule(index, next_index)
+
 			printer.next_step(
 				sformat(graph, index),
-				eformat(graph, index, next_index),
+				eformat(rule),
 				sformat(graph, next_index),
 				first_index=index,
 				second_index=next_index)
@@ -103,17 +107,21 @@ def print_counterexample(graph, counter, printer_triple):
 		next_index = cycle[i+1] if i+1 < len(cycle) else cycle[0]
 
 		if graph.strategyControlled:
+			trans = graph.getTransition(index, next_index)
+
 			printer.next_step_strat(
 				sformat(graph, index),
 				graph.getStateStrategy(index),
-				eformat(graph, index, next_index),
+				eformat(trans),
 				sformat(graph, next_index),
 				first_index=index,
 				second_index=next_index)
 		else:
+			rule = graph.getRule(index, next_index)
+
 			printer.next_step(
 				sformat(graph, index),
-				eformat(graph, index, next_index),
+				eformat(rule),
 				sformat(graph, next_index),
 				first_index=index,
 				second_index=next_index)

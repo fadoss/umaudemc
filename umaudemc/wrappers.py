@@ -11,6 +11,8 @@ from .common import maude, default_model_settings
 
 
 def default_getNextStates(self, stateNr):
+	"""Generator of all the successors of a state"""
+
 	index = 0
 	next_state = self.getNextState(stateNr, index)
 
@@ -20,9 +22,37 @@ def default_getNextStates(self, stateNr):
 		next_state = self.getNextState(stateNr, index)
 
 
+def standard_getTransitions(self, stateNr):
+	"""Generator of all the transitions (target state and rule) of a rewrite graph"""
+
+	index = 0
+	next_state = self.getNextState(stateNr, index)
+
+	while next_state != -1:
+		yield next_state, self.getRule(stateNr, next_state)
+		index = index + 1
+		next_state = self.getNextState(stateNr, index)
+
+
+def strategy_getTransitions(self, stateNr):
+	"""Generator of all the transitions of a strategy-controlled rewrite graph"""
+
+	index = 0
+	next_state = self.getNextState(stateNr, index)
+
+	while next_state != -1:
+		yield next_state, self.getTransition(stateNr, next_state)
+		index = index + 1
+		next_state = self.getNextState(stateNr, index)
+
+
 # Add getNextStates to the original graphs
 maude.RewriteGraph.getNextStates = default_getNextStates
 maude.StrategyRewriteGraph.getNextStates = default_getNextStates
+
+# Add getTransitions to the original graphs
+maude.RewriteGraph.getTransitions = standard_getTransitions
+maude.StrategyRewriteGraph.getTransitions = strategy_getTransitions
 
 # Add a property to know whether the graph is strategy-controlled
 maude.RewriteGraph.strategyControlled = False
@@ -49,6 +79,9 @@ class WrappedGraph:
 
 	def getTransition(self, *args):
 		return self.graph.getTransition(*args)
+
+	def getTransitions(self, stateNr):
+		return self.graph.getTransitions(stateNr)
 
 	def getNrStates(self):
 		return self.graph.getNrStates()
@@ -113,6 +146,11 @@ class FailFreeGraph(WrappedGraph):
 			if self.valid_states[next_state]:
 				yield next_state
 
+	def getTransitions(self, stateNr):
+		for next_state, edge in self.graph.getTransitions(stateNr):
+			if self.valid_states[next_state]:
+				yield next_state, edge
+
 
 class MergedGraph:
 	"""A graph where states are merged"""
@@ -140,6 +178,10 @@ class MergedGraph:
 				if trans is not None:
 					return trans
 		return None
+
+	def getTransitions(self, stateNr):
+		for next_state in self.getNextStates(stateNr):
+			yield next_state, self.getTransition(stateNr, next_state)
 
 	def getNrStates(self):
 		return len(self.states)
@@ -252,7 +294,7 @@ class BoundedGraph(WrappedGraph):
 				yield next_state
 
 
-def wrapGraph(graph, purge_fails, merge_states):
+def wrap_graph(graph, purge_fails, merge_states):
 	"""Wrap graphs according to the model modification options"""
 	if purge_fails == 'yes':
 		graph = FailFreeGraph(graph)
@@ -277,4 +319,4 @@ def create_graph(term=None, strategy=None, opaque=(), full_matchrew=False, purge
 	# Wrap the graph with the model modification for branching-time
 	purge_fails, merge_states = default_model_settings(logic, purge_fails, merge_states, strategy,
 	                                                   tableau=tableau)
-	return wrapGraph(graph, purge_fails, merge_states)
+	return wrap_graph(graph, purge_fails, merge_states)

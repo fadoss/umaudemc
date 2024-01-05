@@ -206,6 +206,11 @@ def build_parser():
 		help='probability assignment method for adding them to the graph',
 		metavar='METHOD'
 	)
+	parser_graph.add_argument(
+		'-k', '--kleene-iteration',
+		help='write annotations on the transitions starting and terminating an iteration',
+		action='store_true'
+	)
 	parser_graph.set_defaults(mode='graph')
 
 	#

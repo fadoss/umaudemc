@@ -4,14 +4,14 @@ The property is satisfied in the initial state (5 system states, 11 rewrites)
 The property is satisfied in the initial state (5 system states, 10 rewrites)
 The property is not satisfied in the initial state (6 system states, 12 rewrites)
 | e e [empty]
-∨  rl e O:Soup [I:Soup] => O:Soup [e I:Soup] [label put1] . 
+∨  rl [put1] : e O:Soup [I:Soup] => O:Soup [e I:Soup] . 
 O e [e]
 The property is satisfied in the initial state (5 system states, 10 rewrites)
 The property is not satisfied in the initial state (3 system states, 9 rewrites)
 | e e [empty]
-∨  rl e O:Soup [I:Soup] => O:Soup [e I:Soup] [label put1] . 
+∨  rl [put1] : e O:Soup [I:Soup] => O:Soup [e I:Soup] . 
 O e [e]
 The property is not satisfied in the initial state (5 system states, 11 rewrites)
 | e e [empty]
-∨  rl e O:Soup [I:Soup] => O:Soup [e I:Soup] [label put1] . 
+∨  rl [put1] : e O:Soup [I:Soup] => O:Soup [e I:Soup] . 
 O e [e]

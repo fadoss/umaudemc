@@ -38,13 +38,11 @@ function browseDir(dir)
 		}
 	}
 
-	var question = new FormData()
-
-	question.append('question', 'ls')
-	question.append('url', dir)
+	var question = {question: 'ls', url: dir}
 
 	request.open('post', 'ask')
-	request.send(question)
+	request.setRequestHeader('Content-Type', 'application/json')
+	request.send(JSON.stringify(question))
 }
 
 function openFile(file)
@@ -55,6 +53,23 @@ function openFile(file)
 	sourceFile.innerText = file.split('/').pop()
 	sourceFile.fullPath = file
 	loadSourceModules(file)
+}
+
+function loadSourceNative()
+{
+	const request = new XMLHttpRequest()
+
+	request.onreadystatechange = function()
+	{
+		if (this.readyState == XMLHttpRequest.DONE && this.status == 200)
+		{
+			console.log(this.responseText)
+			openFile(this.responseText)
+		}
+	}
+
+	request.open('get', 'umaudemc://open/')
+	request.send()
 }
 
 function incompletePassign()
@@ -193,11 +208,10 @@ function loadSourceModules(file)
 	// Discard modules from previous files
 	smodule.options.length = 0
 
-	var question = new FormData()
-	question.append('question', 'sourceinfo')
-	question.append('url', file)
+	var question = {question: 'sourceinfo', url: file}
 	request.open('post', 'ask')
-	request.send(question)
+	request.setRequestHeader('Content-Type', 'application/json')
+	request.send(JSON.stringify(question))
 }
 
 function addPropToFormula(prop)
@@ -318,11 +332,11 @@ function loadModule()
 
 	description.innerText = 'Please select a Maude file and a Maude module defining the system and properties specification.'
 
-	var question = new FormData()
-	question.append('question', 'modinfo')
-	question.append('mod', currentModule)
+	var question = {question: 'modinfo', mod: currentModule}
+
 	request.open('post', 'ask')
-	request.send(question)
+	request.setRequestHeader('Content-Type', 'application/json')
+	request.send(JSON.stringify(question))
 }
 
 function modelcheck()
@@ -356,14 +370,14 @@ function modelcheck()
 		}
 	}
 
-	var question = new FormData()
-
-	question.append('question', 'modelcheck')
-	question.append('mod', document.getElementById('module').value)
-	question.append('initial', document.getElementById('initial').value)
-	question.append('formula', document.getElementById('formula').value)
-	question.append('strategy', document.getElementById('strategy').value)
-	question.append('opaques', document.getElementById('opaques').value)
+	const question = {
+		question: 'modelcheck',
+		mod: document.getElementById('module').value,
+		initial: document.getElementById('initial').value,
+		formula: document.getElementById('formula').value,
+		strategy: document.getElementById('strategy').value,
+		opaques: document.getElementById('opaques').value
+	}
 
 	// Quantitative model checking stuff
 	if (document.getElementById('command').value == 'qt')
@@ -375,7 +389,8 @@ function modelcheck()
 	}
 
 	request.open('post', 'ask')
-	request.send(question)
+	request.setRequestHeader('Content-Type', 'application/json')
+	request.send(JSON.stringify(question))
 }
 
 function escapeHTMLChars(text) {
@@ -460,17 +475,15 @@ function waitModelChecker(mcref) {
 	// Disable input until model checking has finished
 	disableInput(true)
 
-	var question = new FormData()
+	const question = {question: 'wait', mcref: mcref}
 
-	question.append('question', 'wait')
-	question.append('mcref', mcref)
 	request.open('post', 'ask')
-	request.send(question)
+	request.setRequestHeader('Content-Type', 'application/json')
+	request.send(JSON.stringify(question))
 }
 
 function cancelChecking() {
 	const request = new XMLHttpRequest()
-	const question = new FormData()
 
 	request.onreadystatechange = function()
 	{
@@ -486,9 +499,9 @@ function cancelChecking() {
 		}
 	}
 
-	question.append('question', 'cancel')
 	request.open('post', 'ask')
-	request.send(question)
+	request.setRequestHeader('Content-Type', 'application/json')
+	request.send('{"question": "cancel"}')
 }
 
 function closeResultDialog()

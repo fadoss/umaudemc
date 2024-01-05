@@ -8,7 +8,6 @@ import buddy
 import spot
 
 from ..formulae import collect_aprops
-from ..opsem import OpSemKleeneInstance, OpSemGraph
 from ..wrappers import create_graph
 
 
@@ -136,9 +135,10 @@ class KleeneModelBuilder(SpotModelBuilder):
 	"""Generator of ω-automata for strategy-controlled models with an iteration like the Kleene star"""
 
 	def __init__(self, module, initial, strategy, aprops, bdd_dict, metamodule=None, opaques=()):
-		self.instance = OpSemKleeneInstance.make_instance(module, metamodule)
+		from ..kleene import get_kleene_graph_mts
 
-		super().__init__(self.instance.make_graph(initial, strategy, opaques), aprops, bdd_dict)
+		# opaque strategies are ignored with the new implementation
+		super().__init__(get_kleene_graph_mts(module, initial, strategy), aprops, bdd_dict)
 
 		# Table of distinct iterations (from their context to the index of
 		# its accepting condition)
@@ -166,7 +166,7 @@ class KleeneModelBuilder(SpotModelBuilder):
 			state = pending.pop()
 			state_spot = self.state_map[state]
 
-			for next_state in self.graph.getNextStates(state):
+			for next_state, edge in self.graph.getTransitions(state):
 				next_state_spot = self.state_map.get(next_state)
 
 				if next_state_spot is None:
@@ -175,10 +175,10 @@ class KleeneModelBuilder(SpotModelBuilder):
 					pending.append(next_state)
 
 				# Check the iteration tags and set the accepting labels of the edges
-				next_state_term = self.instance.get_cterm(self.graph.getStateTerm(next_state))
+				next_state_term = self.graph.getStateTerm(next_state)
 				acc_set = []
 
-				for tag, enter in self.instance.extract_tags(self.graph.getStateTerm(next_state)):
+				for tag, enter in edge.iterations:
 					acc_index = self.iter_map.get(tag)
 
 					if acc_index is None:
@@ -299,7 +299,6 @@ class SpotBackend:
 			stats['counterexample'] = model_builder.extract_counterexample(run, model_automaton)
 
 		if get_graph:
-			stats['graph'] = model_builder.graph if not kleene_iteration \
-				else OpSemGraph(model_builder.graph, model_builder.instance)
+			stats['graph'] = model_builder.graph
 
 		return holds, stats

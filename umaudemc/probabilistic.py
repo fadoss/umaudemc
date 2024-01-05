@@ -604,6 +604,9 @@ class AssignedGraph:
 	def getRule(self, *args):
 		return self.graph.getRule(*args)
 
+	def getTransition(self, *args):
+		return self.graph.getTransition(*args)
+
 	def states(self):
 		"""Iterator through the states (numbers) of the graph"""
 		return self.visited
@@ -756,17 +759,17 @@ class StrategyMarkovGraph:
 			return (maude.StrategyRewriteGraph.SOLUTION if self.rule is None
 			        else maude.StrategyRewriteGraph.RULE_APPLICATION)
 
-	def __init__(self, root):
+	def __init__(self, root, nrew):
 		self.state_list = [root]
 		self.state_map = {root: 0}
 		self.nondeterminism = False
+		self.nr_rewrites = nrew
 
 	def getStateTerm(self, state):
 		return self.state_list[state].term
 
 	def getNrRewrites(self):
-		# The number of rewrites is not counted in this implementation
-		return 0
+		return self.nr_rewrites
 
 	def getNrRealStates(self):
 		return len(self.state_list)
@@ -816,8 +819,8 @@ class StrategyMarkovGraph:
 class StrategyMetadataGraph(StrategyMarkovGraph):
 	"""Strategic graph with probabilities given by non-ground metadata"""
 
-	def __init__(self, root, mdp=False):
-		super().__init__(root)
+	def __init__(self, root, nrew, mdp=False):
+		super().__init__(root, nrew)
 		self.nondeterminism = mdp
 
 	def getTransition(self, origin, dest):
@@ -887,11 +890,11 @@ def get_probabilistic_strategy_graph(module, strategy, term, stmt_map=None, mdp=
 
 		# Execute the strategy with the corresponding runner
 		if stmt_map is None:
-			root = pyslang.MarkovRunner(p, term).run()
-			graph = StrategyMarkovGraph(root)
+			root, nrew = pyslang.MarkovRunner(p, term).run()
+			graph = StrategyMarkovGraph(root, nrew)
 		else:
-			root = pyslang.MetadataRunner(p, term, stmt_map).run()
-			graph = StrategyMetadataGraph(root, mdp)
+			root, nrew = pyslang.MetadataRunner(p, term, stmt_map).run()
+			graph = StrategyMetadataGraph(root, nrew, mdp)
 
 		graph.expand()
 
