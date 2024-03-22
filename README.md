@@ -205,7 +205,11 @@ as described in the model checkers' [manual](https://maude.ucm.es/strategies/mod
 References
 ----------
 
-More details about the integration of the external classical model checkers can be found
-in [*Strategies, model checking and branching-time properties in Maude*](https://doi.org/10.1016/j.jlamp.2021.100700)
-and in [*Model checking of strategy-controlled systems in rewriting logic*](https://hdl.handle.net/20.500.14352/3553).
-Support for quantitative model checking is described in [*QMaude: quantitative specification and verification in rewriting logic*](https://doi.org/10.1007/978-3-031-27481-7_15).
+More details about the integration of the external classical model checkers can be found in
+[*Strategies, model checking and branching-time properties in Maude*](https://doi.org/10.1016/j.jlamp.2021.100700)
+(arXived [here](https://doi.org/10.48550/arXiv.2401.07680)) and in
+[*Model checking of strategy-controlled systems in rewriting logic*](https://hdl.handle.net/20.500.14352/3553)
+(arXived [here](https://doi.org/10.48550/arXiv.2401.07616)).
+Support for quantitative model checking is described in
+[*QMaude: quantitative specification and verification in rewriting logic*](https://doi.org/10.1007/978-3-031-27481-7_15)
+(archived [here](https://hdl.handle.net/20.500.14352/101033)).

@@ -221,6 +221,7 @@ def thread_main(program, qdata, simulator, num_sims, block_size, seed, queue, ba
 def run_parallel(program, qdata, num_sims, max_sim, simulator, alpha, delta, block_size, jobs, verbose=False):
 	"""Run the simulation in multiple threads"""
 	import multiprocessing as mp
+	mp.set_start_method('fork', force=True)
 
 	# When the number of jobs is zero or negative, we take the CPU count
 	if jobs <= 0:

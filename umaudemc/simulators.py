@@ -79,8 +79,9 @@ class BaseSimulator:
 		if not t:
 			t, var = parse_hole_term(self.module, observation)
 			self.obs_cache[observation] = (t, var)
-		subs = maude.Substitution({var: self.state})
-		t = subs.instantiate(t)
+		if var is not None:
+			subs = maude.Substitution({var: self.state})
+			t = subs.instantiate(t)
 		t.reduce()
 
 		return float(t == self.true) if t.getSort() == self.bool_sort else float(t)
