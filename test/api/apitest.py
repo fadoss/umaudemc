@@ -35,7 +35,7 @@ class APITest(unittest.TestCase):
 			text = out.getvalue()
 			self.assertTrue(text.startswith('digraph {'))
 			self.assertTrue('[label="e e [empty]"]' in text)
-			self.assertTrue('label="rl e O:Soup [I:Soup] =>' in text)
+			self.assertTrue('label="rl [put1] : e O:Soup [I:Soup] =>' in text)
 
 		with io.StringIO() as out:
 			self.smodel.print_graph(out, sformat='{%t |= hasCake}', eformat='%l %l')

@@ -19,7 +19,7 @@ def apply_state_format(graph, index, sformat, terms, use_term=False, use_strat=F
 	:type sformat: str
 	:param terms: Term patterns to appear in the format string.
 	:type terms: list of string
-	:param use_term: Whether the term is actually used (only for effiency).
+	:param use_term: Whether the term is actually used (only for efficiency).
 	:type use_term: bool
 	:param use_strat: Whether the strategy is actually used (only for effiency).
 	:type use_strat: bool

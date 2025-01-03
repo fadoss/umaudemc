@@ -233,7 +233,7 @@ def run_parallel(program, qdata, num_sims, max_sim, simulator, alpha, delta, blo
 	# Process communication stuff
 
 	# Random number seeds
-	seeds = [random.randint(0, 1e6) for _ in range(jobs)]
+	seeds = [random.getrandbits(20) for _ in range(jobs)]
 	# Queue for transferring the query evaluations
 	queue = mp.Queue()
 	barrier = mp.Barrier(jobs + 1)
@@ -329,7 +329,7 @@ def check(program, simulator, seed, alpha, delta, block, min_sim, max_sim, jobs,
 	         for idict in make_parameter_dicts(qinfo[2])]
 
 	# Run the simulations
-	if jobs == 1:
+	if jobs == 1 and num_sims != 1:
 		return run_single(program, qdata, num_sims, max_sim, simulator, alpha,
 		                  delta, block, verbose=verbose)
 	else:

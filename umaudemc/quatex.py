@@ -458,8 +458,8 @@ class QuaTExParser:
 						self.ok = False
 
 					slot = self.fslots.setdefault(call_name, len(self.fslots))
-					current = ast.Tuple([ast.Constant(inside_next), ast.Constant(slot), *args],
-					                    ast.Load(), custom_loc=(call_line, call_column))
+					current = ast.Tuple([ast.Constant(inside_next), ast.Constant(slot), *args], ast.Load())
+					current.custom_loc = (call_line, call_column)
 					self.calls.append((call_name, call_line, call_column, len(args)))
 					inside_next = False
 					call_name = None

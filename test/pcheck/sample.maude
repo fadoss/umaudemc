@@ -1,0 +1,38 @@
+***
+*** Sample strategy with discrete distributions
+*** and related probabilistic strategies
+***
+
+mod FOO is
+	protecting FLOAT .
+	protecting INT .
+	protecting LIST{Float} .
+
+	sort Foo .
+
+	op <_> : Float -> Foo [ctor] .
+	op <<_>> : Int -> Foo [ctor] .
+
+	vars F G : Float .
+	vars N M : Int .
+
+	rl [set] : < F > => < G > [nonexec] .
+	rl [iset] : << N >> => << M >> [nonexec] .
+	rl [null] : F => 0.0 [nonexec] .
+endm
+
+smod FOO-STRAT is
+	protecting FOO .
+
+	strats ex-choice ex-bernou ex-unif ex-matchrew @ Foo .
+	strat ex-unif : Int @ Foo .
+
+	vars F G : Float .
+	vars N M : Int .
+
+	sd ex-choice := choice(1.0 : set[G <- 1.0], 2.0 : set[G <- 2.0]) .
+	sd ex-bernou := sample G := bernoulli(0.9) in set[G <- G] .
+	sd ex-unif := sample M := uniform(1, 3) in iset[M <- M] .
+	sd ex-unif(N) := sample M := uniform(1, N) in iset[M <- M] .
+	sd ex-matchrew := amatchrew F with weight F by F using null .
+endsm

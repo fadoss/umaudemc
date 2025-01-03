@@ -8,7 +8,7 @@ import sys
 import tempfile
 
 from ..common import parse_initial_data, usermsgs
-from ..backends import kleene_backends, get_backends, backend_for, format_statistics,\
+from ..backends import kleene_backends, get_backends, backend_for, format_statistics, \
 	advance_counterexample, advance_kleene
 from ..counterprint import SimplePrinter, JSONPrinter, HTMLPrinter, DOTPrinter, print_counterexample
 from ..formulae import Parser, collect_aprops, add_path_premise, formula_list2str

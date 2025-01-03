@@ -142,7 +142,7 @@ class WinPathHandler(PathHandler):
 
 
 class ConnectionInfo:
-	"""Persisent server information"""
+	"""Persistent server information"""
 
 	def __init__(self):
 		self.path_handler = WinPathHandler() if sys.platform == 'win32' else PathHandler()

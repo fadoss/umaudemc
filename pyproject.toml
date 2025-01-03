@@ -1,6 +1,6 @@
 [project]
 name            = 'umaudemc'
-version         = '0.13.1'
+version         = '0.14.0'
 description     = 'Unified Maude model-checking utility'
 license.text    = 'GPLv3'
 classifiers     = [
@@ -10,7 +10,7 @@ classifiers     = [
 	'Topic :: Scientific/Engineering',
 	'Operating System :: OS Independent',
 ]
-requires-python = '>=3.7'
+requires-python = '>=3.9'
 dependencies    = ['maude >= 1.0']
 
 [[project.authors]]

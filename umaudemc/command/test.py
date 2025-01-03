@@ -280,7 +280,7 @@ def _depends_on_vars(node, variables):
 
 
 class ParameterSet:
-	"""Assignement to parameters to be replaced on test attributes"""
+	"""Assignment to parameters to be replaced on test attributes"""
 
 	def __init__(self, dic, is_subs=None):
 		# Dictionary with the parameter assignments

@@ -1,0 +1,10 @@
+# Sample operator with discrete distributions
+#+ for: prism storm
+
+umaudemc pcheck sample '< 0.0 >' @steady ex-bernou --assign strategy --fraction
+umaudemc pcheck sample '<< 0 >>' @steady ex-unif --assign strategy --fraction
+umaudemc pcheck sample '<< 0 >>' @steady 'ex-unif(7)' --assign strategy --fraction
+
+umaudemc pcheck sample '< 0.0 >' @steady ex-choice --assign strategy --fraction
+umaudemc pcheck sample '1.0 2.0 3.0 4.0' @steady ex-matchrew --assign strategy --fraction
+umaudemc pcheck sample '1.0 2.0 3.0 4.0' @steady 'amatchrew F with weight 1 by F using null' --assign strategy --fraction

@@ -56,7 +56,7 @@ Dependencies
 ------------
 
 The `umaudemc` tool requires the [`maude`](https://pypi.org/project/maude) package
-and Python 3.7 or newer. This provides support for LTL, CTL and μ-calculus
+and Python 3.9 or newer. This provides support for LTL, CTL and μ-calculus
 model checking. However, other external backends can be installed:
 
 * The built-in LTL model checker included in Maude and its extension for

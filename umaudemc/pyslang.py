@@ -30,7 +30,7 @@ class Instruction:
 	RWCSTART = 11  # list of (pattern, condition, starting pattern)
 	RWCNEXT = 12  # list of (end pattern, condition, starting pattern/right-hand side)
 	NOTIFY = 13  # list of lists of variables of the nested pending matchrew subterms
-	SAMPLE = 14  # (variable, distribution callable, its arguments)
+	SAMPLE = 14  # (variable, distribution sampler, distribution generator, its arguments)
 	WMATCHREW = 15  # like MATCHREW + (weight)
 	ONE = 16  # no arguments
 	CHECKPOINT = 17  # no arguments
@@ -130,10 +130,28 @@ def merge_substitutions(sb1, sb2):
 	return maude.Substitution({**dict(sb1), **dict(sb2)})
 
 
-def bernoulli_distrib(p):
-	"""Bernoulli distribution"""
+def bernoulli_sampler(p):
+	"""Bernoulli distribution sampler"""
 
 	return 1.0 if random.random() < p else 0.0
+
+
+def bernoulli_distribution(p):
+	"""Explicit Bernoulli distribution"""
+
+	return (p, 1.0), (1 - p, 0.0)
+
+
+def uniform_sampler(start, end):
+	"""Integer uniform distribution sampler"""
+
+	return random.randint(start, end + 1)
+
+
+def uniform_distribution(start, end):
+	"""Explicit uniform distribution"""
+
+	return ((1, k) for k in range(start, end + 1))
 
 
 def find_cycles(initial, next_fn):
@@ -290,6 +308,9 @@ class StratCompiler:
 		self.mtc_symbol = ml.findSymbol('_:=_', (term_kind, term_kind), condition_kind)
 		self.stc_symbol = ml.findSymbol('_:_', (term_kind, term_kind), condition_kind)
 
+		# Kind of natural numbers (if any)
+		self.nat_kind = self.get_special_kind('ACU_NumberOpSymbol')
+
 		# Program counters of the generated strategy calls
 		self.calls = []
 
@@ -310,6 +331,13 @@ class StratCompiler:
 			return [term]
 
 		return list(term.arguments())
+
+	def get_special_kind(self, hook):
+		"""Get a special kind by the hook name of one of its symbols"""
+
+		for s in self.m.getSymbols():
+			if (id_hooks := s.getIdHooks()) and id_hooks[0][0] == hook:
+				return s.getRangeSort().kind()
 
 	def substitution2dict(self, substitution):
 		"""Convert a metalevel substitution to a dictionary"""
@@ -670,15 +698,26 @@ class StratCompiler:
 		name = str(name)[1:]
 		args = tuple(map(self.m.downTerm, self.get_list(args, self.empty_term_list, self.term_list_symbol)))
 
-		name = {
-			'bernoulli': bernoulli_distrib,
-			'uniform': random.uniform,
+		# Whether the distribution is discrete
+		discrete = name == 'bernoulli' or (name == 'uniform' and self.nat_kind is not None
+			and all(arg.getSort().kind() == self.nat_kind for arg in args))
+
+		# Sampler to obtain one value from the distribution
+		sampler = {
+			'bernoulli': bernoulli_sampler,
+			'uniform': uniform_sampler if discrete else random.uniform,
 			'exp': random.expovariate,
 			'norm': random.normalvariate,
 			'gamma': random.gammavariate,
 		}[name]
 
-		p.append(Instruction.SAMPLE, (self.m.downTerm(variable), name, args))
+		# Full distribution generator (for graph generation in discrete distributions)
+		generator = None
+
+		if discrete:
+			generator = bernoulli_distribution if name == 'bernoulli' else uniform_distribution
+
+		p.append(Instruction.SAMPLE, (self.m.downTerm(variable), sampler, generator, args))
 		self.generate(strat, p, tail)
 		p.append(Instruction.POP)
 
@@ -1478,6 +1517,9 @@ class StratRunner:
 		elif stack.pc:
 			self.current_state.pc = stack.pc
 
+		else:
+			self.current_state.pc += 1
+
 		# Pop the stack node
 		if stack.parent:
 			self.current_state.stack = self.current_state.stack.parent
@@ -1835,10 +1877,10 @@ class StratRunner:
 
 		self.next_pending()
 
-	def sample(self, args, stack):
-		"""Sample a probability distribution into a variable"""
+	def sample_get_params(self, args, stack):
+		"""Extract distribution parameters from a sample call"""
 
-		variable, dist, dargs = args
+		_, _, generator, dargs = args
 
 		# Arguments of the distribution instantiated in the variable context
 		dargs = [(stack.venv.instantiate(arg) if stack.venv else arg) for arg in dargs]
@@ -1847,9 +1889,20 @@ class StratRunner:
 		for arg in dargs:
 			self.nr_rewrites += arg.reduce()
 
-		dargs = [float(arg) for arg in dargs]
+		# Argument type to convert arguments
+		atype = float if generator is not uniform_distribution else int
 
-		new_variable = {variable: variable.symbol().getModule().parseTerm(str(dist(*dargs)))}
+		return [atype(arg) for arg in dargs]
+
+	def sample(self, args, stack):
+		"""Sample a probability distribution into a variable"""
+
+		variable, sampler, _, dargs = args
+
+		dargs = self.sample_get_params(args, stack)
+
+		module = variable.symbol().getModule()
+		new_variable = {variable: module.parseTerm(str(sampler(*dargs)))}
 
 		self.current_state.pc += 1
 		self.current_state.stack = StackNode(parent=self.current_state.stack,
@@ -1963,7 +2016,7 @@ class GraphState:
 
 
 class BadProbStrategy(Exception):
-	"""Bad probabilitistic strategy that cannot engender MDPs or DTMCs"""
+	"""Bad probabilistic strategy that cannot engender MDPs or DTMCs"""
 
 	def __init__(self):
 		super().__init__('Strategies are not allowed to make nondeterministic choices '
@@ -2001,7 +2054,7 @@ class GraphRunner(StratRunner):
 
 		# Solution states, indexed by term (we introduce them as children
 		# of graph states where both a solution of the strategy and a
-		# different sucessor can be reached)
+		# different successor can be reached)
 		self.solution_states = {}
 
 	def get_solution_state(self, term):
@@ -2081,8 +2134,11 @@ class GraphRunner(StratRunner):
 		"""Return from a strategy call or similar construct"""
 
 		# Return from a strategy call
-		if stack.pc:
+		if stack.pc is not None:
 			self.current_state.pc = stack.pc
+
+		else:
+			self.current_state.pc += 1
 
 		# Actually pop the stack node
 		if stack.parent:
@@ -2186,6 +2242,27 @@ class GraphRunner(StratRunner):
 		# Like the parent implementation, but the rule is recorded
 		self.pending += [self.current_state.copy(term=self.reduced(t), extra=rl)
 		                 for t, _, _, rl in self.get_rewrites(args, stack)]
+
+		self.next_pending()
+
+	def sample(self, args, stack):
+		variable, sampler, generator, dargs = args
+
+		# Only special behavior for discrete distributions
+		if not generator:
+			return super().sample(args, stack)
+
+		# Arguments of the distribution instantiated in the variable context
+		dargs = self.sample_get_params(args, stack)
+
+		# Generate a pending state for each possible outcome
+		module = variable.symbol().getModule()
+
+		for _, value in generator(*dargs):
+			self.pending.append(self.current_state.copy(stack=StackNode(
+				parent=self.current_state.stack,
+				venv=merge_substitutions(stack.venv, {variable: module.parseTerm(str(value))})))
+			)
 
 		self.next_pending()
 
@@ -2298,6 +2375,28 @@ class MarkovRunner(GraphRunner):
 
 		graph_state.child_choices = tuple(new_choices)
 
+	def spawn_choice(self, weights, new_xss):
+		"""Spawn tasks for a choice"""
+
+		# Otherwise, if there is at least one
+		if weights:
+			graph_state = self.dfs_stack[-1]
+
+			# Create a new graph state (without term) for each branch of the choice
+			new_states = [self.GraphState(None) for _ in range(len(weights))]
+
+			# These graph states cannot be pushed to the DFS stack (because we
+			# are not exploring them yet), they should be pushed when the
+			# execution state new_xs is executed, so we add them to push_state
+			for k, new_xs in enumerate(new_xss):
+				self.pending.append(new_xs)
+				self.push_state[new_xs] = new_states[k]
+
+			# Add the resolved choice to the graph state
+			graph_state.child_choices.add(tuple(zip(weights, new_states)))
+
+		self.next_pending()
+
 	def choice(self, args, stack):
 		"""A choice node"""
 
@@ -2313,25 +2412,10 @@ class MarkovRunner(GraphRunner):
 			self.current_state.pc = targets[0]
 			return
 
-		# Otherwise, if there is at least one
-		if weights:
-			graph_state = self.dfs_stack[-1]
+		# New execution states
+		new_xss = (self.current_state.copy(pc=target) for target in targets)
 
-			# Create a new graph state (without term) for each branch of the choice
-			new_states = [self.GraphState(None) for _ in range(len(weights))]
-
-			# These graph states cannot be pushed to the DFS stack (because we
-			# are not exploring them yet), they should be pushed when the
-			# execution state new_xs is executed, so we add them to push_state
-			for k, target in enumerate(targets):
-				new_xs = self.current_state.copy(pc=target)
-				self.pending.append(new_xs)
-				self.push_state[new_xs] = new_states[k]
-
-			# Add the resolved choice to the graph state
-			graph_state.child_choices.add(tuple(zip(weights, new_states)))
-
-		self.next_pending()
+		self.spawn_choice(weights, new_xss)
 
 	def wmatchrew(self, args, stack):
 		"""A matchrew with weight node"""
@@ -2376,24 +2460,34 @@ class MarkovRunner(GraphRunner):
 			self.current_state = new_xss[0]
 			return
 
-		# Otherwise, if there is at least one
-		if weights:
-			graph_state = self.dfs_stack[-1]
+		self.spawn_choice(weights, new_xss)
 
-			# Create a new graph state (without term) for each branch of the matchrew
-			new_states = [self.GraphState(None) for _ in range(len(weights))]
+	def sample(self, args, stack):
+		variable, sampler, generator, dargs = args
 
-			# These graph states cannot be pushed to the DFS stack (because we
-			# are not exploring them yet), they should be pushed when the
-			# execution state new_xss[k] is executed, so we add them to push_state
-			for k in range(len(targets)):
-				self.pending.append(new_xss[k])
-				self.push_state[new_xss[k]] = new_states[k]
+		# Only a special behavior for discrete distributions
+		if not generator:
+			return super().sample(args, stack)
 
-			# Add the resolved choice to the graph state
-			graph_state.child_choices.add(tuple(zip(weights, new_states)))
+		# Arguments of the distribution instantiated in the variable context
+		dargs = self.sample_get_params(args, stack)
 
-		self.next_pending()
+		# Generate the distribution of options
+		module = variable.symbol().getModule()
+		weights, new_xss = [], []
+
+		for weight, value in generator(*dargs):
+			weights.append(weight)
+			new_xss.append(self.current_state.copy(stack=StackNode(
+				parent=self.current_state.stack,
+				venv=merge_substitutions(stack.venv, {variable: module.parseTerm(str(value))})
+			)))
+
+		# If there is only a positive weight, we can proceed with it
+		if len(weights) == 1:
+			self.current_state = new_xss[0]
+
+		self.spawn_choice(weights, new_xss)
 
 	def notify(self, args, stack):
 		"""Record a transition in the graph"""
@@ -2593,6 +2687,9 @@ class RandomRunner(StratRunner):
 		# Return from a strategy call
 		if stack.pc:
 			self.current_state.pc = stack.pc
+
+		else:
+			self.current_state.pc += 1
 
 		# Pop the stack node
 		if stack.parent:

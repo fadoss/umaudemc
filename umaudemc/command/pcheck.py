@@ -50,6 +50,7 @@ def _print_fraction(value):
 
 	return f'{num}/{den}' if num > 0 and den != 1 else num
 
+
 def _select_backend(known_backends, backend_list):
 	"""Get the first available backend according to the user preferences"""
 
@@ -77,7 +78,6 @@ def _select_backend(known_backends, backend_list):
 
 		elif first_known is None:
 			first_known = name
-
 
 	if first_available is None:
 		if first_known is None:

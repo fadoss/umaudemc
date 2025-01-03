@@ -71,7 +71,7 @@ def deduce_format(args):
 		usermsgs.print_warning('PDF output is only supported with DOT. Changing to DOT.')
 		return 'dot'
 
-	# Probabilitic information is not considered in some cases
+	# Probabilistic information is not considered in some cases
 	if args.passign and oformat not in ('dot', 'prism', 'jani', 'default'):
 		usermsgs.print_warning('Probabilistic graphs are only supported with PRISM, JANI and DOT output. '
 		                       'Ignoring probabilities.')
@@ -106,7 +106,6 @@ def graph(args):
 			usermsgs.print_warning('The --kleene-iteration flag cannot be used with probabilities. Ignoring.')
 		else:
 			kleene_graph = True
-
 
 	# Select the appropriate rewriting graph
 	# (probabilistic, strategy-controlled, or standard)

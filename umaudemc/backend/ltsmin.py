@@ -552,7 +552,7 @@ class LTSminRunner:
 		maude_lib_ltsmin = os.getenv('MAUDE_LIB_LTSMIN')
 		new_maude_lib = os.getenv('MAUDE_LIB', '') if maude_lib_ltsmin is None else maude_lib_ltsmin
 		new_maude_lib = ('' if new_maude_lib == '' else new_maude_lib + os.pathsep) \
-		                + os.path.dirname(filename)
+		                 + os.path.dirname(filename)
 
 		if raw:
 			os.execve(self.ltsmin.pins2lts[variant], [self.ltsmin.pins2lts[variant]] + args,

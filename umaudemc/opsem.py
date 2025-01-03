@@ -65,7 +65,7 @@ class OpSemInstance:
 
 	@classmethod
 	def get_instantiation(cls, module, metamodule=None, semantics_module=None, preds_module=None):
-		"""Get the Maude code to instantiate the sematnics for the given problem"""
+		"""Get the Maude code to instantiate the semantics for the given problem"""
 
 		# Use the default semantics and predicates module if not specified
 		if semantics_module is None:

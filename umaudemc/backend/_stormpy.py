@@ -80,7 +80,7 @@ class StormBackend:
 			builder.add_next_value(row=st, column=st, value=1.0)
 
 	def _build_mdp(self, builder, graph):
-		"""Build an MDP from the probabilsitic rewrite graph"""
+		"""Build an MDP from the probabilistic rewrite graph"""
 
 		last_visited, row_index, num_states = -1, 0, len(graph)
 
@@ -127,7 +127,6 @@ class StormBackend:
 			self._build_mdp(builder, graph)
 
 		transition_matrix = builder.build()
-		#input(transition_matrix)
 
 		# State labeling with atomic propositions
 		state_labeling = stormpy.storage.StateLabeling(num_states)
@@ -233,7 +232,7 @@ class StormBackend:
 	def state_analysis(self, *args, **kwargs):
 		"""Steady and transient state analysis"""
 
-		# StormPy does not allow calculting state probabilities, as far as we know, so
+		# StormPy does not allow calculating state probabilities, as far as we know, so
 		# we delegate on the command-line interface to Storm
 		from ._storm import StormBackend as StormCmdLineBackend
 

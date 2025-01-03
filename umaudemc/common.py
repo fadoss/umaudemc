@@ -18,7 +18,8 @@ if not hasattr(maude.Term, 'getVarName'):
 	usermsgs.print_warning('Version 1.0 of the maude package adds some useful features for this program.\n'
 	                       'Please update.')
 
-	maude.Term.getVarName = lambda self: str(self).split(':')[0] if self.symbol() == self.symbol().getModule().parseTerm(f'$$$:{self.getSort()}').symbol() else None
+	maude.Term.getVarName = lambda self: str(self).split(':')[0] if self.symbol() == \
+		self.symbol().getModule().parseTerm(f'$$$:{self.getSort()}').symbol() else None
 	maude.Term.isVariable = lambda self: self.getVarName() is None
 
 

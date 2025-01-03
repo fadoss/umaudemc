@@ -714,7 +714,7 @@ class GeneralizedMetadataGraph:
 			edges = []
 
 			for child, subs, ctx, rl in term.apply(None):
-				# Term.apply do not reduce the terms itself
+				# Term.apply does not reduce the terms itself
 				self.rewrite_count += 1 + child.reduce()
 				index = self.term_map.get(child)
 
