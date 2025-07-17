@@ -313,6 +313,10 @@ def build_parser():
 		default=1
 	)
 	parser_scheck.add_argument(
+		'--distribute',
+		help='Distribute the computation over some machines'
+	)
+	parser_scheck.add_argument(
 		'--format', '-f',
 		help='Output format for the simulation results',
 		choices=['text', 'json'],
@@ -325,6 +329,18 @@ def build_parser():
 	)
 
 	parser_scheck.set_defaults(mode='scheck')
+
+	#
+	# Statistical model checking distributed worker
+	#
+
+	parser_sworker = subparsers.add_parser('sworker', help='Worker for distributed statistical model checking')
+
+	parser_sworker.add_argument('--address', '-a', help='listening address', default='127.0.0.1')
+	parser_sworker.add_argument('--port', '-p', help='listening port', type=int, default=1234)
+	parser_sworker.add_argument('--keep-file', help='keep received Maude file for debugging', action='store_true')
+
+	parser_sworker.set_defaults(mode='sworker')
 
 	#
 	# Test and benchmark test suites from the command line
@@ -500,6 +516,11 @@ def main():
 	elif args.mode == 'scheck':
 		from .command.scheck import scheck
 		return scheck(args)
+
+	# Werker for distributed statistical model-checking
+	elif args.mode == 'sworker':
+		from .command.sworker import sworker
+		return sworker(args)
 
 	# Batch test subcommand
 	elif args.mode == 'test':

@@ -19,10 +19,10 @@ def show_results(program, nsims, qdata):
 	qdata_it = iter(qdata)
 	q = next(qdata_it, None)
 
-	for k, (line, column, params) in enumerate(program.query_locations):
+	for k, (fname, line, column, params) in enumerate(program.query_locations):
 		# Print the query name and location only if there are many
 		if program.nqueries > 1:
-			print(f'Query {k + 1} (line {line}:{column})')
+			print(f'Query {k + 1} ({fname}:{line}:{column})')
 
 		# For parametric queries, we show the result for every value
 		var = params[0] if params else None
@@ -136,7 +136,7 @@ def scheck(args):
 		return 1
 
 	with open(args.query) as quatex_file:
-		program = parse_quatex(quatex_file, filename=args.query)
+		program, seen_files = parse_quatex(quatex_file, filename=args.query, legacy=args.assign == 'pmaude')
 
 	if not program:
 		return 1
@@ -145,14 +145,7 @@ def scheck(args):
 		usermsgs.print_warning('No queries in the input file.')
 		return 0
 
-	# Get the simulator for the given assignment method
-	simulator = get_simulator(args.assign, data)
-
-	if not simulator:
-		return 1
-
 	# Check the simulation parameters
-
 	if not (0 <= args.alpha <= 1):
 		usermsgs.print_error(f'Wrong value {args.alpha} for the alpha parameter (must be between 0 and 1).')
 		return 1
@@ -170,10 +163,26 @@ def scheck(args):
 	if min_sim is None and max_sim is None:
 		return 1
 
-	# Call the statistical model checker
-	num_sims, qdata = check(program, simulator,
-	                        args.seed, args.alpha, args.delta, args.block,
-	                        min_sim, max_sim, args.jobs, args.verbose)
+	# Distributed computations follow a different path
+	if args.distribute:
+		from ..distributed import distributed_check
+
+		num_sims, qdata = distributed_check(args, data, min_sim, max_sim, program, seen_files)
+
+		if num_sims is None:
+			return 1
+
+	else:
+		# Get the simulator for the given assignment method
+		simulator = get_simulator(args.assign, data)
+
+		if not simulator:
+			return 1
+
+		# Call the statistical model checker
+		num_sims, qdata = check(program, simulator,
+		                        args.seed, args.alpha, args.delta, args.block,
+		                        min_sim, max_sim, args.jobs, args.verbose)
 
 	# Print the results on the terminal
 	(show_json if args.format == 'json' else show_results)(program, num_sims, qdata)

@@ -133,9 +133,9 @@ def check_interval(qdata, num_sims, alpha, delta, quantile, verbose):
 	# Whether the size of the confidence interval for all queries have converged
 	converged = True
 
-	for k, query in enumerate(qdata):
+	for query in qdata:
 		query.mu = query.sum / num_sims
-		query.s = math.sqrt((query.sum_sq - query.sum * query.mu) / (num_sims - 1))
+		query.s = math.sqrt(max(query.sum_sq - query.sum * query.mu, 0.0) / (num_sims - 1))
 		query.h = query.s * tinv
 
 		if query.h > delta:
@@ -285,7 +285,7 @@ def qdata_to_dict(num_sims, qdata, program):
 	qdata_it = iter(qdata)
 	q = next(qdata_it, None)
 
-	for k, (line, column, params) in enumerate(program.query_locations):
+	for k, (fname, line, column, params) in enumerate(program.query_locations):
 		# For parametric queries, we return an array of values
 		if params:
 			mean, std, radius = [], [], []
@@ -303,7 +303,7 @@ def qdata_to_dict(num_sims, qdata, program):
 			mean, std, radius = q.mu, q.s, q.h
 			param_info = {}
 
-		queries.append(dict(mean=mean, std=std, radius=radius, line=line, column=column, **param_info))
+		queries.append(dict(mean=mean, std=std, radius=radius, file=fname, line=line, column=column, **param_info))
 
 	return dict(nsims=num_sims, queries=queries)
 
@@ -326,7 +326,7 @@ def check(program, simulator, seed, alpha, delta, block, min_sim, max_sim, jobs,
 	# and the sum of their squares
 	qdata = [QueryData(k, idict)
 	         for k, qinfo in enumerate(program.query_locations)
-	         for idict in make_parameter_dicts(qinfo[2])]
+	         for idict in make_parameter_dicts(qinfo[3])]
 
 	# Run the simulations
 	if jobs == 1 and num_sims != 1:

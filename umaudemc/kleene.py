@@ -13,6 +13,10 @@ class KleeneExecutionState(GraphExecutionState):
 		super().__init__(term, pc, stack, conditional, graph_node,
 		                 (extra, set() if iterations is None else iterations))
 
+		# The second position of the extra attribute is a set of iteration tags of the
+		# form ((pc, ctx), enters) where (pc, ctx) identifies the iteration and enters
+		# indicates whether it enters or leaves
+
 	def copy(self, term=None, pc=None, stack=None, conditional=False, graph_node=None, extra=None):
 		"""Clone state with possibly some changes"""
 
@@ -44,6 +48,7 @@ class KleeneRunner(GraphRunner):
 
 	def kleene(self, args, stack):
 		"""Keep track of iterations"""
+		# Identify each dynamic context with a number
 		context_id = self.iter_contexts.setdefault(self.current_state.stack, len(self.iter_contexts))
 		self.current_state.add_kleene(((args[0], context_id), args[1]))
 		super().kleene(args, stack)
@@ -119,7 +124,7 @@ class StrategyKleeneGraph:
 	def expand(self):
 		"""Expand the underlying graph"""
 
-		for k, state in enumerate(self.state_list):
+		for state in self.state_list:
 			for child in state.children:
 				if child not in self.state_map:
 					self.state_map[child] = len(self.state_list)

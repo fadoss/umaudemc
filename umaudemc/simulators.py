@@ -218,7 +218,7 @@ class StrategyDTMCSimulator(BaseSimulator):
 		p = sc.compile(ml.upStrategy(strategy))
 
 		try:
-			self.graph = MarkovRunner(p, initial).run()
+			self.graph, _ = MarkovRunner(p, initial).run()
 			self.node = self.graph
 			self.time = 0.0
 

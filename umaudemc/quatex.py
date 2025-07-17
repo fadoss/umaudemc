@@ -3,6 +3,7 @@
 #
 
 import ast
+import os
 
 from . import usermsgs
 
@@ -21,7 +22,7 @@ class QuaTExProgram:
 		# Number of queries
 		self.nqueries = len(slots) - ndefs
 
-		# Query information (line, column, and parameters)
+		# Query information (file name, line, column, and parameters)
 		self.query_locations = qinfo
 
 
@@ -33,9 +34,10 @@ class QuaTExLexer:
 	LT_STRING = 2
 	LT_OTHER = 3
 
-	def __init__(self, source, buffer_size=512):
+	def __init__(self, source, filename, buffer_size=512):
 		# Input stream (file-like object)
 		self.source = source
+		self.filename = filename
 		# We read in chunks of buffer_size
 		self.buffer_size = buffer_size
 		self.buffer = self.source.read(self.buffer_size)
@@ -221,10 +223,15 @@ class QuaTExParser:
 	UNARY_OPS = ('!', )
 	UNARY_AST = (ast.Not, )
 
-	def __init__(self, source, filename='<stdin>'):
-		self.lexer = QuaTExLexer(source)
+	def __init__(self, source, filename='<stdin>', legacy=False):
 		# Filename is only used for diagnostics
-		self.filename = filename
+		self.lexer = QuaTExLexer(source, filename)
+		# PMaude legacy syntax
+		self.legacy = legacy
+
+		# File inclusion support
+		self.pending_lexers = []
+		self.seen_files = set() if filename.startswith('<') else {os.path.realpath(filename)}
 
 		# Parameters of the current function
 		self.fvars = []
@@ -246,10 +253,10 @@ class QuaTExParser:
 		self.queries = []
 		self.defs = []
 
-	def _eprint(self, msg, line=None, column=None):
+	def _eprint(self, msg, line=None, column=None, fname=None):
 		"""Print an error message with line information"""
 
-		usermsgs.print_error_loc(self.filename,
+		usermsgs.print_error_loc(fname or self.lexer.filename,
 		                         line or self.lexer.sline,
 		                         column or self.lexer.scolumn,
 		                         msg)
@@ -274,6 +281,19 @@ class QuaTExParser:
 		"""Check whether the parser is in the given state"""
 
 		return self.stack and self.stack[-1] == state
+
+	def _next_token(self):
+		"""Get the next token without potential file exhaustion"""
+
+		token = self.lexer.get_token()
+
+		while self.lexer.exhausted and self.pending_lexers:
+			self.lexer, open_file = self.pending_lexers.pop()
+			open_file.close()
+
+			token = self.lexer.get_token()
+
+		return token
 
 	def _do_binop(self, op_index, left, right):
 		"""Build a binary operator in the AST"""
@@ -482,7 +502,7 @@ class QuaTExParser:
 				line, column = self.lexer.sline, self.lexer.scolumn
 				next_token = self.lexer.get_token()
 
-				# A call to s.reval
+				# A call to s.rval
 				if token == 's' and next_token == '.':
 					if not self._expect('rval', '('):
 						return None
@@ -490,7 +510,8 @@ class QuaTExParser:
 					token = self.lexer.get_token()
 					ltype = self.lexer.ltype
 
-					if ltype not in (self.lexer.LT_NAME, self.lexer.LT_STRING, self.lexer.LT_NUMBER):
+					if ltype not in (self.lexer.LT_NAME, self.lexer.LT_STRING) and \
+					   not (self.legacy and ltype == self.lexer.LT_NUMBER):
 						self._eprint(f's.rval only admits string literals and variables, but "{token}" is found.')
 						return None
 
@@ -596,17 +617,44 @@ class QuaTExParser:
 	def _parse_toplevel(self):
 		"""Parse the top level of a QuaTeX file"""
 
-		token = self.lexer.get_token()
-
-		while not self.lexer.exhausted:
+		while token := self._next_token():
 
 			# Any top level statement starts with eval or other identifier
 			if self.lexer.ltype != self.lexer.LT_NAME:
 				self._eprint(f'unexpected token "{token}" at the top level.')
 				return False
 
+			# Import statement -- import "filename" ;
+			if token == 'import':
+				line, column = self.lexer.sline, self.lexer.scolumn
+
+				# Get the filename, it must be a string
+				path = self.lexer.get_token()
+
+				if self.lexer.ltype != self.lexer.LT_STRING:
+					self._eprint(f'unexpected token "{path}" where a string is required.')
+					return False
+
+				if not self._expect(';'):
+					return False
+
+				# Check whether the file exists
+				new_path = os.path.join(os.path.dirname(self.lexer.filename), path[1:-1])
+
+				if not os.path.exists(new_path):
+					self._eprint(f'cannot import {path}, file not found', line, column)
+					return False
+
+				# Jump to that file if it has not been processed yet
+				if (canonical_path := os.path.realpath(new_path)) not in self.seen_files:
+					self.seen_files.add(canonical_path)
+
+					new_file = open(new_path)
+					self.pending_lexers.append((self.lexer, new_file))
+					self.lexer = QuaTExLexer(new_file, new_path)
+
 			# Query -- eval E [ <expr> ] ;
-			if token == 'eval':
+			elif token == 'eval':
 				# The query location is kept for future reference
 				line, column = self.lexer.sline, self.lexer.scolumn
 
@@ -638,10 +686,10 @@ class QuaTExParser:
 
 				# Ignore parameterized expressions with empty range
 				if parameter and parameter[1] > parameter[3]:
-					usermsgs.print_warning_loc(self.filename, line, column,
+					usermsgs.print_warning_loc(self.lexer.filename, line, column,
 					                           'ignoring parametric query with empty range.')
 				else:
-					self.queries.append((line, column, expr, parameter))
+					self.queries.append((self.lexer.filename, line, column, expr, parameter))
 
 			# Function definition -- <name> ( <args> ) = <expr> ;
 			else:
@@ -683,8 +731,6 @@ class QuaTExParser:
 
 				self.defs.append((fname, line, column, tuple(self.fvars), expr))
 				self.fvars.clear()
-
-			token = self.lexer.get_token()
 
 		return self.ok
 
@@ -732,7 +778,7 @@ class QuaTExParser:
 			else:
 				arities[name] = len(args)
 
-		# Check whether all called are well-defined
+		# Check whether all calls are well-defined
 		for name, line, column, arity in self.calls:
 			def_arity = arities.get(name)
 
@@ -751,7 +797,7 @@ class QuaTExParser:
 			if not self._check_tail(expr):
 				ok = False
 
-		for line, column, expr, _ in self.queries:
+		for _, _, _, expr, _ in self.queries:
 			if not self._check_tail(expr):
 				ok = False
 
@@ -782,26 +828,28 @@ class QuaTExParser:
 				             line=line, column=column)
 				ok = False
 
-		for k, (line, column, expr, _) in enumerate(self.queries):
+		for k, (fname, line, column, expr, _) in enumerate(self.queries):
 			try:
 				expr = ast.Expression(expr)
 				ast.fix_missing_locations(expr)
-				slots[used_defs + k] = compile(expr, filename=f'query{line}:{column}', mode='eval')
+				slots[used_defs + k] = compile(expr, filename=f'query{fname}:{line}:{column}', mode='eval')
 
 			except TypeError:
 				self._eprint('this query cannot cannot be compiled.',
-				             line=line, column=column)
+				             line=line, column=column, fname=fname)
 				ok = False
 
 		if not ok:
 			return None
 
 		return QuaTExProgram(slots, varnames, len(self.fslots),
-		                     tuple((line, column, params) for line, column, _, params in self.queries))
+		                     tuple((fname, line, column, params) for fname, line, column, _, params in self.queries))
 
 
-def parse_quatex(input_file, filename='<string>'):
+def parse_quatex(input_file, filename='<string>', legacy=False):
 	"""Parse a QuaTEx formula"""
 
 	# Load, parse, and compile the QuaTEx file
-	return QuaTExParser(input_file, filename=filename).parse()
+	parser = QuaTExParser(input_file, filename=filename, legacy=legacy)
+
+	return parser.parse(), parser.seen_files

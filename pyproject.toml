@@ -1,12 +1,11 @@
 [project]
 name            = 'umaudemc'
-version         = '0.14.0'
+version         = '0.15.0'
 description     = 'Unified Maude model-checking utility'
-license.text    = 'GPLv3'
+license         = 'GPL-3.0-or-later'
 classifiers     = [
 	'Programming Language :: Python :: 3',
 	'Intended Audience :: Science/Research',
-	'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
 	'Topic :: Scientific/Engineering',
 	'Operating System :: OS Independent',
 ]

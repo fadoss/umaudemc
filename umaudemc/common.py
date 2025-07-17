@@ -44,27 +44,43 @@ def find_maude_file_abs(filename):
 	return None
 
 
+class MaudeFileFinder:
+	"""Locate Maude files as Maude does"""
+
+	MAUDE_STD = {'file', 'linear', 'machine-int', 'metaInterpreter', 'model-checker',
+	             'prelude', 'prng', 'process', 'smt', 'socket', 'term-order', 'time'}
+
+
+	def __init__(self):
+		# Maude also considers the current working directory
+		# and the directory of the Maude binary
+		self.paths = [os.path.dirname(maude.__file__),
+		              *os.getenv('MAUDE_LIB', '').split(os.pathsep)]
+
+	def _is_std(self, name):
+		"""Is this a file from the Maude distribution"""
+
+		return name in self.MAUDE_STD or f'{name}.maude' in self.MAUDE_STD
+
+	def find(self, name, cwd):
+		# Absolute path, no ambiguity
+		if os.path.isabs(name):
+			return find_maude_file_abs(name), False
+
+		for path in (cwd, *self.paths):
+			abspath = os.path.join(path, name)
+			fullname = find_maude_file_abs(abspath)
+
+			if fullname is not None:
+				return fullname, path != cwd and self._is_std(name)
+
+		return None, None
+
+
 def find_maude_file(filename):
 	"""Find a Maude file taking MAUDE_LIB into account"""
-	if os.path.isabs(filename):
-		return find_maude_file_abs(filename)
 
-	# Maude also considers the current working directory
-	# and the directory of the Maude binary
-	paths = [os.getcwd(), os.path.dirname(maude.__file__)]
-
-	maudelib = os.getenv('MAUDE_LIB')
-
-	if maudelib is not None:
-		paths += maudelib.split(os.pathsep)
-
-	for path in paths:
-		abspath = os.path.join(path, filename)
-		fullname = find_maude_file_abs(abspath)
-		if fullname is not None:
-			return fullname
-
-	return None
+	return MaudeFileFinder().find(filename, os.getcwd())[0]
 
 
 def parse_initial_data(args):
@@ -191,3 +207,71 @@ def default_model_settings(logic, purge_fails, merge_states, strategy, tableau=F
 		merge_states = 'state' if logic.startswith('CTL') else ('edge' if logic == 'Mucalc' else 'no')
 
 	return purge_fails, merge_states
+
+
+def load_specification(filename, topic):
+	"""Load specifications from YAML or JSON files"""
+
+	extension = os.path.splitext(filename)[1]
+
+	# The YAML package is only loaded when needed
+	# (pyaml is an optional dependency)
+	if extension in ('.yaml', '.yml'):
+		try:
+			import yaml
+			from yaml.loader import SafeLoader
+
+		except ImportError:
+			usermsgs.print_error(
+				f'Cannot load {topic} from YAML file, since the yaml package is not installed.\n'
+				'Please convert the YAML to JSON or install it with pip install pyaml.')
+			return None
+
+		# The YAML loader is replaced so that entities have its line number
+		# associated to print more useful messages. This is not possible with
+		# the standard JSON library.
+
+		class SafeLineLoader(SafeLoader):
+			def construct_mapping(self, node, deep=False):
+				mapping = super(SafeLineLoader, self).construct_mapping(node, deep=deep)
+				# Add 1 so line numbering starts at 1
+				mapping['__line__'] = node.start_mark.line + 1
+				return mapping
+
+		try:
+			with open(filename) as caspec:
+				return yaml.load(caspec, Loader=SafeLineLoader)
+
+		except yaml.error.YAMLError as ype:
+			usermsgs.print_error(f'Error while parsing {topic} file: {ype}.')
+
+	# TOML format
+	if extension == '.toml':
+		try:
+			import tomllib
+
+		except ImportError:
+			usermsgs.print_error(
+				f'Cannot load {topic} from TOML file, '
+				'which is only available since Python 3.10.')
+			return None
+
+		try:
+			with open(filename, 'rb') as caspec:
+				return tomllib.load(caspec)
+
+		except tomllib.TOMLDecodeError as tde:
+			usermsgs.print_error(f'Error while parsing {topic} file: {tde}.')
+
+	# JSON format
+	else:
+		import json
+
+		try:
+			with open(filename) as caspec:
+				return json.load(caspec)
+
+		except json.JSONDecodeError as jde:
+			usermsgs.print_error(f'Error while parsing {topic} file: {jde}.')
+
+	return None

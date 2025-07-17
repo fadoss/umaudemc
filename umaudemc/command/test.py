@@ -14,7 +14,7 @@ import sys         # To find the Python executable path
 import threading   # To support timeouts
 import time        # To measure time
 
-from ..common import maude, usermsgs
+from ..common import maude, usermsgs, load_specification
 from ..formulae import Parser, collect_aprops
 from ..backends import supported_logics, get_backends, backend_for
 from ..terminal import terminal as tmn
@@ -62,67 +62,7 @@ class TestCase:
 def load_cases(filename):
 	"""Load test cases from YAML or JSON specifications"""
 
-	extension = os.path.splitext(filename)[1]
-
-	# The YAML package is only loaded when needed
-	# (pyaml is an optional dependency)
-	if extension in ('.yaml', '.yml'):
-		try:
-			import yaml
-			from yaml.loader import SafeLoader
-
-		except ImportError:
-			usermsgs.print_error(
-				'Cannot load cases from YAML file, since the yaml package is not installed.\n'
-				'Please convert the YAML to JSON or install it with pip install pyaml.')
-			return None
-
-		# The YAML loader is replaced so that entities have its line number
-		# associated to print more useful messages. This is not possible with
-		# the standard JSON library.
-
-		class SafeLineLoader(SafeLoader):
-			def construct_mapping(self, node, deep=False):
-				mapping = super(SafeLineLoader, self).construct_mapping(node, deep=deep)
-				# Add 1 so line numbering starts at 1
-				mapping['__line__'] = node.start_mark.line + 1
-				return mapping
-
-		try:
-			with open(filename) as caspec:
-				return yaml.load(caspec, Loader=SafeLineLoader)
-
-		except yaml.error.YAMLError as ype:
-			usermsgs.print_error(f'Error while parsing test file: {ype}.')
-
-	# TOML format
-	if extension == '.toml':
-		try:
-			import tomllib
-
-		except ImportError:
-			usermsgs.print_error(
-				'Cannot load cases from TOML file, '
-				'which is only available since Python 3.10.')
-			return None
-
-		try:
-			with open(filename) as caspec:
-				return tomllib.load(caspec)
-
-		except tomllib.TOMLDecodeError as tde:
-			usermsgs.print_error(f'Error while parsing test file: {tde}.')
-
-	# JSON format
-	else:
-		try:
-			with open(filename) as caspec:
-				return json.load(caspec)
-
-		except json.JSONDecodeError as jde:
-			usermsgs.print_error(f'Error while parsing test file: {jde}.')
-
-	return None
+	return load_specification(filename, 'cases')
 
 
 def read_suite(filename, from_file=None, skip_case=0):
