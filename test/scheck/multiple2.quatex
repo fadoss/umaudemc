@@ -1,0 +1,7 @@
+eval E[Foo(6)] ;
+
+Foo(n) = if (n == 0) then
+	3.0
+else
+	# Foo(n - 1)
+fi ;

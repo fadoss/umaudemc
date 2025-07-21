@@ -1,0 +1,38 @@
+***
+*** Minimal specification of a PMaude model
+***
+
+set clear rules off .
+
+mod DIE is
+	protecting NAT .
+	protecting FLOAT .
+	protecting RANDOM .
+	protecting COUNTER .
+
+	sort Config .
+
+	op [_,_] : Nat Float -> Config [ctor] .
+
+	*** PMaude requirements
+	op getTime : Config -> Float .
+	op tick : Config -> Config .
+	op val : Nat Config -> Float . *** not actually needed
+
+	var N : Nat .
+	var T : Float .
+	var C : Config .
+
+	eq getTime([N, T]) = T .
+	eq tick([N, T]) = [random(counter) rem 6 + 1, T + 1.0] .
+
+	*** Other useful functions
+	op getValue : Config -> Nat .
+
+	eq getValue([N, T]) = N .
+
+	*** Initial state
+	op initial : -> Config .
+
+	eq initial = tick([0, -1.0]) .
+endm

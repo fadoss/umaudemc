@@ -126,6 +126,10 @@ def flatten_maude_file(filename, fobj):
 def process_dspec(dspec, fname):
 	"""Normalize a distributed SMC specification"""
 
+	if not isinstance(dspec, dict):
+		usermsgs.print_error_file('the distribution specification must be a dictionary.', fname)
+		return False
+
 	# Normalize workers to a dictionary
 	workers = dspec.get('workers')
 
@@ -176,6 +180,8 @@ def setup_workers(args, initial_data, dspec, seen_files, stack):
 	workers = dspec['workers']
 
 	# Generate a random seed for each worker
+	random.seed(args.seed)
+
 	seeds = [random.getrandbits(20) for _ in range(len(workers))]
 
 	# Data to be passed to the external machine
@@ -263,7 +269,7 @@ def distributed_check(args, initial_data, min_sim, max_sim, program, seen_files)
 		selector = selectors.DefaultSelector()
 
 		for sock, data in zip(sockets, dspec['workers']):
-			selector.register(sock, selectors.EVENT_READ, data=data)
+			selector.register(sock, selectors.EVENT_READ, data={'block': args.block} | data)
 			sock.send(b'c')
 
 		buffer = array('d')

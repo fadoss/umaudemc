@@ -1,0 +1,7 @@
+Mean(m, n, acc) = if (m == n) then
+	acc / n
+else
+	# Mean(m + 1, n, acc + s.rval("getValue(C)"))
+fi ;
+
+eval E[Mean(0, 10, 0.0)] ;

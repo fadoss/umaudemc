@@ -5,6 +5,7 @@
 import json
 import multiprocessing as mp
 import os
+import random
 import socket
 import sys
 import tarfile
@@ -60,6 +61,7 @@ class Worker:
 		self.block = args.block
 
 		maude.setRandomSeed(args.seed)
+		random.seed(args.seed)
 
 		# Do the same as the scheck command without checks
 		args.file = os.path.join(tmp_dir, args.file)

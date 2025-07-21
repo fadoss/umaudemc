@@ -1,0 +1,11 @@
+Tail(n) = if (s.rval("C |= tail")) then
+	if (n == 1) then
+		s.rval("steps")
+	else
+		 # Tail(n - 1)
+	fi
+else
+	# Tail(n)
+fi ;
+
+eval parametric(E[Tail(n)], n, 1, 1, 6) ;

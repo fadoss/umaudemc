@@ -1,0 +1,7 @@
+Tail() = if (s.rval("C |= tail")) then
+	s.rval("steps")
+else
+	# Tail()
+fi ;
+
+eval E[Tail()] ;

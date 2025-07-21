@@ -1,0 +1,12 @@
+{"workers": [
+	{
+		"name": "worker-1",
+		"address": "127.0.0.1",
+		"port": 17234
+	},
+	{
+		"address": "127.0.0.1",
+		"port": 17235,
+		"block": 100
+	}
+]}

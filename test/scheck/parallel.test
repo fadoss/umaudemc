@@ -1,0 +1,9 @@
+# Statistical model checking with parameterized queries
+
+umaudemc scheck ../pcheck/coin head tail.quatex -j 4 -s 1000 -d 0.25
+umaudemc scheck ../pcheck/coin head tail.quatex -j 4 -s 1000 -d 0.25 --assign uniform
+umaudemc scheck ../pcheck/coin head tail.quatex -j 4 -s 1000 -d 0.25 --assign metadata
+umaudemc scheck ../pcheck/coin head tail.quatex -j 4 -s 1000 -d 0.25 --assign 'uaction(ttail=3, thead=7)'
+umaudemc scheck ../pcheck/coin head tail.quatex -j 4 -s 1000 -d 0.25 --assign "term(inertia(L, R))"
+umaudemc scheck ../pcheck/coin head tail.quatex -j 4 -s 1000 -d 0.25 'choice(3 : ttail, 7 : thead)' --assign step
+umaudemc scheck ../pcheck/coin head tail.quatex -j 4 -s 1000 -d 0.25 'choice(3 : ttail, 7 : thead) ; choice(2 : ttail, 3 : thead)' --assign step

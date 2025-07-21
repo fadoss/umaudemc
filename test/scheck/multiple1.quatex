@@ -1,0 +1,3 @@
+import "multiple2.quatex" ;
+
+eval E[Foo(2)] ;
