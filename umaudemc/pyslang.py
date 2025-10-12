@@ -47,6 +47,11 @@ class Instruction:
 	def __repr__(self):
 		return f'Instruction({self.NAMES[self.type]}, {self.extra})'
 
+	@property
+	def does_rewrite(self):
+		"""Whether the instruction rewrites the subject term"""
+		return self.type in (self.RLAPP, self.RWCNEXT) and self.extra[0]
+
 
 class StratProgram:
 	"""Compiled strategy program"""
@@ -506,7 +511,7 @@ class StratCompiler:
 
 		self.generate(next(s.arguments()), p, False)
 
-		initial_jump.extra = (p.pc + 1, initial_pc)
+		initial_jump.extra = (p.pc + (2 if self.use_kleene else 1), initial_pc)
 		p.append(Instruction.JUMP, (p.pc + 1, initial_pc))
 
 		if self.use_kleene:
@@ -658,11 +663,19 @@ class StratCompiler:
 	def norm(self, s, p, tail):
 		# A variation of the conditional and the iteration
 		initial_pc = p.pc
+
+		if self.use_kleene:
+			p.append(Instruction.KLEENE, (initial_pc, True))
+
 		subsearch = p.append(Instruction.SUBSEARCH)
 		self.generate(next(s.arguments()), p, False)
 		p.append(Instruction.NOFAIL)
 		p.append(Instruction.JUMP, (initial_pc, ))
+
 		subsearch.extra = p.pc
+
+		if self.use_kleene:
+			p.append(Instruction.KLEENE, (initial_pc, True))
 
 	def call(self, s, p, tail):
 		# Strategy calls are executed by CALL instructions, but the body of
@@ -869,9 +882,6 @@ class StratCompiler:
 			def __repr__(self):
 				return f'BasicBlock({self.start}, {self.length}, {self.has_rewrite}, {self.next}, {self.reachable})'
 
-		def does_rewrite(inst):
-			return inst.type == Instruction.RLAPP or inst.type == Instruction.RWCNEXT and inst.extra[0]
-
 		# (1) Abstract the code as a graph of blocks linked by jumps
 
 		# Blocks are aggregated by definition (the first entry is the initial expression)
@@ -891,7 +901,7 @@ class StratCompiler:
 				inst = p[k]
 
 				# This block contains a rewrite
-				if does_rewrite(inst):
+				if inst.does_rewrite:
 					current.has_rewrite = True
 
 				# JUMP, CHOICE, SUBSEARCH, and CALL instructions close a block
@@ -1099,7 +1109,7 @@ class StratCompiler:
 						# notify_pending is not possible within a rewriting condition
 
 						# There is a RLAPP, so we need to issue a NOTIFY for the previous one
-						if does_rewrite(inst):
+						if inst.does_rewrite:
 							notify_points.append(k)
 
 						# Failures discard the notification
@@ -1116,7 +1126,7 @@ class StratCompiler:
 							notify_points.append(k)
 							notify_pending = False
 
-					elif rwc_level == 0 and does_rewrite(inst):
+					elif rwc_level == 0 and inst.does_rewrite:
 						notify_pending = True
 
 				for sc in block.next:

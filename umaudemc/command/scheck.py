@@ -22,7 +22,10 @@ def show_results(program, nsims, qdata):
 	for k, (fname, line, column, params) in enumerate(program.query_locations):
 		# Print the query name and location only if there are many
 		if program.nqueries > 1:
-			print(f'Query {k + 1} ({fname}:{line}:{column})')
+			# If the number of simulation is lower for this query
+			sim_detail = f' ({q.n} simulations)' if q.n != nsims else ''
+
+			print(f'Query {k + 1} ({fname}:{line}:{column}){sim_detail}')
 
 		# For parametric queries, we show the result for every value
 		var = params[0] if params else None
@@ -32,6 +35,11 @@ def show_results(program, nsims, qdata):
 				print(f'  {var} = {q.params[var]:<10} μ = {q.mu:<20} σ = {q.s:<20} r = {q.h}')
 			else:
 				print(f'  μ = {q.mu:<25} σ = {q.s:<25} r = {q.h}')
+
+			# If executions have been discarded
+			if q.discarded:
+				total = q.discarded + q.n
+				print(f'  where {q.discarded} executions out of {total} ({round(q.discarded / total * 100, 2)}%) have been discarded')
 
 			q = next(qdata_it, None)
 
@@ -121,6 +129,31 @@ def parse_range(rtext):
 	return lims
 
 
+def parse_defines(defines):
+	"""Parse constant definitions with -D in the command line"""
+
+	constants = {}
+
+	if not defines:
+		return constants
+
+	for df in defines:
+		if df.count('=') != 1:
+			usermsgs.print_error(f'The argument of -D must be key=value, not {df}. This definition will be ignored.')
+			continue
+
+		key, value = df.strip().split('=')
+
+		try:
+			constants[key] = float(value)
+
+		except ValueError:
+			usermsgs.print_error(f'The value of a -D assignment must be a number, not {value}. This definition will be ignored.')
+			continue
+
+	return constants
+
+
 def scheck(args):
 	"""Statistical check subcommand"""
 
@@ -135,8 +168,13 @@ def scheck(args):
 		usermsgs.print_error(f'The query file "{args.query}" does not exist.')
 		return 1
 
+	# Parse the constants definitions in the command line
+	constants = parse_defines(args.D)
+
 	with open(args.query) as quatex_file:
-		program, seen_files = parse_quatex(quatex_file, filename=args.query, legacy=args.assign == 'pmaude')
+		program, seen_files = parse_quatex(quatex_file, filename=args.query,
+		                                   legacy=args.assign == 'pmaude',
+						   constants=constants)
 
 	if not program:
 		return 1
@@ -167,7 +205,7 @@ def scheck(args):
 	if args.distribute:
 		from ..distributed import distributed_check
 
-		num_sims, qdata = distributed_check(args, data, min_sim, max_sim, program, seen_files)
+		num_sims, qdata = distributed_check(args, data, min_sim, max_sim, program, constants, seen_files)
 
 		if num_sims is None:
 			return 1
@@ -182,7 +220,12 @@ def scheck(args):
 		# Call the statistical model checker
 		num_sims, qdata = check(program, simulator,
 		                        args.seed, args.alpha, args.delta, args.block,
-		                        min_sim, max_sim, args.jobs, args.verbose)
+		                        min_sim, max_sim, args.jobs, args.verbose, args.dump)
+
+	# Check the discarded count when there is no convergence
+	for query in qdata:
+		if not query.converged:
+			query.discarded = num_sims - query.n
 
 	# Print the results on the terminal
 	(show_json if args.format == 'json' else show_results)(program, num_sims, qdata)

@@ -1,0 +1,13 @@
+// Expected length of an increasing sequence of dice rolls
+
+Until6(last) = if (last >= s.rval("getValue(C)")) then
+	discard
+else
+	if (s.rval("getValue(C)") == 6) then
+		s.rval("time")
+	else
+		# Until6(s.rval("getValue(C)"))
+	fi
+fi ;
+
+eval E[Until6(0)] ;

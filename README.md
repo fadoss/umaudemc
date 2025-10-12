@@ -21,6 +21,7 @@ representation of the reachable rewrite graph from the given initial state
 in the [GraphViz](https://graphviz.org/)'s DOT format.
 * `gui [--web]` to model check from a graphical user interface.
 * `test [--benchmark] <filename>` to test or benchmark model-checking cases.
+* `sworker [-p <port]` to run a worker for the distributed statistical model checker.
 
 Formulae are expressed in a syntax extending the `LTL` module of the
 `model-checker.maude` file in the official distribution. For CTL and CTL*, the

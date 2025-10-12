@@ -1,0 +1,3 @@
+# discard operator in QuaTEx
+
+umaudemc scheck dice initial discard.quatex -s 1000 -d 0.1 --assign pmaude

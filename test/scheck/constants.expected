@@ -1,0 +1,6 @@
+dice_constant.quatex:1:25: error: unknown variable "$n".
+dice_constant.quatex:2:8: error: unknown variable "$n".
+Number of simulations = 240
+  μ = 3.519999999999998         σ = 0.7604887219639223        r = 0.09670301723724528
+Number of simulations = 120
+  μ = 3.4491666666666663        σ = 0.5037666248620823        r = 0.09105962662744148

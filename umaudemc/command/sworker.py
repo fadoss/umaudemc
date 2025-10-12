@@ -71,7 +71,8 @@ class Worker:
 
 		with open(os.path.join(tmp_dir, args.query)) as quatex_file:
 			self.program, _ = parse_quatex(quatex_file, filename=args.query,
-			                               legacy=args.assign == 'pmaude')
+			                               legacy=args.assign == 'pmaude',
+						       constants=args.constants)
 
 		if not self.program:
 			return False
@@ -92,12 +93,15 @@ class Worker:
 		block = self.block
 
 		# Query data
-		qdata = [QueryData(k, idict)
+		# (delta, its second argument, does not matter because
+		# convergence is not evaluated by the worker)
+		qdata = [QueryData(k, 1.0, idict)
 		         for k, qinfo in enumerate(program.query_locations)
 		         for idict in make_parameter_dicts(qinfo[3])]
 
 		sums = array('d', [0.0] * len(qdata))
 		sum_sq = array('d', [0.0] * len(qdata))
+		counts = array('i', [0] * len(qdata))
 
 		while True:
 
@@ -105,11 +109,13 @@ class Worker:
 				# Run the simulation and compute all queries at once
 				values = run(program, qdata, simulator)
 
-				for k in range(len(qdata)):
-					sums[k] += values[k]
-					sum_sq[k] += values[k] * values[k]
+				for k, value in enumerate(values):
+					if value is not None:
+						sums[k] += value
+						sum_sq[k] += value * value
+						counts[k] += 1
 
-			conn.send(b'b' + sums.tobytes() + sum_sq.tobytes())
+			conn.send(b'b' + sums.tobytes() + sum_sq.tobytes() + counts.tobytes())
 
 			# Check whether to continue
 			answer = conn.recv(1)
@@ -125,6 +131,7 @@ class Worker:
 			for k in range(len(qdata)):
 				sums[k] = 0
 				sum_sq[k] = 0
+				counts[k] = 0
 
 
 def handle_request(message, conn, addr, keep_file):

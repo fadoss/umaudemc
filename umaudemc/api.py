@@ -420,7 +420,7 @@ class MaudeModel:
 		return result, stats
 
 	def scheck(self, quatex, assign='uniform', alpha=0.05, delta=0.5, block=30, nsims=(30, None),
-	           seed=None, jobs=1, usermsgs=_usermsgs, verbose=False):
+	           seed=None, jobs=1, usermsgs=_usermsgs, verbose=False, constants=None):
 		"""
 		Statistical model checking of a given QuaTEx expression
 
@@ -444,15 +444,17 @@ class MaudeModel:
 		:type usermsgs: An object with print_error, print_warning and print_info methods
 		:param verbose: Enable verbose messages about the simulation state between blocks
 		:type verbose: bool
+		:param constants: Constants to be used in the QuaTEx expression
+		:type constants: dict[str, float]
 		:returns: the probabilistic model-checking result and a dictionary with statistics
 		"""
 
 		# Parse the QuaTEx query
 		if isinstance(quatex, str) and os.path.exists(quatex):
 			with open(quatex) as quatex_file:
-				program = _quatex.parse_quatex(quatex_file, filename=quatex)
+				program = _quatex.parse_quatex(quatex_file, filename=quatex, constants=constants)
 		else:
-			program = _quatex.parse_quatex(quatex)
+			program = _quatex.parse_quatex(quatex, constants=constants)
 
 		if not program:
 			return None

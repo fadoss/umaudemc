@@ -27,7 +27,11 @@ def parse_hole_term(module, term_str):
 
 	# Collect all variables in the term
 	varset = set()
-	collect_vars(term, varset)
+
+	if term.isVariable():
+		varset.add(term)
+	else:
+		collect_vars(term, varset)
 
 	if len(varset) > 1:
 		usermsgs.print_warning('The observation "{message}" '

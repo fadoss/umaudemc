@@ -144,6 +144,11 @@ class QuaTExLexer:
 		self.sline = self.line
 		self.scolumn = self.column
 
+	@staticmethod
+	def _is_name(c):
+		"""Whether the character is allowed in a name"""
+		return c.isalnum() or c == '$'
+
 	def get_token(self):
 		"""Get the next token from the stream"""
 
@@ -166,9 +171,9 @@ class QuaTExLexer:
 			self.ltype = self.LT_STRING
 			self._capture_string()
 
-		elif c.isalpha():
+		elif c.isalpha() or c == '$':
 			self.ltype = self.LT_NAME
-			self._capture(str.isalnum)
+			self._capture(self._is_name)
 
 		elif c.isdecimal():
 			self.ltype = self.LT_NUMBER
@@ -223,7 +228,7 @@ class QuaTExParser:
 	UNARY_OPS = ('!', )
 	UNARY_AST = (ast.Not, )
 
-	def __init__(self, source, filename='<stdin>', legacy=False):
+	def __init__(self, source, filename='<stdin>', legacy=False, constants=None):
 		# Filename is only used for diagnostics
 		self.lexer = QuaTExLexer(source, filename)
 		# PMaude legacy syntax
@@ -238,6 +243,8 @@ class QuaTExParser:
 		# Whether the variables that may occur
 		# in an expression are known
 		self.known_vars = True
+		# Constants defined outside
+		self.constants = {} if constants is None else constants
 
 		# State stack for parsing expressions
 		self.stack = []
@@ -448,6 +455,13 @@ class QuaTExParser:
 				inside_next = True
 				call_name, call_line, call_column = token, line, column
 
+			elif token == 'discard' and not (inside_cond or call_name):
+				if current:
+					self._eprint('misplaced discard keyword.')
+					return None
+
+				current = ast.Constant(None)
+
 			elif token == ',':
 				if current and self._in_state(self.PS_CALLARGS):
 					arg_stack[-1].append(current)
@@ -542,14 +556,20 @@ class QuaTExParser:
 
 				# Simply a variable
 				else:
+					current = ast.Name(token, ast.Load())
+
 					if not self.known_vars:
 						self.fvars.append((token, line, column))
 
 					elif token not in self.fvars:
-						self._eprint(f'unknown variable "{token}".', line=line, column=column)
-						self.ok = False
+						# The variable is an externally-defined constant
+						if token.startswith('$') and (value := self.constants.get(token[1:])) is not None:
+							current = ast.Constant(value)
 
-					current = ast.Name(token, ast.Load())
+						else:
+							self._eprint(f'unknown variable "{token}".', line=line, column=column)
+							self.ok = False
+
 
 					# We continue with the peeked token
 					token = next_token
@@ -846,10 +866,10 @@ class QuaTExParser:
 		                     tuple((fname, line, column, params) for fname, line, column, _, params in self.queries))
 
 
-def parse_quatex(input_file, filename='<string>', legacy=False):
+def parse_quatex(input_file, filename='<string>', legacy=False, constants=None):
 	"""Parse a QuaTEx formula"""
 
 	# Load, parse, and compile the QuaTEx file
-	parser = QuaTExParser(input_file, filename=filename, legacy=legacy)
+	parser = QuaTExParser(input_file, filename=filename, legacy=legacy, constants=constants)
 
 	return parser.parse(), parser.seen_files

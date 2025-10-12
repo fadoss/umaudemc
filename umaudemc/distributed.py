@@ -9,6 +9,7 @@ import random
 import re
 import selectors
 import socket
+import sys
 import tarfile
 from array import array
 from contextlib import ExitStack
@@ -174,7 +175,7 @@ def process_dspec(dspec, fname):
 	return True
 
 
-def setup_workers(args, initial_data, dspec, seen_files, stack):
+def setup_workers(args, initial_data, dspec, constants, seen_files, stack):
 	"""Setup workers and send problem data"""
 
 	workers = dspec['workers']
@@ -188,7 +189,7 @@ def setup_workers(args, initial_data, dspec, seen_files, stack):
 	COPY = ('initial', 'strategy', 'module', 'metamodule', 'opaque', 'full_matchrew',
 	        'purge_fails', 'merge_states', 'assign', 'block', 'query', 'assign', 'advise', 'verbose')
 
-	data = {key: args.__dict__[key] for key in COPY} | {'file': 'source.maude'}
+	data = {key: args.__dict__[key] for key in COPY} | {'file': 'source.maude', 'constants': constants}
 
 	# Make a flattened version of the Maude file
 	flat_source = io.BytesIO()
@@ -199,6 +200,10 @@ def setup_workers(args, initial_data, dspec, seen_files, stack):
 
 	# Save the sockets for each worker
 	sockets = []
+
+	# Root of the QuaTEx sources
+	quatex_root = os.path.commonpath([os.path.dirname(fn) for fn in seen_files])
+	data['query'] = os.path.relpath(data['query'], start=quatex_root)
 
 	for worker, seed in zip(workers, seeds):
 		address, port = worker['address'], worker['port']
@@ -229,12 +234,8 @@ def setup_workers(args, initial_data, dspec, seen_files, stack):
 				tarf.addfile(flat_info, flat_source)
 
 				for file in seen_files:
-					relpath = os.path.relpath(file)
-
-					if relpath.startswith('..'):
-						usermsgs.print_error('QuaTEx file outside the working tree, it will not be included and the execution will fail.')
-					else:
-						tarf.add(relpath)
+					relpath = os.path.relpath(file, start=quatex_root)
+					tarf.add(file, arcname=relpath)
 
 			fobj.flush()
 
@@ -248,7 +249,7 @@ def setup_workers(args, initial_data, dspec, seen_files, stack):
 	return sockets
 
 
-def distributed_check(args, initial_data, min_sim, max_sim, program, seen_files):
+def distributed_check(args, initial_data, min_sim, max_sim, program, constants, seen_files):
 	"""Distributed statistical model checking"""
 
 	# Load the distribution specification
@@ -260,10 +261,10 @@ def distributed_check(args, initial_data, min_sim, max_sim, program, seen_files)
 	with ExitStack() as stack:
 
 		# Socket to connect with the workers
-		if not (sockets := setup_workers(args, initial_data, dspec, seen_files, stack)):
+		if not (sockets := setup_workers(args, initial_data, dspec, constants, seen_files, stack)):
 			return None, None
 
-		print('All workers are ready. Starting...')
+		print('All workers are ready. Starting...', file=sys.stderr)
 
 		# Use a selector to wait for updates from any worker
 		selector = selectors.DefaultSelector()
@@ -273,9 +274,10 @@ def distributed_check(args, initial_data, min_sim, max_sim, program, seen_files)
 			sock.send(b'c')
 
 		buffer = array('d')
+		ibuffer = array('i')
 
 		# Query data
-		qdata = [QueryData(k, idict)
+		qdata = [QueryData(k, args.delta, idict)
 		         for k, qinfo in enumerate(program.query_locations)
 		         for idict in make_parameter_dicts(qinfo[3])]
 		nqueries = len(qdata)
@@ -293,16 +295,19 @@ def distributed_check(args, initial_data, min_sim, max_sim, program, seen_files)
 				answer = sock.recv(1)
 
 				if answer == b'b':
-					data = sock.recv(16 * nqueries)
-					buffer.frombytes(data)
+					data = sock.recv(24 * nqueries)
+					buffer.frombytes(data[:16 * nqueries])
+					ibuffer.frombytes(data[16 * nqueries:])
 
 					for k in range(nqueries):
 						qdata[k].sum += buffer[k]
 						qdata[k].sum_sq += buffer[nqueries + k]
+						qdata[k].n += ibuffer[k]
 
 					num_sims += key.data['block']
 
 					del buffer[:]
+					del ibuffer[:]
 					finished.append(key.fileobj)
 
 				else:
@@ -311,7 +316,7 @@ def distributed_check(args, initial_data, min_sim, max_sim, program, seen_files)
 					sockets.remove(key.fileobj)
 
 			# Check whether the simulation has converged
-			converged = check_interval(qdata, num_sims, args.alpha, args.delta, quantile, args.verbose)
+			converged = check_interval(qdata, num_sims, min_sim, args.alpha, quantile, args.verbose)
 
 			if converged or max_sim and num_sims >= max_sim:
 				break

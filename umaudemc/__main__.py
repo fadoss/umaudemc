@@ -317,6 +317,11 @@ def build_parser():
 		help='Distribute the computation over some machines'
 	)
 	parser_scheck.add_argument(
+		'-D',
+		action='append',
+		help='Define a constant to be used in QuaTEx expressions'
+	)
+	parser_scheck.add_argument(
 		'--format', '-f',
 		help='Output format for the simulation results',
 		choices=['text', 'json'],
@@ -326,6 +331,10 @@ def build_parser():
 		'--plot', '-p',
 		help='Plot the results of parametric queries (using Matplotlib)',
 		action='store_true'
+	)
+	parser_scheck.add_argument(
+		'--dump',
+		help='Dump query evaluations into the given file',
 	)
 
 	parser_scheck.set_defaults(mode='scheck')

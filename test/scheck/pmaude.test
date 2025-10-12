@@ -1,3 +1,3 @@
 # Statistical model checking à la PMaude
 
-umaudemc scheck dice initial dice.quatex -s 1000 -d 0.1  --assign pmaude
+umaudemc scheck dice initial dice.quatex -s 1000 -d 0.1 --assign pmaude
