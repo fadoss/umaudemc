@@ -318,6 +318,7 @@ def build_parser():
 	)
 	parser_scheck.add_argument(
 		'-D',
+		metavar='name=value',
 		action='append',
 		help='Define a constant to be used in QuaTEx expressions'
 	)

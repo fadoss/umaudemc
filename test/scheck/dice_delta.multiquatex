@@ -1,0 +1,9 @@
+Mean(m, n, acc) = if (m == n) then
+	acc / n
+else
+	# Mean(m + 1, n, acc + s.rval("getValue(C)"))
+fi ;
+
+eval E[Mean(0, 10, 0.0)] with delta = 0.5 ;
+eval E[Mean(0, 10, 0.0)] with delta = $δ / 2 ;
+eval parametric(E[Mean(0, x, 0.0)], x, 5, 1, 7) with delta = 0.1 * x ;
