@@ -413,7 +413,7 @@ class QuaTExParser:
 		delta_fn = ast.Expression(ast.Lambda(ast.arguments(args=args), delta))
 		ast.fix_missing_locations(delta_fn)
 
-		return eval(compile(delta_fn, '<delta>', 'eval'), globals={}, locals={})
+		return eval(compile(delta_fn, '<delta>', 'eval'), {}, {})
 
 	def _parse_constexpr(self, end_token):
 		"""Parse a constant expression as a number"""
@@ -434,7 +434,7 @@ class QuaTExParser:
 		expr = ast.Expression(expr)
 		ast.fix_missing_locations(expr)
 
-		result = eval(compile(expr, self.lexer.filename, 'eval'), globals={}, locals={})
+		result = eval(compile(expr, self.lexer.filename, 'eval'), {}, {})
 
 		# Check whether it is a number
 		if not isinstance(result, (int, float)):
