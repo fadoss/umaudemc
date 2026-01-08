@@ -1,6 +1,6 @@
 [project]
 name            = 'umaudemc'
-version         = '0.16.0a1'
+version         = '0.16.0a2'
 description     = 'Unified Maude model-checking utility'
 license         = 'GPL-3.0-or-later'
 classifiers     = [

@@ -109,6 +109,41 @@ class StrategyStepSimulator(BaseSimulator):
 			self.step += 1
 
 
+class RuleStepSimulator(BaseSimulator):
+	"""Simulator where rule application (potentially using random) is the step"""
+
+	def __init__(self, initial):
+		super().__init__(initial)
+
+		# See the PMaude simulator to an explanation for why we need that
+		self.random = None
+
+		if nat_kind := self.module.findSort('Nat').kind():
+			if random := self.module.findSymbol('random', (nat_kind,), nat_kind):
+				self.random = random(self.module.parseTerm('1', nat_kind))
+
+	def restart(self):
+		"""Restart simulator"""
+
+		super().restart()
+
+		# PMaude uses Maude's random symbol, which is memoryless
+		# and deterministic for a fixed seed, so we need a new seed
+		if self.random:
+			self.random.copy().reduce()
+		maude.setRandomSeed(random.getrandbits(31))
+
+	def next_step(self):
+		"""Perform a step of the simulation"""
+
+		# Application of any executable rule
+		next_state, *_ = next(self.state.apply(None), (None,))
+
+		if next_state is not None:
+			self.state = next_state
+			self.step += 1
+
+
 def all_children(graph, state):
 	"""All children of a state in a graph"""
 
@@ -279,8 +314,8 @@ class PMaudeSimulator(BaseSimulator):
 		self.state.rewrite()
 
 		# Try to find Maude's random symbol for calculating random(1). If the
-		# PMaude specification only reduces random(0), even after resetting
-		# the random seed for a new simulation, it will take the same value
+		# PMaude specification only reduces random(0), even after resetting the
+		# random seed for a new simulation, it will take the same cached value
 		self.random = self.module.findSymbol('random', (nat_kind,), nat_kind)
 
 		if self.random:
@@ -473,12 +508,15 @@ def get_simulator(method, data):
 		method = 'step' if data.strategy else 'uniform'
 
 	# Check whether a strategy is provided for methods that require it
-	if not data.strategy and method in ('step', 'strategy-fast', 'strategy'):
+	if not data.strategy and method in ('strategy-fast', 'strategy'):
 		usermsgs.print_error(f'No strategy is provided for the {method} assignment method.')
 		return None
 
 	if method == 'step':
-		return StrategyStepSimulator(data.term, data.strategy)
+		if data.strategy:
+			return StrategyStepSimulator(data.term, data.strategy)
+		else:
+			return RuleStepSimulator(data.term)
 
 	if method == 'strategy-fast':
 		return StrategyPathSimulator(data.module, data.term, data.strategy)
