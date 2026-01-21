@@ -148,14 +148,18 @@ def check_interval(qdata, num_sims, min_sim, alpha, quantile, verbose):
 		elif query.n == 0:
 			converged = False
 			continue
+		# A single execution
+		elif query.n == 1:
+			query.mu, query.s, query.h = query.sum, 0.0, 0.0
+		# General case
+		else:
+			# The radius encloses the confidence level in the reference
+			# distribution for calculating confidence intervals
+			tinv = quantile(query.n - 1, 1 - alpha / 2) / math.sqrt(query.n)
 
-		# The radius encloses the confidence level in the reference
-		# distribution for calculating confidence intervals
-		tinv = quantile(query.n - 1, 1 - alpha / 2) / math.sqrt(query.n)
-
-		query.mu = query.sum / query.n
-		query.s = math.sqrt(max(query.sum_sq - query.sum * query.mu, 0.0) / (query.n - 1))
-		query.h = query.s * tinv
+			query.mu = query.sum / query.n
+			query.s = math.sqrt(max(query.sum_sq - query.sum * query.mu, 0.0) / (query.n - 1))
+			query.h = query.s * tinv
 
 		if query.h <= query.delta and query.n >= min_sim:
 			query.converged = True
@@ -346,6 +350,7 @@ def qdata_to_dict(num_sims, qdata, program):
 
 		else:
 			mean, std, radius, count, discarded = q.mu, q.s, q.h, q.n, q.discarded
+			q = next(qdata_it, None)
 			param_info = {}
 
 		queries.append(dict(mean=mean, std=std, radius=radius,

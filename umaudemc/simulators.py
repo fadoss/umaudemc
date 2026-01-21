@@ -137,6 +137,7 @@ class RuleStepSimulator(BaseSimulator):
 		"""Perform a step of the simulation"""
 
 		# Application of any executable rule
+		# (assumming it is deterministic)
 		next_state, *_ = next(self.state.apply(None), (None,))
 
 		if next_state is not None:
