@@ -19,16 +19,16 @@ def show_results(program, nsims, qdata):
 	qdata_it = iter(qdata)
 	q = next(qdata_it, None)
 
-	for k, (fname, line, column, params) in enumerate(program.query_locations):
+	for k, query in enumerate(program.queries):
 		# Print the query name and location only if there are many
 		if program.nqueries > 1:
 			# If the number of simulation is lower for this query
 			sim_detail = f' ({q.n} simulations)' if q.n != nsims else ''
 
-			print(f'Query {k + 1} ({fname}:{line}:{column}){sim_detail}')
+			print(f'Query {k + 1} ({query.filename}:{query.line}:{query.column}){sim_detail}')
 
 		# For parametric queries, we show the result for every value
-		var = params[0] if params else None
+		var = query.parameters[0] if query.parameters else None
 
 		while q and q.query == k:
 			if var:
@@ -93,10 +93,10 @@ def plot_results(program, qdata):
 		return
 
 	for k, xs, ys, rs in results:
-		line, column, _ = program.query_locations[k]
+		query = program.queries[k]
 
 		# Plot the mean
-		p = plt.plot(xs, ys, label=f'{line}:{column}')
+		p = plt.plot(xs, ys, label=f'{query.line}:{query.column}')
 		# Plot the confidence interval
 		plt.fill_between(xs, [y - r for y, r in zip(ys, rs)],
 		                 [y + r for y, r in zip(ys, rs)],

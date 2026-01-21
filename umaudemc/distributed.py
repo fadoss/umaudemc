@@ -277,9 +277,9 @@ def distributed_check(args, initial_data, min_sim, max_sim, program, constants, 
 		ibuffer = array('i')
 
 		# Query data
-		qdata = [QueryData(k, args.delta, idict)
-		         for k, qinfo in enumerate(program.query_locations)
-		         for idict in make_parameter_dicts(qinfo[3])]
+		qdata = [QueryData(k, delta, idict)
+		         for k, qinfo in enumerate(program.queries)
+		         for idict, delta in make_parameter_dicts(qinfo, args.delta)]
 		nqueries = len(qdata)
 		num_sims = 0
 

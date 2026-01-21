@@ -1,0 +1,3 @@
+# Delta values defined in the syntax
+
+umaudemc scheck dice initial dice_delta.multiquatex -d 0.1 --assign pmaude -Dδ=0.5

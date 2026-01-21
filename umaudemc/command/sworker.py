@@ -96,8 +96,8 @@ class Worker:
 		# (delta, its second argument, does not matter because
 		# convergence is not evaluated by the worker)
 		qdata = [QueryData(k, 1.0, idict)
-		         for k, qinfo in enumerate(program.query_locations)
-		         for idict in make_parameter_dicts(qinfo[3])]
+		         for k, qinfo in enumerate(program.queries)
+		         for idict, _ in make_parameter_dicts(qinfo, 1.0)]
 
 		sums = array('d', [0.0] * len(qdata))
 		sum_sq = array('d', [0.0] * len(qdata))

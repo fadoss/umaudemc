@@ -120,17 +120,17 @@ class QueryData:
 		self.discarded = 0
 
 
-def make_parameter_dicts(qinfo):
+def make_parameter_dicts(qinfo, delta):
 	"""Make the initial variable mapping for the parameters of a query"""
 
-	if qinfo is None:
-		yield {}
+	if qinfo.parameters is None:
+		yield {}, (qinfo.delta() if qinfo.delta else delta)
 
 	else:
-		var, x, step, end = qinfo
+		var, x, step, end = qinfo.parameters
 
 		while x <= end:
-			yield {var: x}
+			yield {var: x}, (qinfo.delta(x) if qinfo.delta else delta)
 			x += step
 
 
@@ -148,14 +148,18 @@ def check_interval(qdata, num_sims, min_sim, alpha, quantile, verbose):
 		elif query.n == 0:
 			converged = False
 			continue
+		# A single execution
+		elif query.n == 1:
+			query.mu, query.s, query.h = query.sum, 0.0, 0.0
+		# General case
+		else:
+			# The radius encloses the confidence level in the reference
+			# distribution for calculating confidence intervals
+			tinv = quantile(query.n - 1, 1 - alpha / 2) / math.sqrt(query.n)
 
-		# The radius encloses the confidence level in the reference
-		# distribution for calculating confidence intervals
-		tinv = quantile(query.n - 1, 1 - alpha / 2) / math.sqrt(query.n)
-
-		query.mu = query.sum / query.n
-		query.s = math.sqrt(max(query.sum_sq - query.sum * query.mu, 0.0) / (query.n - 1))
-		query.h = query.s * tinv
+			query.mu = query.sum / query.n
+			query.s = math.sqrt(max(query.sum_sq - query.sum * query.mu, 0.0) / (query.n - 1))
+			query.h = query.s * tinv
 
 		if query.h <= query.delta and query.n >= min_sim:
 			query.converged = True
@@ -328,9 +332,9 @@ def qdata_to_dict(num_sims, qdata, program):
 	qdata_it = iter(qdata)
 	q = next(qdata_it, None)
 
-	for k, (fname, line, column, params) in enumerate(program.query_locations):
+	for k, query in enumerate(program.queries):
 		# For parametric queries, we return an array of values
-		if params:
+		if query.parameters:
 			mean, std, radius, count, discarded = [], [], [], [], []
 
 			while q and q.query == k:
@@ -342,13 +346,15 @@ def qdata_to_dict(num_sims, qdata, program):
 				q = next(qdata_it, None)
 
 			# We also write information about the parameter
-			param_info = {'params': [dict(name=params[0], start=params[1], step=params[2], stop=params[3])]}
+			param_info = {'params': [dict(zip(('name', 'start', 'step', 'stop'), query.parameters))]}
 
 		else:
 			mean, std, radius, count, discarded = q.mu, q.s, q.h, q.n, q.discarded
+			q = next(qdata_it, None)
 			param_info = {}
 
-		queries.append(dict(mean=mean, std=std, radius=radius, file=fname, line=line, column=column,
+		queries.append(dict(mean=mean, std=std, radius=radius,
+		                    file=query.filename, line=query.line, column=query.column,
 		                    nsims=count, discarded=discarded, **param_info))
 
 	return dict(nsims=num_sims, queries=queries)
@@ -370,9 +376,9 @@ def check(program, simulator, seed, alpha, delta, block, min_sim, max_sim, jobs,
 
 	# Each query maintains some data like the sum of the outcomes
 	# and the sum of their squares
-	qdata = [QueryData(k, delta, idict)
-	         for k, qinfo in enumerate(program.query_locations)
-	         for idict in make_parameter_dicts(qinfo[3])]
+	qdata = [QueryData(k, dt, idict)
+	         for k, qinfo in enumerate(program.queries)
+	         for idict, dt in make_parameter_dicts(qinfo, delta)]
 
 	# Run the simulations
 	if jobs == 1 and num_sims != 1:

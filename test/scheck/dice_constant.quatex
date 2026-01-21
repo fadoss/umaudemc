@@ -5,3 +5,4 @@ else
 fi ;
 
 eval E[Mean(0, 0.0)] ;
+eval parametric(E[Mean(m, 0.0)], m, 0, 1, $n / 2) ;

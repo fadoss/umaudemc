@@ -8,6 +8,19 @@ import os
 from . import usermsgs
 
 
+class QuaTExQuery:
+	"""QuaTeX query information"""
+
+	def __init__(self, fname, line, column, expr, parameters, delta):
+		self.filename = fname  # file cointing the query
+		self.line = line  # query location
+		self.column = column
+		self.parameters = parameters  # parameters as (variable, start, step, end)
+
+		self.expr = expr  # query expression (only needed for compilation)
+		self.delta = delta  # delta value
+
+
 class QuaTExProgram:
 	"""Compiled QuaTEx program"""
 
@@ -23,7 +36,7 @@ class QuaTExProgram:
 		self.nqueries = len(slots) - ndefs
 
 		# Query information (file name, line, column, and parameters)
-		self.query_locations = qinfo
+		self.queries = qinfo
 
 
 class QuaTExLexer:
@@ -171,6 +184,7 @@ class QuaTExLexer:
 			self.ltype = self.LT_STRING
 			self._capture_string()
 
+		# Names cannot start with a number
 		elif c.isalpha() or c == '$':
 			self.ltype = self.LT_NAME
 			self._capture(self._is_name)
@@ -211,9 +225,9 @@ class QuaTExLexer:
 class QuaTExParser:
 	"""Parser for QuaTEx"""
 
-	PS_IFC = 0  # condition
-	PS_IFT = 1  # true branch
-	PS_IFF = 2  # negative branch
+	PS_IF_COND = 0  # condition
+	PS_IF_THEN = 1  # true branch
+	PS_IF_ELSE = 2  # negative branch
 	PS_PAREN = 3  # parenthesis
 	PS_ARITH = 4  # completing an arithmetic expression
 	PS_CALLARGS = 5  # call arguments
@@ -223,6 +237,7 @@ class QuaTExParser:
 	BINOPS_PREC = (4, 4, 3, 3, 3, 11, 12, 7, 7, 6, 6, 6, 6)
 	BINOPS_AST = (ast.Add, ast.Sub, ast.Mult, ast.Div, ast.Mod, ast.And, ast.Or, ast.Eq,
 	              ast.NotEq, ast.Lt, ast.LtE, ast.Gt, ast.GtE)
+	# Kind of binary operator (0 = BinOp, 1 = BoolOp, 2 = Compare)
 	BINOPS_CMP = (0, ) * 5 + (1, ) * 2 + (2, ) * 6
 	# Unary operator and its precedence (as in C)
 	UNARY_OPS = ('!', )
@@ -238,13 +253,14 @@ class QuaTExParser:
 		self.pending_lexers = []
 		self.seen_files = set() if filename.startswith('<') else {os.path.realpath(filename)}
 
-		# Parameters of the current function
-		self.fvars = []
-		# Whether the variables that may occur
-		# in an expression are known
+		# Whether the variables that may occur in an expression are known
 		self.known_vars = True
+		# Parameters of the current function if self.known_vars
+		# or variables found in the last processed expression otherwise
+		self.fvars = []
 		# Constants defined outside
 		self.constants = {} if constants is None else constants
+		self.pending_constants = []
 
 		# State stack for parsing expressions
 		self.stack = []
@@ -253,7 +269,7 @@ class QuaTExParser:
 		# Whether parsing errors have been encountered
 		self.ok = True
 
-		# Compilation slot indices for each number
+		# Compilation slot indices for each element
 		self.fslots = {}
 		self.calls = []
 		self.observations = []
@@ -284,13 +300,29 @@ class QuaTExParser:
 
 		return True
 
+	def _expect_any(self, *options):
+		"""Check whether any of the given strings is the next token"""
+
+		atoken = self.lexer.get_token()
+		options_str = ', '.join(f'"{opt}"' for opt in options)
+
+		if atoken is None:
+			self._eprint(f'unexpected end of file where any of {options_str} is required.')
+			return None
+
+		if atoken not in options:
+			self._eprint(f'unexpected token "{atoken}" where any of {options_str} is required.')
+			return None
+
+		return atoken
+
 	def _in_state(self, state):
 		"""Check whether the parser is in the given state"""
 
 		return self.stack and self.stack[-1] == state
 
 	def _next_token(self):
-		"""Get the next token without potential file exhaustion"""
+		"""Get the next token dealing with file exhaustion"""
 
 		token = self.lexer.get_token()
 
@@ -332,40 +364,89 @@ class QuaTExParser:
 			self._eprint(f'unexpected token "{var_name}" where a variable name is required.')
 			return (None, ) * 3
 
+		if not self._expect(','):
+			return (None, ) * 3
+
 		# Parameter specification (name, initial value, step, last value)
 		spec = [var_name]
 
+		# Make a copy of the expression variables, since we continue in
+		# known variables mode with no variables allowed
+		expr_vars = tuple(self.fvars)
+		self.fvars.clear()
+
 		# Parse the initial value, step, and last value
-		for _ in range(3):
-			if not self._expect(','):
+		for k in range(3):
+			expr = self._parse_constexpr(',' if k < 2 else ')')
+
+			if expr is None:
 				return (None, ) * 3
 
-			token = self.lexer.get_token()
-
-			if self.lexer.ltype != self.lexer.LT_NUMBER:
-				self._eprint(f'unexpected token "{token}" where a number is required.')
-				return (None, ) * 3
-
-			spec.append(float(token))
-
-		# Check the closing parenthesis
-		if not self._expect(')'):
-			return (None, ) * 3
+			spec.append(float(expr))
 
 		# Check whether the variables in the expressions are the parameter
-		for var, line, column in self.fvars:
+		for var, line, column in expr_vars:
 			if var != var_name:
 				self._eprint(f'unknown variable "{var}".', line=line, column=column)
 				self.ok = False
 
-		self.fvars.clear()
-
 		return tuple(spec)
 
-	def _parse_expr(self, end_token, inside_def=False):
+	def _parse_delta(self, parameter):
+		"""Parse the delta annotation"""
+
+		if not self._expect('delta', '='):
+			return None
+
+		# Only the parameter can appear as free variable in the expression
+		self.fvars.clear()
+
+		if parameter:
+			self.fvars.append(parameter[0])
+
+		if (delta := self._parse_expr(';', constexpr=True)) is None:
+			return None
+
+		# Prepare delta as a function on the parameter (if any)
+		args = [ast.arg(parameter[0])] if parameter else []
+
+		delta_fn = ast.Expression(ast.Lambda(ast.arguments(args=args), delta))
+		ast.fix_missing_locations(delta_fn)
+
+		return eval(compile(delta_fn, '<delta>', 'eval'), {}, {})
+
+	def _parse_constexpr(self, end_token):
+		"""Parse a constant expression as a number"""
+
+		# Soft errors, like unbound variables, are hard here because
+		# we run the code to obtain a value for the expression
+		old_ok, self.ok = self.ok, True
+
+		if (expr := self._parse_expr(end_token, constexpr=True)) is None:
+			return None
+
+		elif not self.ok:
+			return 0.0  # dummy value to keep running
+
+		self.ok = old_ok
+
+		# Evaluate the expression
+		expr = ast.Expression(expr)
+		ast.fix_missing_locations(expr)
+
+		result = eval(compile(expr, self.lexer.filename, 'eval'), {}, {})
+
+		# Check whether it is a number
+		if not isinstance(result, (int, float)):
+			self._eprint(f'"{result}" obtained while a number is expected.')
+			return None
+
+		return result
+
+	def _parse_expr(self, end_token, constexpr=False):
 		"""Parse an expression"""
 
-		# Current expression
+		# Current expression (as a Python AST node)
 		current = None
 		# Number of nested conditions in the current position
 		inside_cond = 0
@@ -400,13 +481,13 @@ class QuaTExParser:
 					self._eprint('misplaced "if" keyword.')
 					return None
 
-				self.stack.append(self.PS_IFC)
+				self.stack.append(self.PS_IF_COND)
 				arg_stack.append([])
 				inside_cond += 1
 
 			elif token == 'then':
-				if current and self._in_state(self.PS_IFC):
-					self.stack[-1] = self.PS_IFT
+				if current and self._in_state(self.PS_IF_COND):
+					self.stack[-1] = self.PS_IF_THEN
 					arg_stack[-1].append(current)
 					current = None
 					inside_cond -= 1
@@ -415,8 +496,8 @@ class QuaTExParser:
 					return None
 
 			elif token == 'else':
-				if current and self._in_state(self.PS_IFT):
-					self.stack[-1] = self.PS_IFF
+				if current and self._in_state(self.PS_IF_THEN):
+					self.stack[-1] = self.PS_IF_ELSE
 					arg_stack[-1].append(current)
 					current = None
 				else:
@@ -424,7 +505,7 @@ class QuaTExParser:
 					return None
 
 			elif token == 'fi':
-				if current and self._in_state(self.PS_IFF):
+				if current and self._in_state(self.PS_IF_ELSE):
 					arg_stack[-1].append(current)
 					current = ast.IfExp(*arg_stack[-1])
 					arg_stack.pop()
@@ -442,6 +523,10 @@ class QuaTExParser:
 					self._eprint('the next operator # cannot be used in conditions or call arguments.')
 					self.ok = False
 
+				elif constexpr:
+					self._eprint('the next operator # cannot be used in constant contexts.')
+					self.ok = False
+
 				# A function call should follow
 				token = self.lexer.get_token()
 				line, column = self.lexer.sline, self.lexer.scolumn
@@ -455,7 +540,8 @@ class QuaTExParser:
 				inside_next = True
 				call_name, call_line, call_column = token, line, column
 
-			elif token == 'discard' and not (inside_cond or call_name):
+			# discard is a soft keyword
+			elif token == 'discard' and not (inside_cond or call_name or constexpr):
 				if current:
 					self._eprint('misplaced discard keyword.')
 					return None
@@ -491,10 +577,15 @@ class QuaTExParser:
 						self._eprint(f'argument missing after a comma in a call to "{call_name}".')
 						self.ok = False
 
+					# Call are internally represented as tuples that indicate whether
+					# the call is preceded by next (i.e. to be evaluated after a step)
+					# and which code slot contains the callee definition
 					slot = self.fslots.setdefault(call_name, len(self.fslots))
 					current = ast.Tuple([ast.Constant(inside_next), ast.Constant(slot), *args], ast.Load())
-					current.custom_loc = (call_line, call_column)
-					self.calls.append((call_name, call_line, call_column, len(args)))
+					# We keep the source location for error reporting (using the attributes
+					# lineno and col_offset of the AST node only here is not possible)
+					current.custom_loc = dict(fname=self.lexer.filename, line=call_line, column=call_column)
+					self.calls.append((call_name, self.lexer.filename, call_line, call_column, len(args)))
 					inside_next = False
 					call_name = None
 
@@ -549,6 +640,10 @@ class QuaTExParser:
 						self._eprint(f'"{token}" is called in a condition or call argument, but this is not allowed.')
 						return None
 
+					if constexpr:
+						self._eprint(f'"{token}" is called in a constant context, but calls are not allowed.')
+						return None
+
 					self.stack.append(self.PS_CALLARGS)
 					arg_stack.append([])
 					call_name = token
@@ -558,17 +653,16 @@ class QuaTExParser:
 				else:
 					current = ast.Name(token, ast.Load())
 
-					if not self.known_vars:
+					# Constants (from the command line) start with $, but variables can also
+					if token.startswith('$') and (value := self.constants.get(token[1:])) is not None:
+						current = ast.Constant(value)
+
+					elif not self.known_vars:
 						self.fvars.append((token, line, column))
 
 					elif token not in self.fvars:
-						# The variable is an externally-defined constant
-						if token.startswith('$') and (value := self.constants.get(token[1:])) is not None:
-							current = ast.Constant(value)
-
-						else:
-							self._eprint(f'unknown variable "{token}".', line=line, column=column)
-							self.ok = False
+						self._eprint(f'unknown variable "{token}".', line=line, column=column)
+						self.ok = False
 
 
 					# We continue with the peeked token
@@ -694,22 +788,29 @@ class QuaTExParser:
 				if parameter:
 					self.known_vars = False
 
-				expr = self._parse_expr(']')
+				if not (expr := self._parse_expr(']')):
+					return False
 
 				self.known_vars = True
 
 				# Parse parameter specification in parametric queries
 				parameter = self._parse_parameter() if parameter else None
+				delta = None
 
-				if not expr or not self._expect(';'):
+				# Check whether there is a "with delta = <number>" prefix
+				if (token := self._expect_any('with', ';')) is None:
 					return False
+
+				if token == 'with':
+					if (delta := self._parse_delta(parameter)) is None:
+						return False
 
 				# Ignore parameterized expressions with empty range
 				if parameter and parameter[1] > parameter[3]:
 					usermsgs.print_warning_loc(self.lexer.filename, line, column,
 					                           'ignoring parametric query with empty range.')
 				else:
-					self.queries.append((self.lexer.filename, line, column, expr, parameter))
+					self.queries.append(QuaTExQuery(self.lexer.filename, line, column, expr, parameter, delta))
 
 			# Function definition -- <name> ( <args> ) = <expr> ;
 			else:
@@ -744,7 +845,7 @@ class QuaTExParser:
 				if not self._expect('='):
 					return False
 
-				expr = self._parse_expr(';', inside_def=True)
+				expr = self._parse_expr(';')
 
 				if not expr:
 					return False
@@ -763,8 +864,7 @@ class QuaTExParser:
 			expr, tail_pos = pending.pop()
 
 			if isinstance(expr, ast.Tuple) and not tail_pos:
-				self._eprint('non-tail calls are not allowed.',
-				             line=expr.custom_loc[0], column=expr.custom_loc[1])
+				self._eprint('non-tail calls are not allowed.', **expr.custom_loc)
 				return False
 
 			elif isinstance(expr, ast.UnaryOp):
@@ -799,17 +899,17 @@ class QuaTExParser:
 				arities[name] = len(args)
 
 		# Check whether all calls are well-defined
-		for name, line, column, arity in self.calls:
+		for name, fname, line, column, arity in self.calls:
 			def_arity = arities.get(name)
 
 			if def_arity is None:
 				self._eprint(f'call to undefined function "{name}".',
-				             line=line, column=column)
+				             line=line, column=column, fname=fname)
 				ok = False
 
 			elif arity != def_arity:
 				self._eprint(f'wrong number of arguments in a call to "{name}" ({arity} given, but {def_arity} expected).',
-				             line=line, column=column)
+				             line=line, column=column, fname=fname)
 				ok = False
 
 		# Check all calls are tail in expression
@@ -817,8 +917,8 @@ class QuaTExParser:
 			if not self._check_tail(expr):
 				ok = False
 
-		for _, _, _, expr, _ in self.queries:
-			if not self._check_tail(expr):
+		for query in self.queries:
+			if not self._check_tail(query.expr):
 				ok = False
 
 		if not ok:
@@ -848,22 +948,24 @@ class QuaTExParser:
 				             line=line, column=column)
 				ok = False
 
-		for k, (fname, line, column, expr, _) in enumerate(self.queries):
+		for k, query in enumerate(self.queries):
 			try:
-				expr = ast.Expression(expr)
+				expr = ast.Expression(query.expr)
 				ast.fix_missing_locations(expr)
-				slots[used_defs + k] = compile(expr, filename=f'query{fname}:{line}:{column}', mode='eval')
+				slots[used_defs + k] = compile(expr, filename=f'query{query.filename}:{query.line}:{query.column}', mode='eval')
 
 			except TypeError:
 				self._eprint('this query cannot cannot be compiled.',
-				             line=line, column=column, fname=fname)
+				             line=query.line, column=query.column, fname=query.fname)
 				ok = False
+
+			# No longer needed
+			query.expr = None
 
 		if not ok:
 			return None
 
-		return QuaTExProgram(slots, varnames, len(self.fslots),
-		                     tuple((fname, line, column, params) for fname, line, column, _, params in self.queries))
+		return QuaTExProgram(slots, varnames, len(self.fslots), self.queries)
 
 
 def parse_quatex(input_file, filename='<string>', legacy=False, constants=None):
