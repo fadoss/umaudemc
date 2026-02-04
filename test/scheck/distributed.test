@@ -8,17 +8,17 @@ umaudemc sworker -p 17234 > /dev/null &
 umaudemc sworker -p 17235 > /dev/null &
 
 # From methods.test
-umaudemc scheck ../pcheck/coin head tail.quatex -s 1000 -d 0.25 --distribute workers_list.json
-umaudemc scheck ../pcheck/coin head tail.quatex -s 1000 -d 0.25 --distribute workers_dict.json
-umaudemc scheck ../pcheck/coin head tail.quatex -s 1000 -d 0.25 --assign uniform --distribute workers_list.json
-umaudemc scheck ../pcheck/coin head tail.quatex -s 1000 -d 0.25 --assign metadata --distribute workers_list.json
-umaudemc scheck ../pcheck/coin head tail.quatex -s 1000 -d 0.25 --assign 'uaction(ttail=3, thead=7)' --distribute workers_list.json
-umaudemc scheck ../pcheck/coin head tail.quatex -s 1000 -d 0.25 --assign "term(inertia(L, R))" --distribute workers_list.json
-umaudemc scheck ../pcheck/coin head tail.quatex -s 1000 -d 0.25 'choice(3 : ttail, 7 : thead)' --assign step --distribute workers_list.json
-umaudemc scheck ../pcheck/coin head tail.quatex -s 1000 -d 0.25 'choice(3 : ttail, 7 : thead) ; choice(2 : ttail, 3 : thead)' --assign step --distribute workers_list.json
+umaudemc scheck ../pcheck/coin head tail.quatex --seed 1 -s 1000 -d 0.25 --distribute workers_list.json
+umaudemc scheck ../pcheck/coin head tail.quatex --seed 2 -s 1000 -d 0.25 --distribute workers_dict.json
+umaudemc scheck ../pcheck/coin head tail.quatex --seed 3 -s 1000 -d 0.25 --assign uniform --distribute workers_list.json
+umaudemc scheck ../pcheck/coin head tail.quatex --seed 4 -s 1000 -d 0.25 --assign metadata --distribute workers_list.json
+umaudemc scheck ../pcheck/coin head tail.quatex --seed 5 -s 1000 -d 0.25 --assign 'uaction(ttail=3, thead=7)' --distribute workers_list.json
+umaudemc scheck ../pcheck/coin head tail.quatex --seed 6 -s 1000 -d 0.25 --assign "term(inertia(L, R))" --distribute workers_list.json
+umaudemc scheck ../pcheck/coin head tail.quatex --seed 7 -s 1000 -d 0.25 'choice(3 : ttail, 7 : thead)' --assign step --distribute workers_list.json
+umaudemc scheck ../pcheck/coin head tail.quatex --seed 8 -s 1000 -d 0.25 'choice(3 : ttail, 7 : thead) ; choice(2 : ttail, 3 : thead)' --assign step --distribute workers_list.json
 
 # From parametric.test
-umaudemc scheck ../pcheck/coin head ntail.multiquatex -s 1000 -d 0.25 --distribute workers_list.json
+umaudemc scheck ../pcheck/coin head ntail.multiquatex --seed 9 -s 1000 -d 0.25 --distribute workers_list.json
 
 kill %1
 kill %2

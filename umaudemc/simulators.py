@@ -164,9 +164,9 @@ class UmaudemcSimulator(BaseSimulator):
 	def __init__(self, initial, graph, assigner):
 		super().__init__(initial)
 
-		self.state_nr = 0
 		self.graph = graph
 		self.assigner = assigner
+		self.state_nr = 0
 		self.time = 0.0
 
 	def restart(self):
@@ -310,9 +310,8 @@ class PMaudeSimulator(BaseSimulator):
 		self.nat_kind = nat_kind
 		self.val = val
 
-		# Prepares the initial term
-		self.state = self.initial.copy()
-		self.state.rewrite()
+		# restart must be called before running
+		self.state = None
 
 		# Try to find Maude's random symbol for calculating random(1). If the
 		# PMaude specification only reduces random(0), even after resetting the

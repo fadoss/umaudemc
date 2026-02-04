@@ -29,6 +29,7 @@ dist/umaudemc: dist $(RESOURCES) $(CODE)
 
 wheel:
 	pip wheel --no-deps -w dist .
+	$(RM) -r build umaudemc.egg-info
 
 dist:
 	mkdir -p dist

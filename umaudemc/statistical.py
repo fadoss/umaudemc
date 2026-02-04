@@ -139,8 +139,10 @@ def check_interval(qdata, num_sims, min_sim, alpha, quantile, verbose):
 
 	# Whether the size of the confidence interval for all queries have converged
 	converged = True
+	# Which queries have converged
+	which = []
 
-	for query in qdata:
+	for k, query in enumerate(qdata):
 		# This query has already converged
 		if query.converged:
 			continue
@@ -164,6 +166,7 @@ def check_interval(qdata, num_sims, min_sim, alpha, quantile, verbose):
 		if query.h <= query.delta and query.n >= min_sim:
 			query.converged = True
 			query.discarded = num_sims - query.n
+			which.append(k)
 		else:
 			converged = False
 
@@ -174,7 +177,10 @@ def check_interval(qdata, num_sims, min_sim, alpha, quantile, verbose):
 		                    f' σ={" ".join(str(q.s) for q in qdata)}'
 		                    f' r={" ".join(str(q.h) for q in qdata)}')
 
-	return converged
+		for k in which:
+			print(f'  Query {qdata[k].query + 1} has converged')
+
+	return converged, which
 
 
 def run_single(program, qdata, num_sims, min_sim, max_sim, simulator, alpha, block_size,
@@ -204,7 +210,7 @@ def run_single(program, qdata, num_sims, min_sim, max_sim, simulator, alpha, blo
 					query.sum_sq += value * value
 					query.n += 1
 
-		converged = check_interval(qdata, num_sims, min_sim, alpha, quantile, verbose)
+		converged, _ = check_interval(qdata, num_sims, min_sim, alpha, quantile, verbose)
 
 		if converged or max_sim and num_sims >= max_sim:
 			break
@@ -215,7 +221,7 @@ def run_single(program, qdata, num_sims, min_sim, max_sim, simulator, alpha, blo
 	return num_sims, qdata
 
 
-def thread_main(program, qdata, simulator, num_sims, block_size, seed, queue, barrier, more, dump=None):
+def thread_main(program, qdata, simulator, num_sims, block_size, seed, queue, barrier, more, convergents, dump=None):
 	"""Entry point of a calculating thread"""
 
 	maude.setRandomSeed(seed)
@@ -258,6 +264,12 @@ def thread_main(program, qdata, simulator, num_sims, block_size, seed, queue, ba
 		if not more.value:
 			break
 
+		# Disable queries that have converged
+		for k in range(len(qdata)):
+			if convergents[k] == -1:
+				break
+			qdata[convergents[k]].converged = True
+
 		# Continue for a next block
 		block = block_size
 
@@ -284,12 +296,14 @@ def run_parallel(program, qdata, num_sims, min_sim, max_sim, simulator, alpha, b
 	queue = mp.Queue()
 	barrier = mp.Barrier(jobs + 1)
 	more = mp.Value('b', False, lock=False)
+	convergents = mp.Array('i', [-1] * len(qdata), lock=False)
 
 	rest, rest_block = num_sims % jobs, block_size % jobs
 	processes = [mp.Process(target=thread_main,
 	                        args=(program, qdata, simulator, num_sims // jobs + (k < rest),
 	                              block_size // jobs + (k < rest_block),
-	                              seeds[k], queue, barrier, more, dumps[k])) for k in range(jobs)]
+	                              seeds[k], queue, barrier, more, convergents, dumps[k]))
+	             for k in range(jobs)]
 
 	# Start all processes
 	for p in processes:
@@ -305,7 +319,7 @@ def run_parallel(program, qdata, num_sims, min_sim, max_sim, simulator, alpha, b
 				query.sum_sq += sum_sq[k]
 				query.n += counts[k]
 
-		converged = check_interval(qdata, num_sims, min_sim, alpha, quantile, verbose)
+		converged, which = check_interval(qdata, num_sims, min_sim, alpha, quantile, verbose)
 
 		if converged or max_sim and num_sims >= max_sim:
 			break
@@ -313,6 +327,11 @@ def run_parallel(program, qdata, num_sims, min_sim, max_sim, simulator, alpha, b
 		num_sims += block_size
 
 		more.value = True
+		# Inform which queries have converged
+		for k, qindex in enumerate(which):
+			convergents[k] = qindex
+		convergents[len(which)] = -1
+
 		barrier.wait()
 
 	more.value = False

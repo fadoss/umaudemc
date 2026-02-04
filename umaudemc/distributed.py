@@ -225,7 +225,7 @@ def setup_workers(args, initial_data, dspec, constants, seen_files, stack):
 			input_data['block'] = block_size  # if specified
 
 		input_data = json.dumps(input_data).encode()
-		sock.sendall(len(input_data).to_bytes(4) + input_data)
+		sock.sendall(len(input_data).to_bytes(4, 'big') + input_data)
 
 		# Send the relevant files
 		with sock.makefile('wb', buffering=0) as fobj:
@@ -249,6 +249,17 @@ def setup_workers(args, initial_data, dspec, constants, seen_files, stack):
 	return sockets
 
 
+class WorkerData:
+	"""Relevant data for the worker"""
+
+	__attrs__ = ('index', 'block', 'name')
+
+	def __init__(self, index, block, data):
+		self.index = index
+		self.block = data.get('block', block)
+		self.name = data.get('name')
+
+
 def distributed_check(args, initial_data, min_sim, max_sim, program, constants, seen_files):
 	"""Distributed statistical model checking"""
 
@@ -269,9 +280,10 @@ def distributed_check(args, initial_data, min_sim, max_sim, program, constants, 
 		# Use a selector to wait for updates from any worker
 		selector = selectors.DefaultSelector()
 
-		for sock, data in zip(sockets, dspec['workers']):
-			selector.register(sock, selectors.EVENT_READ, data={'block': args.block} | data)
-			sock.send(b'c')
+		# Use a selector to be notified of the worker answers
+		for k, (sock, data) in enumerate(zip(sockets, dspec['workers'])):
+			selector.register(sock, selectors.EVENT_READ, data=WorkerData(k, args.block, data))
+			sock.send(b'c')  # continue command
 
 		buffer = array('d')
 		ibuffer = array('i')
@@ -282,6 +294,12 @@ def distributed_check(args, initial_data, min_sim, max_sim, program, constants, 
 		         for idict, delta in make_parameter_dicts(qinfo, args.delta)]
 		nqueries = len(qdata)
 		num_sims = 0
+
+		# In order to tell the workers which queries have converged, we keep
+		# a list of indices of converged queries in cronological order and
+		# a list with the next index to be transmitted to each worker
+		converged_queries = array('i')
+		next_to_tell = [0] * len(sockets)
 
 		quantile = get_quantile_func()
 
@@ -294,35 +312,58 @@ def distributed_check(args, initial_data, min_sim, max_sim, program, constants, 
 
 				answer = sock.recv(1)
 
+				# Block finished
 				if answer == b'b':
+					# The message is the concatenation of three arrays
+					# (sum, sum_sq, and counts) of nqueries elements each.
+					# sum and sum_sq contain 64-bit floating-point numbers
+					# and counts contains 32-bit integer numbers
 					data = sock.recv(24 * nqueries)
 					buffer.frombytes(data[:16 * nqueries])
 					ibuffer.frombytes(data[16 * nqueries:])
 
+					# Some queries may have not been evaluated because
+					# they converged, but it is easier to sum their zeros
 					for k in range(nqueries):
 						qdata[k].sum += buffer[k]
 						qdata[k].sum_sq += buffer[nqueries + k]
 						qdata[k].n += ibuffer[k]
 
-					num_sims += key.data['block']
+					num_sims += key.data.block
 
 					del buffer[:]
 					del ibuffer[:]
-					finished.append(key.fileobj)
+					finished.append(key)
 
 				else:
-					usermsgs.print_error(f'Server {key.data["name"]} disconnected or misbehaving')
+					usermsgs.print_error(f'Server {key.data.name} disconnected or misbehaving')
 					selector.unregister(key.fileobj)
 					sockets.remove(key.fileobj)
 
 			# Check whether the simulation has converged
-			converged = check_interval(qdata, num_sims, min_sim, args.alpha, quantile, args.verbose)
+			converged, which = check_interval(qdata, num_sims, min_sim, args.alpha, quantile, args.verbose)
+
+			# More converged queries
+			if which:
+				converged_queries.extend(which)
 
 			if converged or max_sim and num_sims >= max_sim:
 				break
 
-			for sock in finished:
-				sock.send(b'c')
+			for key in finished:
+				index = key.data.index
+
+				# Transmit which queries have converged
+				if next_to_tell[index] != len(converged_queries):
+					# We send p followed by the number of indices and then the indices
+					key.fileobj.send(b'p'
+						+ (len(converged_queries) - next_to_tell[index]).to_bytes(4, 'big')
+						+ converged_queries[next_to_tell[index]:].tobytes())
+					next_to_tell[index] = len(converged_queries)
+
+				# Continue without change
+				else:
+					key.fileobj.send(b'c')
 
 			finished.clear()
 

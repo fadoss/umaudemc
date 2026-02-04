@@ -1,3 +1,3 @@
 # Statistical model checking under different assignment methods
 
-umaudemc scheck ../pcheck/coin head ntail.multiquatex -s 1000 -d 0.25
+umaudemc scheck ../pcheck/coin head ntail.multiquatex --seed 1 -s 1000 -d 0.25

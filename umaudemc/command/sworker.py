@@ -99,9 +99,12 @@ class Worker:
 		         for k, qinfo in enumerate(program.queries)
 		         for idict, _ in make_parameter_dicts(qinfo, 1.0)]
 
+		# Compact arrays are used so that they can be sent through the socket
 		sums = array('d', [0.0] * len(qdata))
 		sum_sq = array('d', [0.0] * len(qdata))
 		counts = array('i', [0] * len(qdata))
+
+		converged = array('i')  # to store indices of converged queries
 
 		while True:
 
@@ -120,14 +123,27 @@ class Worker:
 			# Check whether to continue
 			answer = conn.recv(1)
 
+			# Stop command
 			if answer == b's':
 				print('Done')
 				return
+
+			# Partial convergence
+			elif answer == b'p':
+				mcount = int.from_bytes(conn.recv(4), 'big')
+				# Safety check
+				if mcount <= len(qdata):
+					converged.frombytes(conn.recv(4 * mcount))
+					# Set the converged queries to avoid recomputing them
+					for index in converged:
+						qdata[index].converged = True
+					del converged[:]
 
 			elif answer != b'c':
 				usermsgs.print_error(f'Unknown command {answer.decode()}. Stopping.')
 				return
 
+			# Reset the accumulators for the next round
 			for k in range(len(qdata)):
 				sums[k] = 0
 				sum_sq[k] = 0

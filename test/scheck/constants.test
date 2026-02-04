@@ -1,5 +1,5 @@
 # Constants defined from the command line in QuaTEx
 
-umaudemc scheck dice initial dice_constant.quatex -s 1000 -d 0.1 --assign pmaude  # syntax error
-umaudemc scheck dice initial dice_constant.quatex -s 1000 -d 0.1 --assign pmaude -Dn=5
-umaudemc scheck dice initial dice_constant.quatex -s 1000 -d 0.1 --assign pmaude -Dn=10
+umaudemc scheck dice initial dice_constant.quatex --seed 1 -s 1000 -d 0.1 --assign pmaude  # syntax error
+umaudemc scheck dice initial dice_constant.quatex --seed 2 -s 1000 -d 0.1 --assign pmaude -Dn=5
+umaudemc scheck dice initial dice_constant.quatex --seed 3 -s 1000 -d 0.1 --assign pmaude -Dn=10
