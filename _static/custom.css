@@ -1,0 +1,20 @@
+p {
+	text-align: justify;
+}
+
+.text-center > p {
+	text-align: center;
+}
+
+.caption-text {
+	font-size: 90%;
+	color: gray;
+}
+
+.figure > p:first-child {
+	text-align: center;
+}
+
+.sd-tab-label {
+	font-weight: normal;
+}
