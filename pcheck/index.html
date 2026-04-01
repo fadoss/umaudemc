@@ -1,0 +1,432 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="../genindex/"><link rel="search" title="Search" href="../search/"><link rel="next" title="Statistical model checking" href="../scheck/"><link rel="prev" title="Standard model checking" href="../check/">
+
+    <!-- Generated with Sphinx 9.1.0 and Furo 2025.12.19 -->
+        <title>Probabilistic model checking - umaudemc documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=7bdb33bb" />
+    <link rel="stylesheet" type="text/css" href="../_static/erbsland-ansi/ansi.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=ac49f9e9" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../"><div class="brand">umaudemc  documentation</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../">
+  
+  <span class="sidebar-brand-text">umaudemc  documentation</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../search/" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../intro/">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../check/">Standard model checking</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Probabilistic model checking</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../scheck/">Statistical model checking</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../graph/">Other tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../biblio/">Bibliography</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../apiref/">API reference</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          
+
+<div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section class="tex2jax_ignore mathjax_ignore" id="probabilistic-model-checking">
+<span id="sec-pcheck"></span><h1>Probabilistic model checking<a class="headerlink" href="#probabilistic-model-checking" title="Link to this heading">¶</a></h1>
+<p>Probabilistic model checking is available through the <code class="docutils literal notranslate"><span class="pre">pcheck</span></code> subcommand on Maude models extended with probabilities by the <a class="reference internal" href="../intro/#sec-probspec"><span class="std std-ref">probabilistic assignment method</span></a> specified with the <code class="docutils literal notranslate"><span class="pre">--assign</span></code> option.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>umaudemc<span class="w"> </span>pcheck<span class="w"> </span>⟨filename⟩<span class="w"> </span>⟨initial<span class="w"> </span>state⟩<span class="w"> </span>⟨formula⟩<span class="w"> </span><span class="o">[</span><span class="w"> </span>⟨strategy⟩<span class="w"> </span><span class="o">]</span>
+<span class="go">                  [ --assign ⟨method⟩ ] [ --reward ⟨term⟩ ]</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">formula</span></code> argument can be either <code class="docutils literal notranslate"><span class="pre">&#64;steady</span></code> to calculate steady-state probabilities, <code class="docutils literal notranslate"><span class="pre">&#64;transient(n)</span></code> for the transient probabilities at the <code class="docutils literal notranslate"><span class="pre">n</span></code>-th step, or a formula in LTL, CTL, or PCTL in the following syntax extending the standard <code class="docutils literal notranslate"><span class="pre">LTL</span></code> module:</p>
+<div class="highlight-maude notranslate"><div class="highlight"><pre><span></span><span class="c1">*** CTL</span>
+<span class="kd">op</span><span class="w"> </span><span class="n">A_</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="p">[</span><span class="k">ctor</span><span class="w"> </span><span class="k">prec</span><span class="w"> </span><span class="mi">53</span><span class="p">]</span><span class="w"> </span><span class="p">.</span>
+<span class="kd">op</span><span class="w"> </span><span class="n">E_</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="p">[</span><span class="k">ctor</span><span class="w"> </span><span class="k">prec</span><span class="w"> </span><span class="mi">53</span><span class="p">]</span><span class="w"> </span><span class="p">.</span>
+
+<span class="c1">*** bounded step operators</span>
+<span class="kd">op</span><span class="w"> </span><span class="n">_U__</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="n">Bound</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="p">[</span><span class="k">ctor</span><span class="w"> </span><span class="k">prec</span><span class="w"> </span><span class="mi">63</span><span class="w"> </span><span class="n">…</span><span class="p">]</span><span class="w"> </span><span class="p">.</span>
+<span class="kd">op</span><span class="w"> </span><span class="n">_R__</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="n">Bound</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="p">[</span><span class="k">ctor</span><span class="w"> </span><span class="k">prec</span><span class="w"> </span><span class="mi">63</span><span class="w"> </span><span class="n">…</span><span class="p">]</span><span class="w"> </span><span class="p">.</span>
+
+<span class="kd">op</span><span class="w"> </span><span class="n">&lt;&gt;__</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Bound</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="p">[</span><span class="k">prec</span><span class="w"> </span><span class="mi">53</span><span class="w"> </span><span class="n">…</span><span class="p">]</span><span class="w"> </span><span class="p">.</span>
+<span class="kd">op</span><span class="w"> </span><span class="p">[]</span><span class="n">__</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Bound</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="p">[</span><span class="k">prec</span><span class="w"> </span><span class="mi">53</span><span class="w"> </span><span class="n">…</span><span class="p">]</span><span class="w"> </span><span class="p">.</span>
+<span class="kd">op</span><span class="w"> </span><span class="n">_W__</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Bound</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="p">[</span><span class="k">prec</span><span class="w"> </span><span class="mi">63</span><span class="w"> </span><span class="n">…</span><span class="p">]</span><span class="w"> </span><span class="p">.</span>
+
+<span class="c1">*** bounded probability operator (PCTL)</span>
+<span class="kd">op</span><span class="w"> </span><span class="n">P__</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Bound</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="p">[</span><span class="k">ctor</span><span class="w"> </span><span class="k">prec</span><span class="w"> </span><span class="mi">65</span><span class="w"> </span><span class="n">…</span><span class="p">]</span><span class="w"> </span><span class="p">.</span>
+</pre></div>
+</div>
+<p>A formula <span class="math notranslate nohighlight"><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <msub>
+    <mi>𝐏</mi>
+    <mi>I</mi>
+  </msub>
+  <mspace width="0.1667em"></mspace>
+  <mi>φ</mi>
+</math></span> in PCTL holds when the probability that <span class="math notranslate nohighlight"><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>φ</mi>
+</math></span> is satisfied is in the interval <span class="math notranslate nohighlight"><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>I</mi>
+  <mo>⊆</mo>
+  <mo stretchy="false">[</mo>
+  <mn>0</mn>
+  <mo>,</mo>
+  <mn>1</mn>
+  <mo stretchy="false">]</mo>
+</math></span>. In the <code class="docutils literal notranslate"><span class="pre">P</span></code> operator of the Maude-based syntax, this interval is defined by a term of sort <code class="docutils literal notranslate"><span class="pre">Bound</span></code> built with</p>
+<div class="highlight-maude notranslate"><div class="highlight"><pre><span></span><span class="kd">op</span><span class="w"> </span><span class="n">&lt;=_</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Float</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Bound</span><span class="w"> </span><span class="p">[</span><span class="k">ctor</span><span class="p">]</span><span class="w"> </span><span class="p">.</span><span class="w">       </span><span class="kd">op</span><span class="w"> </span><span class="n">&lt;=_</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Nat</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Bound</span><span class="w"> </span><span class="p">[</span><span class="k">ctor</span><span class="p">]</span><span class="w"> </span><span class="p">.</span>
+<span class="kd">op</span><span class="w"> </span><span class="n">&lt;_</span><span class="w">  </span><span class="o">:</span><span class="w"> </span><span class="n">Float</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Bound</span><span class="w"> </span><span class="p">[</span><span class="k">ctor</span><span class="p">]</span><span class="w"> </span><span class="p">.</span><span class="w">       </span><span class="kd">op</span><span class="w"> </span><span class="n">&lt;_</span><span class="w">  </span><span class="o">:</span><span class="w"> </span><span class="n">Nat</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Bound</span><span class="w"> </span><span class="p">[</span><span class="k">ctor</span><span class="p">]</span><span class="w"> </span><span class="p">.</span>
+<span class="kd">op</span><span class="w"> </span><span class="n">&gt;=_</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Float</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Bound</span><span class="w"> </span><span class="p">[</span><span class="k">ctor</span><span class="p">]</span><span class="w"> </span><span class="p">.</span><span class="w">       </span><span class="kd">op</span><span class="w"> </span><span class="n">&gt;=_</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Nat</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Bound</span><span class="w"> </span><span class="p">[</span><span class="k">ctor</span><span class="p">]</span><span class="w"> </span><span class="p">.</span>
+<span class="kd">op</span><span class="w"> </span><span class="n">&gt;_</span><span class="w">  </span><span class="o">:</span><span class="w"> </span><span class="n">Float</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Bound</span><span class="w"> </span><span class="p">[</span><span class="k">ctor</span><span class="p">]</span><span class="w"> </span><span class="p">.</span><span class="w">       </span><span class="kd">op</span><span class="w"> </span><span class="n">&gt;_</span><span class="w">  </span><span class="o">:</span><span class="w"> </span><span class="n">Nat</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Bound</span><span class="w"> </span><span class="p">[</span><span class="k">ctor</span><span class="p">]</span><span class="w"> </span><span class="p">.</span>
+
+<span class="kd">op</span><span class="w"> </span><span class="p">[</span><span class="n">_</span><span class="p">,</span><span class="n">_</span><span class="p">]</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Nat</span><span class="w"> </span><span class="n">Nat</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Bound</span><span class="w"> </span><span class="p">[</span><span class="k">ctor</span><span class="p">]</span><span class="w"> </span><span class="p">.</span>
+<span class="kd">op</span><span class="w"> </span><span class="p">[</span><span class="n">_</span><span class="p">,</span><span class="n">_</span><span class="p">]</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Float</span><span class="w"> </span><span class="n">Float</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Bound</span><span class="w"> </span><span class="p">[</span><span class="k">ctor</span><span class="p">]</span><span class="w"> </span><span class="p">.</span>
+</pre></div>
+</div>
+<p>These bounds can also be attached to the temporal operators, although not all combinations are admitted by the backends. When checking an LTL or CTL formula, the probability that the property is satisfied will be calculated. Rewards for reachability formulas can also be computed as explained below.</p>
+<p>In addition to the <a class="reference internal" href="../#sec-usage"><span class="std std-ref">general options</span></a>, some relevant modifiers are specific to this subcommand:</p>
+<dl class="simple myst">
+<dt><code class="docutils literal notranslate"><span class="pre">--assign</span> <span class="pre">⟨method⟩</span></code></dt><dd><p>Sets the probability assignment method to one of those explained in <a class="reference internal" href="../intro/#sec-probspec"><span class="std std-ref">Probabilistic models</span></a>. Instead of the literal description of the method, a filename prefixed by <code class="docutils literal notranslate"><span class="pre">&#64;</span></code> may be entered to load it from file. If the selected method is <code class="docutils literal notranslate"><span class="pre">strategy</span></code>, the <em>strategy</em> argument must be filled. Otherwise, this argument is optional and the strategy would control the system in the standard way.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">--steps</span></code></dt><dd><p>For a reachability formula, calculates the expected number of steps instead of its probability.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">--reward</span> <span class="pre">⟨term⟩</span></code></dt><dd><p>For a reachability formula, calculates the expected reward for the given term instead of its probability. The sort of this term should be a numerical one (<code class="docutils literal notranslate"><span class="pre">Int</span></code>, <code class="docutils literal notranslate"><span class="pre">Float</span></code>, <code class="docutils literal notranslate"><span class="pre">Integer</span></code>, <code class="docutils literal notranslate"><span class="pre">Real</span></code>, …) and it must contain at most one variable, which will be instantiated with every state to evaluate the reward. The <code class="docutils literal notranslate"><span class="pre">--steps</span></code> option can be seen as a shortcut for <code class="docutils literal notranslate"><span class="pre">--reward</span> <span class="pre">1</span></code>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">--raw-formula</span></code></dt><dd><p>The <em>formula</em> argument is directly passed to the backend, although it is scanned to find atomic propositions that should be evaluated in the model.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">--fraction</span></code></dt><dd><p>Results are printed as approximated fractions instead of decimal floating-point numbers.</p>
+</dd>
+</dl>
+<section id="examples">
+<h2>Examples<a class="headerlink" href="#examples" title="Link to this heading">¶</a></h2>
+<p>For example, we can calculate steady-state probabilities for the <a class="reference internal" href="../intro/#sec-models"><span class="std std-ref">philosophers example</span></a>, which are only non-zero for the deadlock states.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>umaudemc<span class="w"> </span>pcheck<span class="w"> </span>philosophers.maude<span class="w"> </span>initial<span class="w"> </span><span class="s1">&#39;@steady&#39;</span><span class="w"> </span>--backend<span class="w"> </span>storm
+<span class="go"> 0.5                  &lt; (ψ | 0 | o) (ψ | 1 | o) (ψ | 2 | o) &gt;</span>
+<span class="go"> 0.5                  &lt; (o | 0 | ψ) (o | 1 | ψ) (o | 2 | ψ) &gt;</span>
+</pre></div>
+</div>
+<p>We have forced Storm as backend because the probabilities obtained from PRISM are 0.49999880… due to approximation errors. Transient probabilities can also be obtained with</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>umaudemc<span class="w"> </span>pcheck<span class="w"> </span>philosophers.maude<span class="w"> </span>initial<span class="w"> </span><span class="s1">&#39;@transient(1)&#39;</span><span class="w"> </span>--fraction<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--assign<span class="w"> </span><span class="s1">&#39;uaction(left=2, right=3)&#39;</span>
+<span class="go"> 1/5                  &lt; (o | 0 | o) ψ (o | 1 | o) ψ (o | 2 | ψ) &gt;</span>
+<span class="go"> 1/5                  &lt; (o | 0 | ψ) (o | 1 | o) ψ (o | 2 | o) ψ &gt;</span>
+<span class="go"> 1/5                  &lt; (o | 0 | o) ψ (o | 1 | ψ) (o | 2 | o) ψ &gt;</span>
+<span class="go"> 2/15                 &lt; (ψ | 0 | o) ψ (o | 1 | o) ψ (o | 2 | o) &gt;</span>
+<span class="go"> 2/15                 &lt; (o | 0 | o) ψ (o | 1 | o) (ψ | 2 | o) ψ &gt;</span>
+<span class="go"> 2/15                 &lt; (o | 0 | o) (ψ | 1 | o) ψ (o | 2 | o) ψ &gt;</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">--fraction</span></code> modifier has been used to see the probabilities as fractions, and <code class="docutils literal notranslate"><span class="pre">--assign</span></code> has selected the <code class="docutils literal notranslate"><span class="pre">uaction</span></code> method for assigning probabilities.</p>
+<p>As examples of temporal properties, we can check the following:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>umaudemc<span class="w"> </span>pcheck<span class="w"> </span>philosophers.maude<span class="w"> </span>initial<span class="w"> </span><span class="s1">&#39;&lt;&gt; eats(0)&#39;</span>
+<span class="go">Result: 0.4999996389661516 (relative error 7.3569252716515036e-06)</span>
+<span class="gp">$ </span>umaudemc<span class="w"> </span>pcheck<span class="w"> </span>philosophers<span class="w"> </span>initial<span class="w"> </span><span class="s1">&#39;&lt;&gt; &lt;= 3 eats(0)&#39;</span>
+<span class="go">Result: 0.24999999999999997</span>
+</pre></div>
+</div>
+<p>The unbounded one holds with probability 1 under the <code class="docutils literal notranslate"><span class="pre">parity</span></code> strategy, so we can also compute the expected number of steps until <code class="docutils literal notranslate"><span class="pre">eats(0)</span></code> is satisfied.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>umaudemc<span class="w"> </span>pcheck<span class="w"> </span>philosophers<span class="w"> </span>initial<span class="w"> </span><span class="s1">&#39;&lt;&gt; eats(0)&#39;</span><span class="w"> </span>parity<span class="w"> </span>--steps
+<span class="go">Result: 4.799996844606567 (relative error 5.952947354729354e-06)</span>
+</pre></div>
+</div>
+<p>Assuming a function <code class="docutils literal notranslate"><span class="pre">eatCount</span></code> has been defined that counts how many philosophers are eating in a given state, we can also calculate the expected value of the reward:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>umaudemc<span class="w"> </span>pcheck<span class="w"> </span>philosophers.maude<span class="w"> </span>initial<span class="w"> </span><span class="s1">&#39;&lt;&gt; eats(0)&#39;</span><span class="w"> </span>parity<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--reward<span class="w"> </span><span class="s1">&#39;2 * eatCount(M)&#39;</span>
+<span class="go">Result: 1.599999367157242 (relative error 7.855416516353985e-06)</span>
+</pre></div>
+</div>
+</section>
+<section id="external-backends-and-their-installation">
+<span id="sec-pcheck-backends"></span><h2>External backends and their installation<a class="headerlink" href="#external-backends-and-their-installation" title="Link to this heading">¶</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">pcheck</span></code> command does not implement its own probabilistic model-checking algorithms, so an external tool needs to be installed. Two alternative backends are supported:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://www.prismmodelchecker.org/">PRISM</a>. There are installation instructions in its website. If not installed in the system path, its location should be provided using the <code class="docutils literal notranslate"><span class="pre">PRISM_PATH</span></code> environment variable.</p></li>
+<li><p><a class="reference external" href="https://www.stormchecker.org/">Storm</a>. Its Python bindings, <a class="reference external" href="https://stormchecker.github.io/stormpy/">StormPy</a>, can be installed with <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">stormpy</span></code>, and the backend can be directly used afterward. Alternatively, the <code class="docutils literal notranslate"><span class="pre">pcheck</span></code> command can also interact with the <code class="docutils literal notranslate"><span class="pre">storm</span></code> binary, whose location should be specified with the <code class="docutils literal notranslate"><span class="pre">STORM_PATH</span></code> environment variable if not available in the system path.</p></li>
+</ul>
+<p>In general, StormPy should be more efficient than PRISM. The unified utility will choose the first available backend in the sequence specified with the following argument:</p>
+<dl class="simple myst">
+<dt><code class="docutils literal notranslate"><span class="pre">–-backend</span> <span class="pre">⟨list⟩</span></code></dt><dd><p>Indicates a comma-separated list of probabilistic model-checking backends that will be used to check the given properties, among <code class="docutils literal notranslate"><span class="pre">prism</span></code> and <code class="docutils literal notranslate"><span class="pre">storm</span></code>. The default backend list follows this order.</p>
+</dd>
+</dl>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="../scheck/">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">Statistical model checking</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="../check/">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">Standard model checking</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2026
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">Probabilistic model checking</a><ul>
+<li><a class="reference internal" href="#examples">Examples</a></li>
+<li><a class="reference internal" href="#external-backends-and-their-installation">External backends and their installation</a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="../_static/documentation_options.js?v=187304be"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/scripts/furo.js?v=46bd48cc"></script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
+    </body>
+</html>

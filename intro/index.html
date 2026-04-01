@@ -1,0 +1,1081 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="../genindex/"><link rel="search" title="Search" href="../search/"><link rel="next" title="Standard model checking" href="../check/"><link rel="prev" title="Unified Maude model-checking tool" href="../">
+
+    <!-- Generated with Sphinx 9.1.0 and Furo 2025.12.19 -->
+        <title>Introduction - umaudemc documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=7bdb33bb" />
+    <link rel="stylesheet" type="text/css" href="../_static/erbsland-ansi/ansi.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=ac49f9e9" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../"><div class="brand">umaudemc  documentation</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../">
+  
+  <span class="sidebar-brand-text">umaudemc  documentation</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../search/" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <ul class="current">
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../check/">Standard model checking</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pcheck/">Probabilistic model checking</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../scheck/">Statistical model checking</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../graph/">Other tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../biblio/">Bibliography</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../apiref/">API reference</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          
+
+<div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section class="tex2jax_ignore mathjax_ignore" id="introduction">
+<span id="sec-intro"></span><h1>Introduction<a class="headerlink" href="#introduction" title="Link to this heading">¶</a></h1>
+<p>Maude <span id="id1">[<a class="reference internal" href="../biblio/#id9" title="Manuel Clavel, Francisco Durán, Steven Eker, Santiago Escobar, Patrick Lincoln, Narciso Martí-Oliet, José Meseguer, Rubén Rubio, and Carolyn Talcott. Maude Manual v3.5.1. 7 2025. URL: https://maude.cs.illinois.edu/manual/.">CDE+25</a>]</span> lets users specify concurrent and complex systems by means of terms, equations and rules, the language of rewriting logic <span id="id2">[<a class="reference internal" href="../biblio/#id10" title="José Meseguer. Conditional rewriting logic as a unified model of concurrency. Theor. Comput. Sci., 96(1):73–155, 1992. doi:10.1016/0304-3975(92)90182-F.">Mes92</a>]</span>. These models can be directly executed or simulated by the interpreter, or analyzed by various tools. One of them is a built-in model checker <span id="id3">[<a class="reference internal" href="../biblio/#id11" title="Steven Eker, José Meseguer, and Ambarish Sridharanarayanan. The Maude LTL model checker. In Fabio Gadducci and Ugo Montanari, editors, Proceedings of the Fourth International Workshop on Rewriting Logic and its Applications, WRLA 2002, Pisa, Italy, September 19-21, 2002, volume 71 of Electronic Notes in Theoretical Computer Science, 162–187. Elsevier, 2004. doi:10.1016/S1571-0661(05)82534-4.">EMS04</a>]</span> for linear temporal logic (LTL) properties, which was first extended to support strategy-controlled models <span id="id4">[<a class="reference internal" href="../biblio/#id12" title="Rubén Rubio, Narciso Martí-Oliet, Isabel Pita, and Alberto Verdejo. Model checking strategy-controlled rewriting systems (system description). In Herman Geuvers, editor, 4th International Conference on Formal Structures for Computation and Deduction, FSCD 2019, June 24-30, 2019, Dortmund, Germany, volume 131 of LIPIcs, 34:1–34:18. Schloss Dagstuhl - Leibniz-Zentrum für Informatik, 2019. doi:10.4230/LIPIcs.FSCD.2019.34.">RMOPV19</a>, <a class="reference internal" href="../biblio/#id13" title="Rubén Rubio, Narciso Martí-Oliet, Isabel Pita, and Alberto Verdejo. Model checking strategy-controlled systems in rewriting logic. Autom. Softw. Eng., 29(1):7, 2022. doi:10.1007/s10515-021-00307-9.">RMOPV22a</a>]</span>. Since rewriting is just the application of rules one after the other, in any order and anywhere, Maude incorporated a strategy language <span id="id5">[<a class="reference internal" href="../biblio/#id21" title="Steven Eker, Narciso Martí-Oliet, José Meseguer, Rubén Rubio, and Alberto Verdejo. The maude strategy language. J. Log. Algebraic Methods Program., 2023. doi:10.1016/j.jlamp.2023.100887.">EMOM+23</a>]</span> to gain some global control on the process. It is designed as a new specification layer on top of equations and rules, so that the same model can exhibit different behaviors when controlled by alternative strategies. Both standard and strategy-controlled systems can be qualitatively checked using the <code class="docutils literal notranslate"><span class="pre">umaudemc</span></code> tool against LTL, CTL, CTL*, and μ-calculus properties through builtin and external tools <span id="id6">[<a class="reference internal" href="../biblio/#id7" title="Rubén Rubio, Narciso Martí-Oliet, Isabel Pita, and Alberto Verdejo. Strategies, model checking and branching-time properties in maude. J. Log. Algebraic Methods Program., 123:100700, 2021. doi:10.1016/j.jlamp.2021.100700.">RMOPV21</a>]</span>, all integrated into the unified Maude model-checking tool (<code class="docutils literal notranslate"><span class="pre">umaudemc</span></code>).</p>
+<p>In addition to qualitative model checking, the <code class="docutils literal notranslate"><span class="pre">umaudemc</span></code> tool supports quantitative model checking with probabilistic and statistical methods <span id="id7">[<a class="reference internal" href="../biblio/#id22" title="Rubén Rubio, Narciso Martí-Oliet, Isabel Pita, and Alberto Verdejo. QMaude: quantitative specification and verification in rewriting logic. In Marsha Chechik, Joost-Pieter Katoen, and Martin Leucker, editors, Formal Methods - 25th International Symposium, FM 2023, Lübeck, Germany, March 6-10, 2023, Proceedings, Lecture Notes in Computer Science, 240–259. Springer, 2023. doi:10.1007/978-3-031-27481-7_15.">RMOPV23</a>]</span>. The same models where qualitative properties have been checked can be <a class="reference internal" href="#sec-probspec">extended with quantitative information</a> to check quantitative properties with the <a class="reference internal" href="../pcheck/#sec-pcheck"><span class="std std-ref"><code class="docutils literal notranslate"><span class="pre">pcheck</span></code></span></a> and <a class="reference internal" href="../scheck/#sec-scheck"><span class="std std-ref"><code class="docutils literal notranslate"><span class="pre">scheck</span></code></span></a> commands.</p>
+<p>This introduction starts with a short discussion on how models to be model checked are specified in Maude. The procedure does not differ much from the way it is done in the standard model checker described in Chapter 12 of the Maude manual <span id="id8">[<a class="reference internal" href="../biblio/#id9" title="Manuel Clavel, Francisco Durán, Steven Eker, Santiago Escobar, Patrick Lincoln, Narciso Martí-Oliet, José Meseguer, Rubén Rubio, and Carolyn Talcott. Maude Manual v3.5.1. 7 2025. URL: https://maude.cs.illinois.edu/manual/.">CDE+25</a>]</span>. <a class="reference internal" href="#sec-smodels">Strategy-controlled</a> and <a class="reference internal" href="#sec-probspec">probabilistic models</a> are then explained.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p>This introduction is based on the document <a class="reference external" href="https://maude.ucm.es/strategies/modelchecker-manual.pdf">Maude strategy‑aware, external, and quantitative model checkers user manual</a>, which can be downloaded in PDF from the previous link.</p>
+</div>
+<section id="standard-maude-models">
+<span id="sec-models"></span><h2>Standard Maude models<a class="headerlink" href="#standard-maude-models" title="Link to this heading">¶</a></h2>
+<p>Models in model checking are formalized as annotated state and transition systems known as Kripke structures. Rewriting systems can be naturally viewed as Kripke structures by identifying terms with states and adding a transition from one state to another if the first can be rewritten to the second by a rule. Like this, the executions of the model are sequences of rule applications. However, since temporal properties are usually only defined on infinite executions, the one-step rewrite relation should be completed by adding self-loops to all <em>deadlock</em> states, where no transition leaves. This is how the standard Maude LTL model checker works <span id="id9">[<a class="reference internal" href="../biblio/#id9" title="Manuel Clavel, Francisco Durán, Steven Eker, Santiago Escobar, Patrick Lincoln, Narciso Martí-Oliet, José Meseguer, Rubén Rubio, and Carolyn Talcott. Maude Manual v3.5.1. 7 2025. URL: https://maude.cs.illinois.edu/manual/.">CDE+25</a>]</span>.</p>
+<p>Let us introduce an example for explaining, in the following sections, how Maude specifications are prepared for model checking. The classical problem of the <em>dining philosophers</em> is specified in the following modules: a group of <span class="math notranslate nohighlight"><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>n</mi>
+</math></span> philosophers is gathered around a table to have dinner, for what they have to take the forks at both their sides. However, the table is round and there are only <span class="math notranslate nohighlight"><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>n</mi>
+</math></span> forks, so they cannot eat all at the same time.</p>
+<div class="highlight-maude notranslate"><div class="highlight"><pre><span></span><span class="kn">fmod</span><span class="w"> </span><span class="n">PHILOSOPHERS-TABLE</span><span class="w"> </span><span class="k">is</span><span class="w">          </span><span class="c1">*** functional module</span>
+<span class="w">    </span><span class="k">protecting</span><span class="w"> </span><span class="n">NAT</span><span class="w"> </span><span class="p">.</span>
+
+<span class="w">    </span><span class="kd">sorts</span><span class="w"> </span><span class="n">Obj</span><span class="w"> </span><span class="n">Phil</span><span class="w"> </span><span class="n">Being</span><span class="w"> </span><span class="n">List</span><span class="w"> </span><span class="n">Table</span><span class="w"> </span><span class="p">.</span>
+<span class="w">    </span><span class="kd">subsorts</span><span class="w"> </span><span class="n">Obj</span><span class="w"> </span><span class="n">Phil</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">Being</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">List</span><span class="w"> </span><span class="p">.</span>
+
+<span class="w">    </span><span class="kd">op</span><span class="w"> </span><span class="p">(</span><span class="n">_|_|_</span><span class="p">)</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Obj</span><span class="w"> </span><span class="n">Nat</span><span class="w"> </span><span class="n">Obj</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Phil</span><span class="w"> </span><span class="p">[</span><span class="k">ctor</span><span class="p">]</span><span class="w"> </span><span class="p">.</span>
+<span class="w">    </span><span class="kd">ops</span><span class="w"> </span><span class="n">o</span><span class="w"> </span><span class="n">ψ</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Obj</span><span class="w"> </span><span class="p">[</span><span class="k">ctor</span><span class="p">]</span><span class="w"> </span><span class="p">.</span>
+<span class="w">    </span><span class="kd">op</span><span class="w"> </span><span class="n">empty</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">List</span><span class="w"> </span><span class="p">[</span><span class="k">ctor</span><span class="p">]</span><span class="w"> </span><span class="p">.</span>
+<span class="w">    </span><span class="kd">op</span><span class="w"> </span><span class="n">__</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">List</span><span class="w"> </span><span class="n">List</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">List</span><span class="w"> </span><span class="p">[</span><span class="k">ctor</span><span class="w"> </span><span class="k">assoc</span><span class="w"> </span><span class="k">id:</span><span class="w"> </span><span class="n">empty</span><span class="p">]</span><span class="w"> </span><span class="p">.</span>
+<span class="w">    </span><span class="kd">op</span><span class="w"> </span><span class="n">&lt;_&gt;</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">List</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Table</span><span class="w"> </span><span class="p">[</span><span class="k">ctor</span><span class="p">]</span><span class="w"> </span><span class="p">.</span>
+
+<span class="w">    </span><span class="kd">var</span><span class="w"> </span><span class="n">L</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">List</span><span class="w"> </span><span class="p">.</span>
+<span class="w">    </span><span class="kd">ceq</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">ψ</span><span class="w"> </span><span class="n">L</span><span class="w"> </span><span class="n">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">L</span><span class="w"> </span><span class="n">ψ</span><span class="w"> </span><span class="n">&gt;</span><span class="w"> </span><span class="kt">if</span><span class="w"> </span><span class="n">L</span><span class="w"> </span><span class="kt">=/=</span><span class="w"> </span><span class="n">empty</span><span class="w"> </span><span class="p">.</span>
+<span class="w">    </span><span class="kd">op</span><span class="w"> </span><span class="n">initial</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Table</span><span class="w"> </span><span class="p">.</span>
+<span class="w">    </span><span class="kd">eq</span><span class="w"> </span><span class="n">initial</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="p">(</span><span class="n">o</span><span class="w"> </span><span class="n">|</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="n">|</span><span class="w"> </span><span class="n">o</span><span class="p">)</span><span class="w"> </span><span class="n">ψ</span><span class="w"> </span><span class="p">(</span><span class="n">o</span><span class="w"> </span><span class="n">|</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="n">|</span><span class="w"> </span><span class="n">o</span><span class="p">)</span><span class="w"> </span><span class="n">ψ</span><span class="w"> </span><span class="p">(</span><span class="n">o</span><span class="w"> </span><span class="n">|</span><span class="w"> </span><span class="mi">2</span><span class="w"> </span><span class="n">|</span><span class="w"> </span><span class="n">o</span><span class="p">)</span><span class="w"> </span><span class="n">ψ</span><span class="w"> </span><span class="n">&gt;</span><span class="w"> </span><span class="p">.</span>
+<span class="kn">endfm</span>
+
+<span class="kn">mod</span><span class="w"> </span><span class="n">PHILOSOPHERS-DINNER</span><span class="w"> </span><span class="k">is</span><span class="w">          </span><span class="c1">*** system module</span>
+<span class="w">    </span><span class="k">protecting</span><span class="w"> </span><span class="n">PHILOSOPHERS-TABLE</span><span class="w"> </span><span class="p">.</span>
+<span class="w">    </span><span class="kd">var</span><span class="w"> </span><span class="n">Id</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Nat</span><span class="w"> </span><span class="p">.</span>
+<span class="w">    </span><span class="kd">var</span><span class="w"> </span><span class="n">X</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Obj</span><span class="w"> </span><span class="p">.</span>
+<span class="w">    </span><span class="kd">var</span><span class="w"> </span><span class="n">L</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">List</span><span class="w"> </span><span class="p">.</span>
+<span class="w">    </span><span class="kd">rl</span><span class="w"> </span><span class="p">[</span><span class="n">left</span><span class="p">]</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">ψ</span><span class="w"> </span><span class="p">(</span><span class="n">o</span><span class="w"> </span><span class="n">|</span><span class="w"> </span><span class="n">Id</span><span class="w"> </span><span class="n">|</span><span class="w"> </span><span class="n">X</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">(</span><span class="n">ψ</span><span class="w"> </span><span class="n">|</span><span class="w"> </span><span class="n">Id</span><span class="w"> </span><span class="n">|</span><span class="w"> </span><span class="n">X</span><span class="p">)</span><span class="w"> </span><span class="p">.</span>
+<span class="w">    </span><span class="kd">rl</span><span class="w"> </span><span class="p">[</span><span class="n">right</span><span class="p">]</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="p">(</span><span class="n">X</span><span class="w"> </span><span class="n">|</span><span class="w"> </span><span class="n">Id</span><span class="w"> </span><span class="n">|</span><span class="w"> </span><span class="n">o</span><span class="p">)</span><span class="w"> </span><span class="n">ψ</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">(</span><span class="n">X</span><span class="w"> </span><span class="n">|</span><span class="w"> </span><span class="n">Id</span><span class="w"> </span><span class="n">|</span><span class="w"> </span><span class="n">ψ</span><span class="p">)</span><span class="w"> </span><span class="p">.</span>
+<span class="w">    </span><span class="kd">rl</span><span class="w"> </span><span class="p">[</span><span class="n">left</span><span class="p">]</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="p">(</span><span class="n">o</span><span class="w"> </span><span class="n">|</span><span class="w"> </span><span class="n">Id</span><span class="w"> </span><span class="n">|</span><span class="w"> </span><span class="n">X</span><span class="p">)</span><span class="w"> </span><span class="n">L</span><span class="w"> </span><span class="n">ψ</span><span class="w"> </span><span class="n">&gt;</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="p">(</span><span class="n">ψ</span><span class="w"> </span><span class="n">|</span><span class="w"> </span><span class="n">Id</span><span class="w"> </span><span class="n">|</span><span class="w"> </span><span class="n">X</span><span class="p">)</span><span class="w"> </span><span class="n">L</span><span class="w"> </span><span class="n">&gt;</span><span class="w"> </span><span class="p">.</span>
+<span class="w">    </span><span class="kd">rl</span><span class="w"> </span><span class="p">[</span><span class="n">release</span><span class="p">]</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="p">(</span><span class="n">ψ</span><span class="w"> </span><span class="n">|</span><span class="w"> </span><span class="n">Id</span><span class="w"> </span><span class="n">|</span><span class="w"> </span><span class="n">ψ</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">ψ</span><span class="w"> </span><span class="p">(</span><span class="n">o</span><span class="w"> </span><span class="n">|</span><span class="w"> </span><span class="n">Id</span><span class="w"> </span><span class="n">|</span><span class="w"> </span><span class="n">o</span><span class="p">)</span><span class="w"> </span><span class="n">ψ</span><span class="w"> </span><span class="p">.</span>
+<span class="kn">endm</span>
+</pre></div>
+</div>
+<p>The philosophers can try three different moves: taking their <code class="docutils literal notranslate"><span class="pre">left</span></code> fork, their <code class="docutils literal notranslate"><span class="pre">right</span></code> fork, or <code class="docutils literal notranslate"><span class="pre">release</span></code> both of them at once. Doing it at their sole discretion may lead to some unwanted situations, like the starvation of some of them, or worse, of all of them. Strategies can prevent some of these problems by imposing additional restrictions, as explained <a class="reference internal" href="#sec-smodels">soon</a>.</p>
+<section id="model-preparation">
+<span id="sec-modelprep"></span><h3>Model preparation<a class="headerlink" href="#model-preparation" title="Link to this heading">¶</a></h3>
+<p>The following ingredients should be supplied to prepare any Maude specification for model checking:</p>
+<ul class="simple">
+<li><p>A model specified by a system module <code class="docutils literal notranslate"><span class="pre">M</span></code> with a designated sort of states.</p></li>
+<li><p>A set of atomic propositions and a satisfaction relation <span class="math notranslate nohighlight"><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⊨</mo>
+</math></span> that specifies which are satisfied in each state.</p></li>
+<li><p>A temporal formula built on top of the previous atomic propositions.</p></li>
+<li><p>An initial term.</p></li>
+</ul>
+<p>For instance, in the dining philosophers example, the rewriting model is given by the system module <code class="docutils literal notranslate"><span class="pre">PHILOSOPHERS-DINNER</span></code>, whose sort <code class="docutils literal notranslate"><span class="pre">Table</span></code> should be designated as the state sort. The initial term can be the <code class="docutils literal notranslate"><span class="pre">initial</span></code> symbol, where all the forks are on the table.</p>
+<div class="figure" id="id17" style="text-align: center"><p><img  src="../_images/tikz-83f5fd99fb2be9ea6fd79578e5f95d1ecf722b67.svg" alt="Figure made with TikZ" /></p>
+<p><span class="caption-text">Structure of the model checker modules.</span></p>
+</div><p>The procedure involves some predefined and user-defined modules respectively depicted in the left and right sides of the diagram. For the predefined modules, the <code class="docutils literal notranslate"><span class="pre">model-checker.maude</span></code> file in the Maude standard distribution should be loaded. The state sort is selected together with the declaration of the atomic propositions and their satisfiability. This is usually done in a new system module, say <code class="docutils literal notranslate"><span class="pre">M-PREDS</span></code>, that includes <code class="docutils literal notranslate"><span class="pre">M</span></code> and the predefined module <code class="docutils literal notranslate"><span class="pre">SATISFACTION</span></code>, where the <code class="docutils literal notranslate"><span class="pre">State</span></code> and <code class="docutils literal notranslate"><span class="pre">Prop</span></code> sorts, and the satisfaction relation symbol <code class="docutils literal notranslate"><span class="pre">_|=_</span></code> are declared.</p>
+<div class="highlight-maude notranslate"><div class="highlight"><pre><span></span><span class="kn">fmod</span><span class="w"> </span><span class="n">SATISFACTION</span><span class="w"> </span><span class="k">is</span>
+<span class="w">    </span><span class="k">protecting</span><span class="w"> </span><span class="n">BOOL</span><span class="w"> </span><span class="p">.</span>
+<span class="w">    </span><span class="kd">sorts</span><span class="w"> </span><span class="n">State</span><span class="w"> </span><span class="n">Prop</span><span class="w"> </span><span class="p">.</span>
+<span class="w">    </span><span class="kd">op</span><span class="w"> </span><span class="n">_|=_</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">State</span><span class="w"> </span><span class="n">Prop</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Bool</span><span class="w"> </span><span class="p">[</span><span class="k">frozen</span><span class="p">]</span><span class="w"> </span><span class="p">.</span>
+<span class="kn">endfm</span>
+</pre></div>
+</div>
+<p>The sort of states is selected by making it a subsort of <code class="docutils literal notranslate"><span class="pre">State</span></code>. <code class="docutils literal notranslate"><span class="pre">M-PREDS</span></code> must be a protected extension of <code class="docutils literal notranslate"><span class="pre">M</span></code> to ensure that the model is not altered in any way (although this is not checked by Maude). Finally, a system module <code class="docutils literal notranslate"><span class="pre">M-CHECK</span></code> merges the specification of the model and properties in <code class="docutils literal notranslate"><span class="pre">M-PREDS</span></code> with the predefined <code class="docutils literal notranslate"><span class="pre">MODEL-CHECKER</span></code> module. This module gives access to the <code class="docutils literal notranslate"><span class="pre">modelCheck</span></code> symbol and transitively imports the <code class="docutils literal notranslate"><span class="pre">LTL</span></code> module where the syntax for this temporal logic is defined.</p>
+<div class="highlight-maude notranslate"><div class="highlight"><pre><span></span><span class="c1">*** primitive LTL operators</span>
+<span class="kd">ops</span><span class="w"> </span><span class="n">True</span><span class="w"> </span><span class="n">False</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="p">[</span><span class="n">...</span><span class="p">]</span><span class="w"> </span><span class="p">.</span>
+<span class="kd">op</span><span class="w"> </span><span class="n">~_</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="p">[</span><span class="k">prec</span><span class="w"> </span><span class="mi">53</span><span class="w"> </span><span class="n">...</span><span class="p">]</span><span class="w"> </span><span class="p">.</span>
+<span class="kd">op</span><span class="w"> </span><span class="n">_/\_</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="p">[</span><span class="k">comm</span><span class="w"> </span><span class="k">prec</span><span class="w"> </span><span class="mi">55</span><span class="w"> </span><span class="n">...</span><span class="p">]</span><span class="w"> </span><span class="p">.</span>
+<span class="kd">op</span><span class="w"> </span><span class="n">_\/_</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="p">[</span><span class="k">comm</span><span class="w"> </span><span class="k">prec</span><span class="w"> </span><span class="mi">59</span><span class="w"> </span><span class="n">...</span><span class="p">]</span><span class="w"> </span><span class="p">.</span>
+<span class="kd">op</span><span class="w"> </span><span class="n">O_</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="p">[</span><span class="k">prec</span><span class="w"> </span><span class="mi">53</span><span class="w"> </span><span class="n">...</span><span class="p">]</span><span class="w"> </span><span class="p">.</span>
+<span class="kd">op</span><span class="w"> </span><span class="n">_U_</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="p">[</span><span class="k">prec</span><span class="w"> </span><span class="mi">63</span><span class="w"> </span><span class="n">...</span><span class="p">]</span><span class="w"> </span><span class="p">.</span>
+<span class="kd">op</span><span class="w"> </span><span class="n">_R_</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="p">[</span><span class="k">prec</span><span class="w"> </span><span class="mi">63</span><span class="w"> </span><span class="n">...</span><span class="p">]</span><span class="w"> </span><span class="p">.</span>
+
+<span class="c1">*** defined LTL operators</span>
+<span class="kd">op</span><span class="w"> </span><span class="n">_-&gt;_</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="p">[</span><span class="k">prec</span><span class="w"> </span><span class="mi">65</span><span class="w"> </span><span class="n">...</span><span class="p">]</span><span class="w"> </span><span class="p">.</span>
+<span class="kd">op</span><span class="w"> </span><span class="n">_&lt;-&gt;_</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="p">[</span><span class="k">prec</span><span class="w"> </span><span class="mi">65</span><span class="w"> </span><span class="n">...</span><span class="p">]</span><span class="w"> </span><span class="p">.</span>
+<span class="kd">op</span><span class="w"> </span><span class="n">&lt;&gt;_</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="p">[</span><span class="k">prec</span><span class="w"> </span><span class="mi">53</span><span class="w"> </span><span class="n">...</span><span class="p">]</span><span class="w"> </span><span class="p">.</span>
+<span class="kd">op</span><span class="w"> </span><span class="p">[]</span><span class="n">_</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="p">[</span><span class="k">prec</span><span class="w"> </span><span class="mi">53</span><span class="w"> </span><span class="n">...</span><span class="p">]</span><span class="w"> </span><span class="p">.</span>
+<span class="kd">op</span><span class="w"> </span><span class="n">_W_</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="p">[</span><span class="k">prec</span><span class="w"> </span><span class="mi">63</span><span class="w"> </span><span class="n">...</span><span class="p">]</span><span class="w"> </span><span class="p">.</span>
+<span class="kd">op</span><span class="w"> </span><span class="n">_|-&gt;_</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="p">[</span><span class="k">prec</span><span class="w"> </span><span class="mi">63</span><span class="w"> </span><span class="n">...</span><span class="p">]</span><span class="w"> </span><span class="p">.</span><span class="w"> </span><span class="c1">*** leads-to</span>
+<span class="kd">op</span><span class="w"> </span><span class="n">_=&gt;_</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="p">[</span><span class="k">prec</span><span class="w"> </span><span class="mi">65</span><span class="w"> </span><span class="n">...</span><span class="p">]</span><span class="w"> </span><span class="p">.</span>
+<span class="kd">op</span><span class="w"> </span><span class="n">_&lt;=&gt;_</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="p">[</span><span class="k">prec</span><span class="w"> </span><span class="mi">65</span><span class="w"> </span><span class="n">...</span><span class="p">]</span><span class="w"> </span><span class="p">.</span>
+</pre></div>
+</div>
+<p>An optional <code class="docutils literal notranslate"><span class="pre">LTL-SIMPLIFIER</span></code> module can be included to simplify the LTL formula. In practice, there is no need to follow this module structure and <code class="docutils literal notranslate"><span class="pre">M</span></code>, <code class="docutils literal notranslate"><span class="pre">M-PREDS</span></code>, and <code class="docutils literal notranslate"><span class="pre">M-CHECK</span></code> can be written as a single module, but this is the usual convention.</p>
+<p>Coming back to the dining philosophers problem, <code class="docutils literal notranslate"><span class="pre">M</span></code> would be <code class="docutils literal notranslate"><span class="pre">PHILOSOPHERS-DINNER</span></code> and the following <code class="docutils literal notranslate"><span class="pre">PHILOSOPHERS-PREDS</span></code> module can be its <code class="docutils literal notranslate"><span class="pre">M-PREDS</span></code>:</p>
+<div class="highlight-maude notranslate"><div class="highlight"><pre><span></span><span class="kn">mod</span><span class="w"> </span><span class="n">PHILOSOPHERS-PREDS</span><span class="w"> </span><span class="k">is</span>
+<span class="w">    </span><span class="k">protecting</span><span class="w"> </span><span class="n">PHILOSOPHERS-DINNER</span><span class="w"> </span><span class="p">.</span>
+<span class="w">    </span><span class="k">including</span><span class="w"> </span><span class="n">SATISFACTION</span><span class="w"> </span><span class="p">.</span>
+
+<span class="w">    </span><span class="kd">subsort</span><span class="w"> </span><span class="n">Table</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">State</span><span class="w"> </span><span class="p">.</span>
+<span class="w">    </span><span class="kd">op</span><span class="w"> </span><span class="n">eats</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Nat</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Prop</span><span class="w"> </span><span class="p">[</span><span class="k">ctor</span><span class="p">]</span><span class="w"> </span><span class="p">.</span>
+
+<span class="w">    </span><span class="kd">var</span><span class="w">  </span><span class="n">Id</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Nat</span><span class="w"> </span><span class="p">.</span>
+<span class="w">    </span><span class="kd">vars</span><span class="w"> </span><span class="n">L</span><span class="w"> </span><span class="n">M</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">List</span><span class="w"> </span><span class="p">.</span>
+
+<span class="w">    </span><span class="kd">eq</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">L</span><span class="w"> </span><span class="p">(</span><span class="n">ψ</span><span class="w"> </span><span class="n">|</span><span class="w"> </span><span class="n">Id</span><span class="w"> </span><span class="n">|</span><span class="w"> </span><span class="n">ψ</span><span class="p">)</span><span class="w"> </span><span class="n">M</span><span class="w"> </span><span class="n">&gt;</span><span class="w"> </span><span class="n">|=</span><span class="w"> </span><span class="n">eats</span><span class="p">(</span><span class="n">Id</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">true</span><span class="w"> </span><span class="p">.</span>
+<span class="w">    </span><span class="kd">eq</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">L</span><span class="w"> </span><span class="n">&gt;</span><span class="w"> </span><span class="n">|=</span><span class="w"> </span><span class="n">eats</span><span class="p">(</span><span class="n">Id</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">false</span><span class="w"> </span><span class="p">[</span><span class="k">owise</span><span class="p">]</span><span class="w"> </span><span class="p">.</span>
+<span class="kn">endm</span>
+</pre></div>
+</div>
+<p>A single parametric proposition <code class="docutils literal notranslate"><span class="pre">eats</span></code> is defined, all whose ground instances are the atomic propositions in the formal sense. The satisfaction relation is equationally defined to make <code class="docutils literal notranslate"><span class="pre">eats(<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>n</mi>
+</math>)</span></code> hold in any state where the <span class="math notranslate nohighlight"><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>n</mi>
+</math></span>-th philosopher has both forks, and so is able to eat. Finally, the module collecting all the specification components is defined, playing the role of <code class="docutils literal notranslate"><span class="pre">M-CHECK</span></code>.</p>
+<div class="highlight-maude notranslate"><div class="highlight"><pre><span></span><span class="kn">mod</span><span class="w"> </span><span class="n">PHILOSOPHERS-CHECK</span><span class="w"> </span><span class="k">is</span>
+<span class="w">    </span><span class="k">protecting</span><span class="w"> </span><span class="n">PHILOSOPHERS-PREDS</span><span class="w"> </span><span class="p">.</span><span class="w">        </span><span class="c1">*** atomic propositions</span>
+<span class="w">    </span><span class="k">protecting</span><span class="w"> </span><span class="n">PHILOSOPHERS-FORMULAE</span><span class="w"> </span><span class="p">.</span>
+<span class="w">    </span><span class="k">including</span><span class="w"> </span><span class="n">MODEL-CHECKER</span><span class="w"> </span><span class="p">.</span>
+<span class="kn">endm</span>
+</pre></div>
+</div>
+<p>In this module, we will be able to use the model checker with <a class="reference internal" href="../check/#sec-check"><span class="std std-ref"><code class="docutils literal notranslate"><span class="pre">check</span></code></span></a>. We have imported another module, <code class="docutils literal notranslate"><span class="pre">PHILOSOPHERS-FORMULAE</span></code>, that has not been explained yet. Since LTL formulae are represented by terms in Maude, the user can construct and manipulate formulae within the language. For example, we can declare two formulae <code class="docutils literal notranslate"><span class="pre">someoneEats</span></code> and <code class="docutils literal notranslate"><span class="pre">allEat</span></code>, generic on the number of philosophers, to express that at least a philosopher or every philosopher can eat.</p>
+<div class="highlight-maude notranslate"><div class="highlight"><pre><span></span><span class="kn">mod</span><span class="w"> </span><span class="n">PHILOSOPHERS-FORMULAE</span><span class="w"> </span><span class="k">is</span>
+<span class="w">    </span><span class="k">protecting</span><span class="w"> </span><span class="n">PHILOSOPHERS-PREDS</span><span class="w"> </span><span class="p">.</span>
+<span class="w">    </span><span class="k">protecting</span><span class="w"> </span><span class="n">LTL</span><span class="w"> </span><span class="p">.</span>
+
+<span class="w">    </span><span class="c1">*** Parameterized formulae for a given number of philosophers</span>
+<span class="w">    </span><span class="kd">ops</span><span class="w"> </span><span class="n">someoneEats</span><span class="w"> </span><span class="n">allEat</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Nat</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Formula</span><span class="w"> </span><span class="p">.</span>
+
+<span class="w">    </span><span class="kd">var</span><span class="w"> </span><span class="n">L</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">List</span><span class="w"> </span><span class="p">.</span>
+<span class="w">    </span><span class="kd">var</span><span class="w"> </span><span class="n">X</span><span class="w"> </span><span class="n">Y</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Obj</span><span class="w"> </span><span class="p">.</span>
+<span class="w">    </span><span class="kd">var</span><span class="w"> </span><span class="n">Id</span><span class="w"> </span><span class="n">N</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Nat</span><span class="w"> </span><span class="p">.</span>
+
+<span class="w">    </span><span class="kd">eq</span><span class="w"> </span><span class="n">someoneEats</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">False</span><span class="w"> </span><span class="p">.</span>
+<span class="w">    </span><span class="kd">eq</span><span class="w"> </span><span class="n">someoneEats</span><span class="p">(</span><span class="n">s</span><span class="p">(</span><span class="n">N</span><span class="p">))</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">someoneEats</span><span class="p">(</span><span class="n">N</span><span class="p">)</span><span class="w"> </span><span class="n">\/</span><span class="w"> </span><span class="n">eats</span><span class="p">(</span><span class="n">N</span><span class="p">)</span><span class="w"> </span><span class="p">.</span>
+
+<span class="w">    </span><span class="kd">eq</span><span class="w"> </span><span class="n">allEat</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">True</span><span class="w"> </span><span class="p">.</span>
+<span class="w">    </span><span class="kd">eq</span><span class="w"> </span><span class="n">allEat</span><span class="p">(</span><span class="n">s</span><span class="p">(</span><span class="n">N</span><span class="p">))</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">allEat</span><span class="p">(</span><span class="n">N</span><span class="p">)</span><span class="w"> </span><span class="o">/\</span><span class="w"> </span><span class="n">&lt;&gt;</span><span class="w"> </span><span class="n">eats</span><span class="p">(</span><span class="n">N</span><span class="p">)</span><span class="w"> </span><span class="p">.</span>
+<span class="kn">endm</span>
+</pre></div>
+</div>
+<p>According to the equations, <code class="docutils literal notranslate"><span class="pre">someoneEats(<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>n</mi>
+</math>)</span></code> is the LTL formula <span class="math notranslate nohighlight"><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <munderover>
+    <mo movablelimits="true">⋁</mo>
+    <mrow>
+      <mi>k</mi>
+      <mo>=</mo>
+      <mn>0</mn>
+    </mrow>
+    <mrow>
+      <mi>n</mi>
+      <mo>−</mo>
+      <mn>1</mn>
+    </mrow>
+  </munderover>
+  <mrow>
+    <mi>𝚎</mi>
+    <mi>𝚊</mi>
+    <mi>𝚝</mi>
+    <mi>𝚜</mi>
+    <mo stretchy="false">(</mo>
+  </mrow>
+  <mi>k</mi>
+  <mo stretchy="false">)</mo>
+</math></span>, and <code class="docutils literal notranslate"><span class="pre">allEat(<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>n</mi>
+</math>)</span></code> is <span class="math notranslate nohighlight"><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <munderover>
+    <mo movablelimits="true">⋀</mo>
+    <mrow>
+      <mi>k</mi>
+      <mo>=</mo>
+      <mn>0</mn>
+    </mrow>
+    <mrow>
+      <mi>n</mi>
+      <mo>−</mo>
+      <mn>1</mn>
+    </mrow>
+  </munderover>
+  <mo>⋄</mo>
+  <mrow>
+    <mi>𝚎</mi>
+    <mi>𝚊</mi>
+    <mi>𝚝</mi>
+    <mi>𝚜</mi>
+    <mo stretchy="false">(</mo>
+  </mrow>
+  <mi>k</mi>
+  <mo stretchy="false">)</mo>
+</math></span>.</p>
+<p>Summing up, the script for preparing a problem to be model checked is:</p>
+<ol class="arabic simple">
+<li><p>Specify the model in a system module <code class="docutils literal notranslate"><span class="pre">M</span></code>.</p></li>
+<li><p>In a protecting extension of <code class="docutils literal notranslate"><span class="pre">M</span></code> including the predefined <code class="docutils literal notranslate"><span class="pre">SATISFACTION</span></code> module (say <code class="docutils literal notranslate"><span class="pre">M-PREDS</span></code>) choose the sort of the model states by making it a subsort of the predefined <code class="docutils literal notranslate"><span class="pre">State</span></code> sort. Declare as many atomic propositions as desired as operators of range <code class="docutils literal notranslate"><span class="pre">Prop</span></code>, and define the satisfaction relation <code class="docutils literal notranslate"><span class="pre">|=</span></code> for all of them.</p></li>
+<li><p>Write a system module (say <code class="docutils literal notranslate"><span class="pre">M-CHECK</span></code>) combining the specification of the model and properties in <code class="docutils literal notranslate"><span class="pre">M-PREDS</span></code> with the predefined <code class="docutils literal notranslate"><span class="pre">MODEL-CHECKER</span></code> module. Optionally, the <code class="docutils literal notranslate"><span class="pre">LTL-SIMPLIFIER</span></code> module may be included for LTL simplification.</p></li>
+</ol>
+</section>
+</section>
+<section id="strategy-controlled-models">
+<span id="sec-smodels"></span><h2>Strategy-controlled models<a class="headerlink" href="#strategy-controlled-models" title="Link to this heading">¶</a></h2>
+<p>The evolution of strategy-controlled rewriting systems does not only depend on the rules but also on the strategies that limit their application. States in those systems are not univocally associated to terms and their transitions are those rule rewrites allowed by the strategy. We also consider some special options for specific situations, but before describing them we will illustrate the normal behavior with an example.</p>
+<p>Remember that unwanted situations may appear in the dining philosophers problem introduced <a class="reference internal" href="#sec-models">before</a>. Strategies can prevent some of them by imposing additional restrictions.</p>
+<div class="highlight-maude notranslate"><div class="highlight"><pre><span></span><span class="kn">smod</span><span class="w"> </span><span class="n">PHILOSOPHERS-PARITY</span><span class="w"> </span><span class="k">is</span>
+<span class="w">    </span><span class="k">protecting</span><span class="w"> </span><span class="n">PHILOSOPHERS-DINNER</span><span class="w"> </span><span class="p">.</span>
+
+<span class="w">    </span><span class="k">strat</span><span class="w"> </span><span class="n">parity</span><span class="w"> </span><span class="n">@</span><span class="w"> </span><span class="n">Table</span><span class="w"> </span><span class="p">.</span>
+<span class="w">    </span><span class="kd">sd</span><span class="w"> </span><span class="n">parity</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="p">(</span><span class="n">release</span>
+<span class="w">        </span><span class="c1">*** The even take the left fork first</span>
+<span class="w">        </span><span class="n">|</span><span class="w"> </span><span class="p">(</span><span class="kt">amatchrew</span><span class="w"> </span><span class="n">L</span><span class="w"> </span><span class="kt">s.t.</span><span class="w"> </span><span class="n">ψ</span><span class="w"> </span><span class="p">(</span><span class="n">o</span><span class="w"> </span><span class="n">|</span><span class="w"> </span><span class="n">Id</span><span class="w"> </span><span class="n">|</span><span class="w"> </span><span class="n">o</span><span class="p">)</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="n">L</span><span class="w"> </span><span class="o">/\</span><span class="w"> </span><span class="mi">2</span><span class="w"> </span><span class="n">divides</span><span class="w"> </span><span class="n">Id</span>
+<span class="w">                  </span><span class="kt">by</span><span class="w"> </span><span class="n">L</span><span class="w"> </span><span class="kt">using</span><span class="w"> </span><span class="n">left</span><span class="p">)</span>
+<span class="w">        </span><span class="n">|</span><span class="w"> </span><span class="n">left</span><span class="p">[</span><span class="n">Id</span><span class="w"> </span><span class="n">&lt;-</span><span class="w"> </span><span class="mi">0</span><span class="p">]</span>
+<span class="w">        </span><span class="c1">*** The odd take the right fork first</span>
+<span class="w">        </span><span class="n">|</span><span class="w"> </span><span class="p">(</span><span class="kt">amatchrew</span><span class="w"> </span><span class="n">L</span><span class="w"> </span><span class="kt">s.t.</span><span class="w"> </span><span class="p">(</span><span class="n">o</span><span class="w"> </span><span class="n">|</span><span class="w"> </span><span class="n">Id</span><span class="w"> </span><span class="n">|</span><span class="w"> </span><span class="n">o</span><span class="p">)</span><span class="w"> </span><span class="n">ψ</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="n">L</span><span class="w"> </span><span class="o">/\</span><span class="w"> </span><span class="kt">not</span><span class="w"> </span><span class="p">(</span><span class="mi">2</span><span class="w"> </span><span class="n">divides</span><span class="w"> </span><span class="n">Id</span><span class="p">)</span>
+<span class="w">             </span><span class="kt">by</span><span class="w"> </span><span class="n">L</span><span class="w"> </span><span class="kt">using</span><span class="w"> </span><span class="n">right</span><span class="p">)</span>
+<span class="w">        </span><span class="c1">*** When they already have one, they take the other fork</span>
+<span class="w">        </span><span class="n">|</span><span class="w"> </span><span class="p">(</span><span class="kt">amatchrew</span><span class="w"> </span><span class="n">L</span><span class="w"> </span><span class="kt">s.t.</span><span class="w"> </span><span class="p">(</span><span class="n">ψ</span><span class="w"> </span><span class="n">|</span><span class="w"> </span><span class="n">Id</span><span class="w"> </span><span class="n">|</span><span class="w"> </span><span class="n">o</span><span class="p">)</span><span class="w"> </span><span class="n">ψ</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="n">L</span><span class="w"> </span><span class="kt">by</span><span class="w"> </span><span class="n">L</span><span class="w"> </span><span class="kt">using</span><span class="w"> </span><span class="n">right</span><span class="p">)</span>
+<span class="w">        </span><span class="n">|</span><span class="w"> </span><span class="p">(</span><span class="kt">matchrew</span><span class="w"> </span><span class="n">M</span><span class="w"> </span><span class="kt">s.t.</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">L</span><span class="w"> </span><span class="p">(</span><span class="n">o</span><span class="w"> </span><span class="n">|</span><span class="w"> </span><span class="n">Id</span><span class="w"> </span><span class="n">|</span><span class="w"> </span><span class="n">ψ</span><span class="p">)</span><span class="w"> </span><span class="n">L&#39;</span><span class="w"> </span><span class="n">&gt;</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="n">M</span>
+<span class="w">                 </span><span class="kt">by</span><span class="w"> </span><span class="n">M</span><span class="w"> </span><span class="kt">using</span><span class="w"> </span><span class="n">left</span><span class="p">[</span><span class="n">Id</span><span class="w"> </span><span class="n">&lt;-</span><span class="w"> </span><span class="n">Id</span><span class="p">])</span>
+<span class="w">        </span><span class="p">)</span><span class="w"> </span><span class="n">?</span><span class="w"> </span><span class="n">parity</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="kt">idle</span><span class="w"> </span><span class="p">.</span>
+<span class="kn">endsm</span>
+</pre></div>
+</div>
+<p>With the <code class="docutils literal notranslate"><span class="pre">parity</span></code> strategy, even philosophers are compelled to take the left fork before the right one, and the odd should do the opposite. These additional rewriting restrictions produce a different model in which different properties are satisfied. For example, thanks to the <code class="docutils literal notranslate"><span class="pre">parity</span></code> strategy, the situation in which no philosopher can eat is avoided.</p>
+<p>Notice that the strategy above is recursive and non-terminating. Even though non-terminating executions cannot be observed with the <code class="docutils literal notranslate"><span class="pre">srewrite</span></code> commands <span id="id10">[<a class="reference internal" href="../biblio/#id9" title="Manuel Clavel, Francisco Durán, Steven Eker, Santiago Escobar, Patrick Lincoln, Narciso Martí-Oliet, José Meseguer, Rubén Rubio, and Carolyn Talcott. Maude Manual v3.5.1. 7 2025. URL: https://maude.cs.illinois.edu/manual/.">CDE+25</a>]</span> (§10.4), non-terminating strategies are meaningful and useful to specify the behavior of non-stopping and reactive systems, which are the typical targets of model checking. Non-terminating rewriting paths are not an obstacle for the decidability of model checking as long as they repeat a finite number of states; in other words, as long as they are caused by a loop. The model checker is able to detect cycles also when strategies have parameters.</p>
+<div class="highlight-maude notranslate"><div class="highlight"><pre><span></span><span class="kn">smod</span><span class="w"> </span><span class="n">PHILOSOPHERS-TURNS</span><span class="w"> </span><span class="k">is</span>
+<span class="w">    </span><span class="k">protecting</span><span class="w"> </span><span class="n">PHILOSOPHERS-DINNER</span><span class="w"> </span><span class="p">.</span>
+
+<span class="w">    </span><span class="k">strat</span><span class="w"> </span><span class="n">turns</span><span class="w"> </span><span class="n">@</span><span class="w"> </span><span class="n">Table</span><span class="w"> </span><span class="p">.</span>
+<span class="w">    </span><span class="k">strat</span><span class="w"> </span><span class="n">turns</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Nat</span><span class="w"> </span><span class="n">Nat</span><span class="w"> </span><span class="n">@</span><span class="w"> </span><span class="n">Table</span><span class="w"> </span><span class="p">.</span>
+
+<span class="w">    </span><span class="kd">sd</span><span class="w"> </span><span class="n">turns</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="kt">matchrew</span><span class="w"> </span><span class="n">M</span><span class="w"> </span><span class="kt">s.t.</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">L</span><span class="w"> </span><span class="p">(</span><span class="n">o</span><span class="w"> </span><span class="n">|</span><span class="w"> </span><span class="n">Id</span><span class="w"> </span><span class="n">|</span><span class="w"> </span><span class="n">o</span><span class="p">)</span><span class="w"> </span><span class="n">ψ</span><span class="w"> </span><span class="n">&gt;</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="n">M</span>
+<span class="w">                      </span><span class="kt">by</span><span class="w"> </span><span class="n">M</span><span class="w"> </span><span class="kt">using</span><span class="w"> </span><span class="n">turns</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">s</span><span class="p">(</span><span class="n">Id</span><span class="p">))</span><span class="w"> </span><span class="p">.</span>
+<span class="w">    </span><span class="kd">sd</span><span class="w"> </span><span class="n">turns</span><span class="p">(</span><span class="n">K</span><span class="p">,</span><span class="w"> </span><span class="n">N</span><span class="p">)</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="n">left</span><span class="p">[</span><span class="n">Id</span><span class="w"> </span><span class="n">&lt;-</span><span class="w"> </span><span class="n">K</span><span class="p">]</span><span class="w"> </span><span class="n">;</span><span class="w"> </span><span class="n">right</span><span class="p">[</span><span class="n">Id</span><span class="w"> </span><span class="n">&lt;-</span><span class="w"> </span><span class="n">K</span><span class="p">]</span><span class="w"> </span><span class="n">;</span>
+<span class="w">                      </span><span class="n">release</span><span class="w"> </span><span class="n">;</span><span class="w"> </span><span class="n">turns</span><span class="p">(</span><span class="n">s</span><span class="p">(</span><span class="n">K</span><span class="p">)</span><span class="w"> </span><span class="n">rem</span><span class="w"> </span><span class="n">N</span><span class="p">,</span><span class="w"> </span><span class="n">N</span><span class="p">)</span><span class="w"> </span><span class="p">.</span>
+<span class="kn">endsm</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">turns</span></code> strategy in the module above makes the philosophers eat in turns. With three philosophers, the sequence of recursive calls <code class="docutils literal notranslate"><span class="pre">turns(0,3)</span></code>, <code class="docutils literal notranslate"><span class="pre">turns(1,3)</span></code>, and <code class="docutils literal notranslate"><span class="pre">turns(2,3)</span></code> is repeated in a loop, causing the philosophers number 0, 1, and 2 to eat in that order. This is not a convenient solution to the philosophers problem due to the absence of parallelism, but it ensures that all of them eat infinitely often.</p>
+<p>Strategies always select a subset of the model executions. Hence, all linear temporal properties satisfied by the unrestricted model will be satisfied by the model controlled by no matter which strategy. However, the model checker also allows considering some explicitly selected strategies as atomic steps, as described hereafter, breaking this rule.</p>
+<section id="finite-traces">
+<h3>Finite traces<a class="headerlink" href="#finite-traces" title="Link to this heading">¶</a></h3>
+<p>Strategies are commonly used to specify finite rewriting sequences, those whose results are observed using the <code class="docutils literal notranslate"><span class="pre">srewrite</span></code> commands. Finite executions do not exactly fit in the model-checking setting, where properties are defined for infinite traces. However, they can be assimilated to infinite traces extending their last state forever. Intuitively, the modeled system has stopped after completing its execution and so it will continue in its idle state in perpetuity. Coming back to the philosophers example and considering the recursive strategy <code class="docutils literal notranslate"><span class="pre">sd</span> <span class="pre">free</span> <span class="pre">:=</span> <span class="pre">all</span> <span class="pre">?</span> <span class="pre">free</span> <span class="pre">:</span> <span class="pre">idle</span> <span class="pre">.</span></code> that coincides with the free execution of the rewriting rules, some finite traces are found:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>                                &lt; (o | 0 | o) ψ (o | 1 | o) ψ (o | 2 | o) ψ &gt;
+    = right[Id &lt;- 0]}} =&gt;       &lt; (o | 0 | ψ)   (o | 1 | o) ψ (o | 2 | o) ψ &gt;
+    = right[Id &lt;- 1]}} =&gt;       &lt; (o | 0 | ψ)   (o | 1 | ψ)   (o | 2 | o) ψ &gt;
+    = right[Id &lt;- 2]}} =&gt;       &lt; (o | 0 | ψ)   (o | 1 | ψ)   (o | 2 | ψ)   &gt;
+</pre></div>
+</div>
+<p>This is a finite trace because the strategy <code class="docutils literal notranslate"><span class="pre">all</span></code>, the application of any rule, cannot be executed in the last state. Then, the conditional operator will execute its negative <code class="docutils literal notranslate"><span class="pre">idle</span></code> branch and terminate. The philosophers, unable to do any other movement, will remain like this indefinitely.</p>
+<p>The interpretation of finite traces is equivalent to that of terminating or <em>deadlocked</em> rewriting sequences in the standard model checker. In fact, the finite execution above is a deadlocked one, but this is not true in general. Suppose <code class="docutils literal notranslate"><span class="pre">free</span></code> were defined <code class="docutils literal notranslate"><span class="pre">all</span> <span class="pre">;</span> <span class="pre">free</span></code> instead. Then, the trace above would be discarded since the strategy commits to execute <code class="docutils literal notranslate"><span class="pre">all</span></code> again in the fourth state, which is impossible. Conversely, the strategy <code class="docutils literal notranslate"><span class="pre">all*</span></code> admits all finite rewriting sequences, extended by repeating the last state forever, even if they can be continued otherwise with a genuine rule transition.</p>
+</section>
+<section id="parallel-subterm-rewriting">
+<h3>Parallel subterm rewriting<a class="headerlink" href="#parallel-subterm-rewriting" title="Link to this heading">¶</a></h3>
+<p>The semantics of a subterm rewriting combinator like the following (or its variants <code class="docutils literal notranslate"><span class="pre">xmatchrew</span></code> and <code class="docutils literal notranslate"><span class="pre">amatchrew</span></code>),</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+  <mrow>
+    <mi>𝚖</mi>
+    <mi>𝚊</mi>
+    <mi>𝚝</mi>
+    <mi>𝚌</mi>
+    <mi>𝚑</mi>
+    <mi>𝚛</mi>
+    <mi>𝚎</mi>
+    <mi>𝚠</mi>
+  </mrow>
+  <mspace width="0.2778em"></mspace>
+  <mi>P</mi>
+  <mo stretchy="false">(</mo>
+  <msub>
+    <mi>X</mi>
+    <mn>1</mn>
+  </msub>
+  <mo>,</mo>
+  <mi>…</mi>
+  <mo>,</mo>
+  <msub>
+    <mi>X</mi>
+    <mi>n</mi>
+  </msub>
+  <mo stretchy="false">)</mo>
+  <mspace width="0.2778em"></mspace>
+  <mrow>
+    <mi>𝚋</mi>
+    <mi>𝚢</mi>
+  </mrow>
+  <mspace width="0.2778em"></mspace>
+  <msub>
+    <mi>X</mi>
+    <mn>1</mn>
+  </msub>
+  <mspace width="0.2778em"></mspace>
+  <mrow>
+    <mi>𝚞</mi>
+    <mi>𝚜</mi>
+    <mi>𝚒</mi>
+    <mi>𝚗</mi>
+    <mi>𝚐</mi>
+  </mrow>
+  <mspace width="0.2778em"></mspace>
+  <msub>
+    <mi>α</mi>
+    <mn>1</mn>
+  </msub>
+  <mo>,</mo>
+  <mspace width="0.2778em"></mspace>
+  <mi>…</mi>
+  <mo>,</mo>
+  <mspace width="0.2778em"></mspace>
+  <msub>
+    <mi>X</mi>
+    <mi>n</mi>
+  </msub>
+  <mspace width="0.2778em"></mspace>
+  <mrow>
+    <mi>𝚞</mi>
+    <mi>𝚜</mi>
+    <mi>𝚒</mi>
+    <mi>𝚗</mi>
+    <mi>𝚐</mi>
+  </mrow>
+  <mspace width="0.2778em"></mspace>
+  <msub>
+    <mi>α</mi>
+    <mi>n</mi>
+  </msub>
+</math></div></div>
+<p>is the <em>parallel</em> rewriting of its <span class="math notranslate nohighlight"><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>n</mi>
+</math></span> subterms against their corresponding strategies <span id="id11">[<a class="reference internal" href="../biblio/#id21" title="Steven Eker, Narciso Martí-Oliet, José Meseguer, Rubén Rubio, and Alberto Verdejo. The maude strategy language. J. Log. Algebraic Methods Program., 2023. doi:10.1016/j.jlamp.2023.100887.">EMOM+23</a>]</span>. When looking to the state evolution as a sequence of rewriting steps, this means that the next step may come from any of the subterms. In other words, the execution traces of the <code class="docutils literal notranslate"><span class="pre">matchrew</span></code> are all possible interleavings of all possible combinations of the execution traces of its subterms.</p>
+<p>In general, generating all these combinations is computationally expensive. So, an optional and alternative form of <em>partial order reduction</em> is offered, which analyzes only those traces where the subterms are rewritten in order, i.e. the rewrites within the subterm <span class="math notranslate nohighlight"><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>k</mi>
+</math></span> always occur before the rewrites within the subterm <span class="math notranslate nohighlight"><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>k</mi>
+  <mo>+</mo>
+  <mn>1</mn>
+</math></span>. It is the user responsibility to ensure by other means that this is enough to prove the correctness of the system.</p>
+</section>
+<section id="opaque-strategies">
+<span id="sec-opaque"></span><h3>Opaque strategies<a class="headerlink" href="#opaque-strategies" title="Link to this heading">¶</a></h3>
+<p>The model transitions are fundamentally rule applications, both for the strategy-aware and the standard model checker, but sometimes having strategies as transitions is useful and convenient. We call these strategies <em>opaque</em> since the intermediate states occurring during its execution are invisible. Instead, a single transition is seen from the term where the strategy is applied to each of its results. An example of model checking with opaque strategies can be seen <a class="reference external" href="https://maude.ucm.es/strategies/modelchecker-manual.pdf">here</a> (Section 4.1).</p>
+</section>
+<section id="sec-smodelprep">
+<span id="id12"></span><h3>Model preparation<a class="headerlink" href="#sec-smodelprep" title="Link to this heading">¶</a></h3>
+<div class="figure" id="id18" style="text-align: center"><p><img  src="../_images/tikz-d3eace2e60315c7fe3a18761aab5d0088da8087c.svg" alt="Figure made with TikZ" /></p>
+<p><span class="caption-text">Structure of the strategy-aware model checker modules.</span></p>
+</div><p>The problem setting and the usage of the strategy-aware model checker do not differ much of the <a class="reference internal" href="#sec-modelprep">standard procedures</a>. The only difference is that, as part of the model specification, a strategy must be provided. The model is now specified by</p>
+<ul class="simple">
+<li><p>a Maude system module <code class="docutils literal notranslate"><span class="pre">M</span></code>, and</p></li>
+<li><p>a strategy expression <span class="math notranslate nohighlight"><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>α</mi>
+</math></span>, possibly using some strategy definitions in a strategy module <code class="docutils literal notranslate"><span class="pre">SM</span></code> that controls <code class="docutils literal notranslate"><span class="pre">M</span></code>. If the strategy-controlled model checker is used from Maude, the controlling strategy can only be a named strategy without arguments and the strategy module is always required.</p></li>
+</ul>
+<p>For instance, in the dining-philosophers examples, the base rewriting model <code class="docutils literal notranslate"><span class="pre">M</span></code> is the system module <code class="docutils literal notranslate"><span class="pre">PHILOSOPHERS-DINNER</span></code>, and the controlling strategy can be either <code class="docutils literal notranslate"><span class="pre">parity</span></code> in <code class="docutils literal notranslate"><span class="pre">PHILOSOPHERS-PARITY</span></code> or <code class="docutils literal notranslate"><span class="pre">turns</span></code> in <code class="docutils literal notranslate"><span class="pre">PHILOSOPHERS-TURNS</span></code>.</p>
+<p>As illustrated in the diagram, the collection of predefined and user-defined modules for strategy-aware model checking is very similar to that for <a class="reference internal" href="#sec-modelprep">standard model checking</a>. In the typical setting, the rule-based model is specified in a system module <code class="docutils literal notranslate"><span class="pre">M</span></code>, one or more strategies controlling <code class="docutils literal notranslate"><span class="pre">M</span></code> are defined in an extension of this module that we will call <code class="docutils literal notranslate"><span class="pre">SM</span></code>, its atomic propositions and state are specified in a protected extension of <code class="docutils literal notranslate"><span class="pre">M</span></code> called <code class="docutils literal notranslate"><span class="pre">M-PREDS</span></code> that includes the predefined <code class="docutils literal notranslate"><span class="pre">SATISFACTION</span></code> module, and everything is combined in a strategy module <code class="docutils literal notranslate"><span class="pre">SM-CHECK</span></code>. This latter module imports the predefined <code class="docutils literal notranslate"><span class="pre">STRATEGY-MODEL-CHECKER</span></code> module to allow access to the strategy-aware model checker. The standard <code class="docutils literal notranslate"><span class="pre">MODEL-CHECKER</span></code> module is compatible with the strategy-aware version and both can be imported and used at the same time.</p>
+<p>As a final summary, the script for preparing a problem to be model checked with strategies is:</p>
+<ol class="arabic simple">
+<li><p>Specify the model in a system module <code class="docutils literal notranslate"><span class="pre">M</span></code>, and possibly define some strategy definitions in a strategy module <code class="docutils literal notranslate"><span class="pre">SM</span></code>.</p></li>
+<li><p>In a protecting extension of <code class="docutils literal notranslate"><span class="pre">M</span></code>, say <code class="docutils literal notranslate"><span class="pre">M-PREDS</span></code>, choose the sort of the model states by making it a subsort of the <code class="docutils literal notranslate"><span class="pre">State</span></code> sort declared in <code class="docutils literal notranslate"><span class="pre">SATISFACTION</span></code>. Declare as many atomic propositions as desired as operators of range <code class="docutils literal notranslate"><span class="pre">Prop</span></code>, and define the satisfaction relation <code class="docutils literal notranslate"><span class="pre">|=</span></code> for all of them.</p></li>
+<li><p>Declare a strategy module, say <code class="docutils literal notranslate"><span class="pre">SM-CHECK</span></code>, to combine the model <code class="docutils literal notranslate"><span class="pre">M</span></code> with the property specification in <code class="docutils literal notranslate"><span class="pre">M-PREDS</span></code> and the strategy module <code class="docutils literal notranslate"><span class="pre">SM</span></code> (if any). Import the <code class="docutils literal notranslate"><span class="pre">STRATEGY-MODEL-CHECKER</span></code> module too, and optionally the <code class="docutils literal notranslate"><span class="pre">LTL-SIMPLIFIER</span></code> module for LTL simplification.</p></li>
+</ol>
+</section>
+<section id="the-kleene-star-semantics-of-the-iteration">
+<span id="sec-kleene"></span><h3>The Kleene-star semantics of the iteration<a class="headerlink" href="#the-kleene-star-semantics-of-the-iteration" title="Link to this heading">¶</a></h3>
+<p>The usual meaning of the star operator in formal languages and regular expressions is the Kleene closure, in other words, all finite repetitions of the argument. On the contrary, the iteration operator <code class="docutils literal notranslate"><span class="pre"><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>α</mi>
+</math>*</span></code> of the strategy language also allows the infinite repetition of <span class="math notranslate nohighlight"><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>α</mi>
+</math></span>, which may be denoted by <span class="math notranslate nohighlight"><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <msup>
+    <mi>α</mi>
+    <mi>ω</mi>
+  </msup>
+</math></span>. Otherwise, a system controlled by a strategy could not be represented in general by a plain transition system or Kripke structure, since preventing infinite iterations imposes fairness-like restrictions on the infinite behavior of the model that cannot be represented locally. However, these restrictions can be handled by using automata-based algorithms or by pushing them to the temporal formulae being checked. As a method for specifying fairness restrictions directly on the strategy, the <code class="docutils literal notranslate"><span class="pre">umaudemc</span></code> tool supports those approaches <span id="id13">[<a class="reference internal" href="../biblio/#id26" title="Rubén Rubio, Narciso Martí-Oliet, Isabel Pita, and Alberto Verdejo. Specifying fairness constraints and model checking with non-intensional strategies. In Kazuhiro Ogata and Narciso Martí-Oliet, editors, Rewriting Logic and Its Applications - 15th International Workshop, WRLA 2024, Luxembourg City, Luxembourg, April 6-7, 2024, Revised Selected Papers, volume 14953 of Lecture Notes in Computer Science, 145–162. Springer, 2024. doi:10.1007/978-3-031-65941-6_8.">RMOPV24</a>]</span>.</p>
+<p>The <a class="reference internal" href="../check/#sec-check"><span class="std std-ref"><code class="docutils literal notranslate"><span class="pre">check</span></code></span></a> command can be passed a flag <code class="docutils literal notranslate"><span class="pre">--kleene-iteration</span></code> or simply <code class="docutils literal notranslate"><span class="pre">-k</span></code> to make the iteration be interpreted as the Kleene star when checking LTL, CTL, or CTL* properties (μ-calculus is not supported). If the Spot backend is available, LTL properties will be handled by an extension of the automata-theoretic model-checking approach where the model is a Streett automaton that captures the finiteness restrictions of the iteration. Otherwise, and for all other supported logics, the temporal formulae are extended with premises describing the aforementioned restrictions. Unless there are no iterations, CTL properties become proper CTL* formulae after the transformation, so a model-checking backend for this more general logic is required and performance could be substantially affected.</p>
+<p>The Kleene-star semantics model checker does not directly use the transition system produced by Maude for the strategy-controlled system, but relies on a Python-based implementation of the strategy language included in <code class="docutils literal notranslate"><span class="pre">umaudemc</span></code>, where iterations can be effectively traced. Currently, when the <code class="docutils literal notranslate"><span class="pre">--kleene-iteration</span></code> option of <code class="docutils literal notranslate"><span class="pre">check</span></code> is activated, the <code class="docutils literal notranslate"><span class="pre">--full-matchrew</span></code> option is always enabled, and the <code class="docutils literal notranslate"><span class="pre">--merge-states</span></code> choice is not properly respected by the LTSmin backend.</p>
+</section>
+</section>
+<section id="probabilistic-models">
+<span id="sec-probspec"></span><h2>Probabilistic models<a class="headerlink" href="#probabilistic-models" title="Link to this heading">¶</a></h2>
+<p>Maude specifications, both standard and strategy-controlled, are intrinsically nondeterministic. However, this nondeterminism can be quantified to yield probabilistic systems that can be analyzed by <a class="reference internal" href="../pcheck/#sec-pcheck"><span class="std std-ref">probabilistic</span></a> and <a class="reference internal" href="../scheck/#sec-scheck"><span class="std std-ref">statistical</span></a> model-checking methods. The tools described in this documentation offer different alternatives to specify probabilities on top of rewriting systems specified in Maude. In the simplest case, uniform probabilities on the successors are considered for every state. In the most expressive one, probabilities are assigned with arbitrary complex programs in a probabilistic extension of the Maude strategy language. These <em>probability assignment methods</em> will be described in this section and illustrated with the following example of a simple coin.</p>
+<div class="highlight-maude notranslate"><div class="highlight"><pre><span></span><span class="kn">mod</span><span class="w"> </span><span class="n">COIN</span><span class="w"> </span><span class="k">is</span>
+<span class="w">    </span><span class="k">protecting</span><span class="w"> </span><span class="n">NAT</span><span class="w"> </span><span class="p">.</span>
+
+<span class="w">    </span><span class="kd">sort</span><span class="w"> </span><span class="n">Coin</span><span class="w"> </span><span class="p">.</span>
+<span class="w">    </span><span class="kd">ops</span><span class="w"> </span><span class="n">head</span><span class="w"> </span><span class="n">tail</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Coin</span><span class="w"> </span><span class="p">[</span><span class="k">ctor</span><span class="p">]</span><span class="w"> </span><span class="p">.</span>
+
+<span class="w">    </span><span class="kd">vars</span><span class="w"> </span><span class="n">C</span><span class="w"> </span><span class="n">C&#39;</span><span class="w"> </span><span class="n">L</span><span class="w"> </span><span class="n">R</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Coin</span><span class="w"> </span><span class="p">.</span>
+
+<span class="w">    </span><span class="kd">rl</span><span class="w"> </span><span class="p">[</span><span class="n">thead</span><span class="p">]</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">C</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">head</span><span class="w"> </span><span class="p">[</span><span class="k">metadata</span><span class="w"> </span><span class="s2">&quot;8&quot;</span><span class="p">]</span><span class="w"> </span><span class="p">.</span>
+<span class="w">    </span><span class="kd">rl</span><span class="w"> </span><span class="p">[</span><span class="n">ttail</span><span class="p">]</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">C</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">tail</span><span class="w"> </span><span class="p">[</span><span class="k">metadata</span><span class="w"> </span><span class="s2">&quot;5&quot;</span><span class="p">]</span><span class="w"> </span><span class="p">.</span>
+
+<span class="w">    </span><span class="kd">op</span><span class="w"> </span><span class="n">inertia</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Coin</span><span class="w"> </span><span class="n">Coin</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Nat</span><span class="w"> </span><span class="p">.</span>
+<span class="w">    </span><span class="kd">eq</span><span class="w"> </span><span class="n">inertia</span><span class="p">(</span><span class="n">C</span><span class="p">,</span><span class="w"> </span><span class="n">C&#39;</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kt">if</span><span class="w"> </span><span class="n">C</span><span class="w"> </span><span class="kt">==</span><span class="w"> </span><span class="n">C&#39;</span><span class="w"> </span><span class="kt">then</span><span class="w"> </span><span class="mi">2</span><span class="w"> </span><span class="kt">else</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="kt">fi</span><span class="w"> </span><span class="p">.</span>
+<span class="kn">endm</span>
+</pre></div>
+</div>
+<p>Coins can be either in <code class="docutils literal notranslate"><span class="pre">head</span></code> or <code class="docutils literal notranslate"><span class="pre">tail</span></code> state, and they can change from one to the other by the rules <code class="docutils literal notranslate"><span class="pre">thead</span></code> and <code class="docutils literal notranslate"><span class="pre">ttail</span></code>. Other aspects of this module will be explained in due time. The standard rewrite graph of this model is this:</p>
+<div class="figure" style="text-align: center"><p><img  src="../_images/tikz-9b12ea5f35c986c51167f7a2ffe871953bf0ce6b.svg" alt="Figure made with TikZ" /></p>
+</div><p>The probability assignment methods are <code class="docutils literal notranslate"><span class="pre">uniform</span></code>, <code class="docutils literal notranslate"><span class="pre">metadata</span></code>, <code class="docutils literal notranslate"><span class="pre">term</span></code>, <code class="docutils literal notranslate"><span class="pre">uaction</span></code>, <code class="docutils literal notranslate"><span class="pre">mdp-uniform</span></code>, <code class="docutils literal notranslate"><span class="pre">mdp-meta­data</span></code>, <code class="docutils literal notranslate"><span class="pre">mdp-term</span></code>, and <code class="docutils literal notranslate"><span class="pre">strategy</span></code> for the extension of the strategy language. Some of them derive discrete-time Markov chains (DTMC) out of the rewriting model and others produce Markov decision processes (MDP), which combine nondeterministic and probabilistic behavior. Continuous-time Markov chains (CTMC) can also be derived with the methods <code class="docutils literal notranslate"><span class="pre">ctmc-uniform</span></code>, <code class="docutils literal notranslate"><span class="pre">ctmc-metadata</span></code>, <code class="docutils literal notranslate"><span class="pre">ctmc-term</span></code>, <code class="docutils literal notranslate"><span class="pre">ctmc-uaction</span></code>, and <code class="docutils literal notranslate"><span class="pre">ctmc-strategy</span></code>. All methods except <code class="docutils literal notranslate"><span class="pre">strategy</span></code> are <em>local</em>, in the sense that they distribute the probability among the successors of every state separately. Two additional assignment methods, <code class="docutils literal notranslate"><span class="pre">step</span></code> and <code class="docutils literal notranslate"><span class="pre">pmaude</span></code>, are specific to statistical model checking.</p>
+<section id="weight-based-assignment-methods">
+<h3>Weight-based assignment methods<a class="headerlink" href="#weight-based-assignment-methods" title="Link to this heading">¶</a></h3>
+<p>All these methods use weights to quantify the likeliness of the successors that are later normalized to obtain probabilities.</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">uniform</span></code> assigns the same probability to every successor of a term, i.e. successors are chosen uniformly at random. For example, the <code class="docutils literal notranslate"><span class="pre">COIN</span></code> module becomes the following DTMC under uniform probabilities:</p>
+<div class="figure" style="text-align: center"><p><img  src="../_images/tikz-2581e076c4b40354c414a535dfc438d07491670b.svg" alt="Figure made with TikZ" /></p>
+</div></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">uaction(<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <msub>
+    <mi>a</mi>
+    <mn>1</mn>
+  </msub>
+</math>=<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <msub>
+    <mi>w</mi>
+    <mn>1</mn>
+  </msub>
+</math>, <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>…</mi>
+</math>, <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <msub>
+    <mi>a</mi>
+    <mi>n</mi>
+  </msub>
+</math>=<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <msub>
+    <mi>w</mi>
+    <mi>n</mi>
+  </msub>
+</math>)</span></code> receives an assignment of weights to rule labels or actions of the rewriting system. First, the probability is distributed among the labels according to their weights. Then, for each rule label, the successors get an equal share of the assigned probability, in other words, they are then chosen uniformly at random. Instead of weights, actions can be assigned fixed probabilities with <code class="docutils literal notranslate"><span class="pre"><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <msub>
+    <mi>a</mi>
+    <mi>k</mi>
+  </msub>
+</math>.p=<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <msub>
+    <mi>p</mi>
+    <mi>k</mi>
+  </msub>
+</math></span></code> instead of <code class="docutils literal notranslate"><span class="pre"><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <msub>
+    <mi>a</mi>
+    <mi>k</mi>
+  </msub>
+</math>=<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <msub>
+    <mi>w</mi>
+    <mi>k</mi>
+  </msub>
+</math></span></code>. Fixed probabilities and weights for different actions can be combined, but fixed probabilities should never sum more than 1. In case no specification is given for an action, a unitary weight is assumed.</p>
+<p>On top of the <code class="docutils literal notranslate"><span class="pre">COIN</span></code> example, the method <code class="docutils literal notranslate"><span class="pre">uaction(ttail=3,</span> <span class="pre">thead=2)</span></code> produces the following discrete-time Markov chain:</p>
+<div class="figure" style="text-align: center"><p><img  src="../_images/tikz-0a07d86288c510c9e3cb2af5eb50301957125742.svg" alt="Figure made with TikZ" /></p>
+</div><p>However, since there is a single successor for each action, the uniform distribution of probabilities per action is trivial in this case. The same result is obtained using a fixed probability with the <code class="docutils literal notranslate"><span class="pre">uaction(ttail.p=0.4)</span></code> method.</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">metadata</span></code> distributes the probability among the successors according to the weights written in the free-text <code class="docutils literal notranslate"><span class="pre">metadata</span></code> attributes of the rules that caused their transitions. The content of the <code class="docutils literal notranslate"><span class="pre">metadata</span></code> attribute must be a numeric literal or a Maude term of sort <code class="docutils literal notranslate"><span class="pre">Nat</span></code> or <code class="docutils literal notranslate"><span class="pre">Float</span></code> depending on the variables of the rule. A weight of 1 is assumed in case the attribute is missing. Whenever a successor has been generated by multiple rule applications, the weight of one of them is chosen in an implementation-defined way.</p>
+<p>In the rules of the <code class="docutils literal notranslate"><span class="pre">COIN</span></code> module, we can see an example of this kind of specification, where <code class="docutils literal notranslate"><span class="pre">thead</span></code> is assigned a weight of 8 and <code class="docutils literal notranslate"><span class="pre">ttail</span></code> is given a weight of 5. The DTMC produced by this method is the following:</p>
+<div class="figure" style="text-align: center"><p><img  src="../_images/tikz-cc7f09988a3f09c0fa3f9098e8f572dd34c692e9.svg" alt="Figure made with TikZ" /></p>
+</div></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">term(<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>t</mi>
+</math>)</span></code> is given a Maude term <span class="math notranslate nohighlight"><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>t</mi>
+</math></span> to calculate weights for every transition on a state and distribute the probabilities according to them. This term must reduce to a literal of numerical sort (<code class="docutils literal notranslate"><span class="pre">Nat</span></code> or <code class="docutils literal notranslate"><span class="pre">Float</span></code>) and it may contain the variables <code class="docutils literal notranslate"><span class="pre">L</span></code>, <code class="docutils literal notranslate"><span class="pre">R</span></code>, and <code class="docutils literal notranslate"><span class="pre">A</span></code> to be instantiated respectively with the left- and right-hand side of the transition, and the label of the rule that caused it, as a term of sort <code class="docutils literal notranslate"><span class="pre">Qid</span></code> with <code class="docutils literal notranslate"><span class="pre">’unknown</span></code> for unlabeled rules. Whenever differently labeled rules produce the same transition, one label is chosen in an implementation-defined way.</p>
+<p>In the <code class="docutils literal notranslate"><span class="pre">COIN</span></code> module, we have already defined a function <code class="docutils literal notranslate"><span class="pre">inertia</span></code> that gives twice as much weight to the current face as to the other one. The equivalent methods <code class="docutils literal notranslate"><span class="pre">term(inertia(L,</span> <span class="pre">R))</span></code> and <code class="docutils literal notranslate"><span class="pre">term(if</span> <span class="pre">L</span> <span class="pre">==</span> <span class="pre">R</span> <span class="pre">then</span> <span class="pre">2</span> <span class="pre">else</span> <span class="pre">1</span> <span class="pre">fi)</span></code> produce the following probabilistic model:</p>
+<div class="figure" style="text-align: center"><p><img  src="../_images/tikz-26e764b796c7989241edc10ae4d98479de5fd544.svg" alt="Figure made with TikZ" /></p>
+</div><p>Since the variables <code class="docutils literal notranslate"><span class="pre">L</span></code> and <code class="docutils literal notranslate"><span class="pre">R</span></code> have already been declared in the module, we can directly write them in the term. Otherwise, we should have written <code class="docutils literal notranslate"><span class="pre">L:Coin</span></code> and <code class="docutils literal notranslate"><span class="pre">R:Coin</span></code>.</p>
+</li>
+</ul>
+<p>When the local methods are applied in a strategy-controlled model, the procedure does not change except that it is applied on the rewrite graph controlled by the strategy. The <code class="docutils literal notranslate"><span class="pre">mdp-</span></code> variants of the local assignment methods produce a Markov decision process where probabilities are only assigned once the rule label is nondeterministically chosen. There is no <code class="docutils literal notranslate"><span class="pre">mdp-uaction</span></code> method since it would not make any sense. These assignment methods are used for probabilistic model checking in <a class="reference internal" href="../pcheck/#sec-pcheck"><span class="std std-ref"><code class="docutils literal notranslate"><span class="pre">pcheck</span></code></span></a> and for statistical model checking in <a class="reference internal" href="../scheck/#sec-scheck"><span class="std std-ref"><code class="docutils literal notranslate"><span class="pre">scheck</span></code></span></a>.</p>
+<p>For the <code class="docutils literal notranslate"><span class="pre">ctmc-</span></code> variants of the methods, weights are interpreted as firing rates of the corresponding transitions instead of unnormalized probabilities. In the <code class="docutils literal notranslate"><span class="pre">ctmc-uniform</span></code> method, the firing rate of every transition is unitary. In the case of <code class="docutils literal notranslate"><span class="pre">ctmc-uaction</span></code>, each transition is given the rate specified for its label, but weights are normalized if a fixed probability <code class="docutils literal notranslate"><span class="pre">.p</span></code> is given.</p>
+</section>
+<section id="strategy-based-method">
+<h3>Strategy-based method<a class="headerlink" href="#strategy-based-method" title="Link to this heading">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">strategy</span></code> uses a probabilistic extension of the strategy language to both control and assign probabilities to the base rewriting system. This method produces a discrete-time Markov chain, a Markov decision process, or even an error depending on how much unquantified nondeterminism is left by the strategy. The new probabilistic combinators of the strategy language are:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">choice(<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <msub>
+    <mi>w</mi>
+    <mn>1</mn>
+  </msub>
+</math> : <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <msub>
+    <mi>α</mi>
+    <mn>1</mn>
+  </msub>
+</math>, <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>…</mi>
+</math>, <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <msub>
+    <mi>w</mi>
+    <mi>n</mi>
+  </msub>
+</math> : <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <msub>
+    <mi>α</mi>
+    <mi>n</mi>
+  </msub>
+</math>)</span></code> that selects one of the strategies <span class="math notranslate nohighlight"><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <msub>
+    <mi>α</mi>
+    <mi>k</mi>
+  </msub>
+</math></span> according to their weights <span class="math notranslate nohighlight"><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <msub>
+    <mi>w</mi>
+    <mi>k</mi>
+  </msub>
+</math></span>. These weights are terms in the <code class="docutils literal notranslate"><span class="pre">Nat</span></code> or <code class="docutils literal notranslate"><span class="pre">Float</span></code> sorts that may contain variables if they are defined in the outer scope. This is an evolution of the nondeterministic choice operator <code class="docutils literal notranslate"><span class="pre"><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <msub>
+    <mi>α</mi>
+    <mn>1</mn>
+  </msub>
+</math> | <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>⋯</mi>
+</math> | <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <msub>
+    <mi>α</mi>
+    <mi>n</mi>
+  </msub>
+</math></span></code>, and similar constructs exist in a probabilistic extension of ELAN <span id="id14">[<a class="reference internal" href="../biblio/#id25" title="Olivier Bournez and Claude Kirchner. Probabilistic rewrite strategies. Applications to ELAN. In Sophie Tison, editor, Rewriting Techniques and Applications, 13th International Conference, RTA 2002, Copenhagen, Denmark, July 22-24, 2002, Proceedings, volume 2378 of Lecture Notes in Computer Science, 252–266. Springer, 2002. doi:10.1007/3-540-45610-4_18.">BK02</a>]</span> and in Porgy <span id="id15">[<a class="reference internal" href="../biblio/#id24" title="Maribel Fernández, Hélène Kirchner, and Bruno Pinaud. Strategic port graph rewriting: an interactive modelling framework. Math. Struct. Comput. Sci., 29(5):615–662, 2019. doi:10.1017/S0960129518000270.">FKP19</a>]</span>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sample <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>X</mi>
+</math> := <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>π</mi>
+</math>(<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <msub>
+    <mi>t</mi>
+    <mn>1</mn>
+  </msub>
+</math>, <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>…</mi>
+</math>, <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <msub>
+    <mi>t</mi>
+    <mi>n</mi>
+  </msub>
+</math>) in <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>α</mi>
+</math></span></code> that samples the variable <span class="math notranslate nohighlight"><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>X</mi>
+</math></span> from a probabilistic distribution with parameters <span class="math notranslate nohighlight"><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <msub>
+    <mi>t</mi>
+    <mn>1</mn>
+  </msub>
+  <mo>,</mo>
+  <mi>…</mi>
+  <mo>,</mo>
+  <msub>
+    <mi>t</mi>
+    <mi>n</mi>
+  </msub>
+</math></span> that may contain variables defined in the outer contexts. The new variable <span class="math notranslate nohighlight"><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>X</mi>
+</math></span> can be freely used in <span class="math notranslate nohighlight"><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>α</mi>
+</math></span>. Both the variable <span class="math notranslate nohighlight"><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>X</mi>
+</math></span> and the parameters must be of sort <code class="docutils literal notranslate"><span class="pre">Float</span></code>. The available distributions are <code class="docutils literal notranslate"><span class="pre">bernouilli(<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>p</mi>
+</math>)</span></code>, <code class="docutils literal notranslate"><span class="pre">uniform(<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>a</mi>
+</math>, <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>b</mi>
+</math>)</span></code>, <code class="docutils literal notranslate"><span class="pre">exp(<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>λ</mi>
+</math>)</span></code>, <code class="docutils literal notranslate"><span class="pre">norm(<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>μ</mi>
+</math>, <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>σ</mi>
+</math>)</span></code>, and <code class="docutils literal notranslate"><span class="pre">gamma(<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>α</mi>
+</math>, <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>β</mi>
+</math>)</span></code>. <code class="docutils literal notranslate"><span class="pre">uniform</span></code> can either be the continuous or the discrete uniform distribution depending on whether the bounds <span class="math notranslate nohighlight"><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>a</mi>
+</math></span> and <span class="math notranslate nohighlight"><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>b</mi>
+</math></span> are of floating-point or integer type.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">sample</span></code> operator is not intended for discrete probabilistic model generation when continuous probabilistic distributions are used, but it can generate finite models with discrete distributions. It can be used for statistical model checking in any case.</p>
+</li>
+<li><p>An extension of the <code class="docutils literal notranslate"><span class="pre">matchrew</span></code>, <code class="docutils literal notranslate"><span class="pre">xmatchrew</span></code>, and <code class="docutils literal notranslate"><span class="pre">amatchrew</span></code> combinators of the standard strategy language to allow specifying the weight of every match and select one according to these weights. Syntactically, an optional infix <code class="docutils literal notranslate"><span class="pre">with weight <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>w</mi>
+</math></span></code> is added to the original operators, like in</p></li>
+</ul>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+  <mrow>
+    <mi>𝚖</mi>
+    <mi>𝚊</mi>
+    <mi>𝚝</mi>
+    <mi>𝚌</mi>
+    <mi>𝚑</mi>
+    <mi>𝚛</mi>
+    <mi>𝚎</mi>
+    <mi>𝚠</mi>
+  </mrow>
+  <mspace width="0.2778em"></mspace>
+  <mi>P</mi>
+  <mo stretchy="false">(</mo>
+  <msub>
+    <mi>X</mi>
+    <mn>1</mn>
+  </msub>
+  <mo>,</mo>
+  <mi>…</mi>
+  <mo>,</mo>
+  <msub>
+    <mi>X</mi>
+    <mi>n</mi>
+  </msub>
+  <mo stretchy="false">)</mo>
+  <mspace width="0.2778em"></mspace>
+  <mrow>
+    <mi>𝚜</mi>
+    <mo>.</mo>
+    <mi>𝚝</mi>
+    <mo>.</mo>
+  </mrow>
+  <mspace width="0.2778em"></mspace>
+  <mi>C</mi>
+  <mspace width="0.2778em"></mspace>
+  <mrow>
+    <mi>𝚠</mi>
+    <mi>𝚒</mi>
+    <mi>𝚝</mi>
+    <mi>𝚑</mi>
+    <mspace width="0.2778em"></mspace>
+    <mi>𝚠</mi>
+    <mi>𝚎</mi>
+    <mi>𝚒</mi>
+    <mi>𝚐</mi>
+    <mi>𝚑</mi>
+    <mi>𝚝</mi>
+  </mrow>
+  <mspace width="0.2778em"></mspace>
+  <mi>w</mi>
+  <mspace width="0.2778em"></mspace>
+  <mrow>
+    <mi>𝚋</mi>
+    <mi>𝚢</mi>
+  </mrow>
+  <mspace width="0.2778em"></mspace>
+  <msub>
+    <mi>X</mi>
+    <mn>1</mn>
+  </msub>
+  <mspace width="0.2778em"></mspace>
+  <mrow>
+    <mi>𝚞</mi>
+    <mi>𝚜</mi>
+    <mi>𝚒</mi>
+    <mi>𝚗</mi>
+    <mi>𝚐</mi>
+  </mrow>
+  <mspace width="0.2778em"></mspace>
+  <msub>
+    <mi>α</mi>
+    <mn>1</mn>
+  </msub>
+  <mo>,</mo>
+  <mi>…</mi>
+  <mo>,</mo>
+  <msub>
+    <mi>X</mi>
+    <mi>n</mi>
+  </msub>
+  <mspace width="0.2778em"></mspace>
+  <mrow>
+    <mi>𝚞</mi>
+    <mi>𝚜</mi>
+    <mi>𝚒</mi>
+    <mi>𝚗</mi>
+    <mi>𝚐</mi>
+  </mrow>
+  <mspace width="0.2778em"></mspace>
+  <msub>
+    <mi>α</mi>
+    <mi>n</mi>
+  </msub>
+</math></div></div>
+<p>where the weight <span class="math notranslate nohighlight"><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>w</mi>
+</math></span> is a term of sort <code class="docutils literal notranslate"><span class="pre">Nat</span></code> or <code class="docutils literal notranslate"><span class="pre">Float</span></code> that may contain variables from the matching, the condition, and the outer scope.</p>
+<p>For example, the strategy <code class="docutils literal notranslate"><span class="pre">(choice(2</span> <span class="pre">:</span> <span class="pre">ttail,</span> <span class="pre">1</span> <span class="pre">:</span> <span class="pre">thead)</span> <span class="pre">;</span> <span class="pre">choice(1</span> <span class="pre">:</span> <span class="pre">ttail,</span> <span class="pre">3</span> <span class="pre">:</span> <span class="pre">thead))</span> <span class="pre">*</span></code> specifies the following discrete-time Markov chain if the initial term is <code class="docutils literal notranslate"><span class="pre">head</span></code>:</p>
+<div class="figure" style="text-align: center"><p><img  src="../_images/tikz-9e3b331bf7b63b6b78c381ae5d313326f637aae9.svg" alt="Figure made with TikZ" /></p>
+</div><p>Notice that the probabilities are now non-local and the graph is made more complex since this strategy has memory. Probabilistic and nondeterministic behavior can be mixed in <code class="docutils literal notranslate"><span class="pre">(choice(2</span> <span class="pre">:</span> <span class="pre">ttail,</span> <span class="pre">1</span> <span class="pre">:</span> <span class="pre">thead)</span> <span class="pre">;</span> <span class="pre">(ttail</span> <span class="pre">|</span> <span class="pre">thead))</span> <span class="pre">*</span></code> yielding a Markov decision process:</p>
+<div class="figure" style="text-align: center"><p><img  src="../_images/tikz-905c241c192db03d094375196d9371ee33caba8b.svg" alt="Figure made with TikZ" /></p>
+</div><p>Like for weight-based methods, there is a <code class="docutils literal notranslate"><span class="pre">ctmc-strategy</span></code> that produces a continuous-time Markov chain. The strategy must be free of unquantified nondeterminism, i.e. <code class="docutils literal notranslate"><span class="pre">strategy</span></code> should be able to generate a DTMC.</p>
+</section>
+<section id="statistical-only-methods">
+<span id="sec-probspec-scheck"></span><h3>Statistical-only methods<a class="headerlink" href="#statistical-only-methods" title="Link to this heading">¶</a></h3>
+<p>In addition to the previous general methods, there are some others for statistical model checking only. They can be used with the builtin statistical model checker in <a class="reference internal" href="../scheck/#sec-scheck"><span class="std std-ref"><code class="docutils literal notranslate"><span class="pre">scheck</span></code></span></a>.</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">step</span></code> (with a strategy) considers the given probabilistic strategy as the atomic step of the model, i.e., the <span class="math notranslate nohighlight"><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo stretchy="false">(</mo>
+  <mi>n</mi>
+  <mo>+</mo>
+  <mn>1</mn>
+  <mo stretchy="false">)</mo>
+</math></span>-th state of an execution is a solution of the strategy applied on the <span class="math notranslate nohighlight"><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>n</mi>
+</math></span>-th state. For a sound statistical analysis, this strategy should not contain unquantified nondeterminism. In other words, it should provide a single (random) solution in every execution. If the strategy does not provide any solution, the execution continues in the same state.</p>
+<p>For example, the <code class="docutils literal notranslate"><span class="pre">step</span></code> method with the strategy <code class="docutils literal notranslate"><span class="pre">choice(2</span> <span class="pre">:</span> <span class="pre">ttail,</span> <span class="pre">1</span> <span class="pre">:</span> <span class="pre">thead)</span></code> yields the following discrete-time Markov chain, even though it will not be explicitly constructed.</p>
+<div class="figure" style="text-align: center"><p><img  src="../_images/tikz-905c241c192db03d094375196d9371ee33caba8b.svg" alt="Figure made with TikZ" /></p>
+</div><p>Sample operators can also be used.</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">step</span></code> (without a strategy) considers a rule application as the atomic step of the model. For the statistical analyses to be sound, there must be a single possible (random) rewrite at every step.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">pmaude</span></code> assigns probabilities to an APMaude model according to the conventions of that framework <span id="id16">[<a class="reference internal" href="../biblio/#id19" title="Gul A. Agha, José Meseguer, and Koushik Sen. PMaude: rewrite-based specification language for probabilistic object systems. In Antonio Cerone and Herbert Wiklicky, editors, Proceedings of the Third Workshop on Quantitative Aspects of Programming Languages, QAPL 2005, Edinburgh, UK, April 2-3, 2005, volume 153(2) of Electronic Notes in Theoretical Computer Science, 213–239. Elsevier, 2006. doi:10.1016/j.entcs.2005.10.040.">AMS06</a>]</span>. In particular, the Maude specification must define a function <code class="docutils literal notranslate"><span class="pre">tick</span></code> on the state sort and a function <code class="docutils literal notranslate"><span class="pre">getTime</span></code> from the state sort to <code class="docutils literal notranslate"><span class="pre">Float</span></code>. Every execution <span class="math notranslate nohighlight"><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo stretchy="false">(</mo>
+  <msub>
+    <mi>t</mi>
+    <mi>n</mi>
+  </msub>
+  <msubsup>
+    <mo stretchy="false">)</mo>
+    <mrow>
+      <mi>n</mi>
+      <mo>=</mo>
+      <mn>0</mn>
+    </mrow>
+    <mi>∞</mi>
+  </msubsup>
+</math></span> starts by rewriting the initial term with the rules of the module to obtain <span class="math notranslate nohighlight"><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <msub>
+    <mi>t</mi>
+    <mn>0</mn>
+  </msub>
+</math></span>, and then <span class="math notranslate nohighlight"><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <msub>
+    <mi>t</mi>
+    <mrow>
+      <mi>n</mi>
+      <mo>+</mo>
+      <mn>1</mn>
+    </mrow>
+  </msub>
+</math></span> is obtained by rewriting <code class="docutils literal notranslate"><span class="pre">tick(<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <msub>
+    <mi>t</mi>
+    <mi>n</mi>
+  </msub>
+</math>)</span></code> exhaustively with the rules of the module. Randomness relies on the PMaude infrastructure and the <code class="docutils literal notranslate"><span class="pre">random</span></code> and <code class="docutils literal notranslate"><span class="pre">counter</span></code> operators in the Maude prelude, and random seeds are refreshed on each execution. If a strategy expression is provided, it will be ignored.</p></li>
+</ul>
+</section>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="../check/">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">Standard model checking</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="../">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">Home</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2026
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">Introduction</a><ul>
+<li><a class="reference internal" href="#standard-maude-models">Standard Maude models</a><ul>
+<li><a class="reference internal" href="#model-preparation">Model preparation</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#strategy-controlled-models">Strategy-controlled models</a><ul>
+<li><a class="reference internal" href="#finite-traces">Finite traces</a></li>
+<li><a class="reference internal" href="#parallel-subterm-rewriting">Parallel subterm rewriting</a></li>
+<li><a class="reference internal" href="#opaque-strategies">Opaque strategies</a></li>
+<li><a class="reference internal" href="#sec-smodelprep">Model preparation</a></li>
+<li><a class="reference internal" href="#the-kleene-star-semantics-of-the-iteration">The Kleene-star semantics of the iteration</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#probabilistic-models">Probabilistic models</a><ul>
+<li><a class="reference internal" href="#weight-based-assignment-methods">Weight-based assignment methods</a></li>
+<li><a class="reference internal" href="#strategy-based-method">Strategy-based method</a></li>
+<li><a class="reference internal" href="#statistical-only-methods">Statistical-only methods</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="../_static/documentation_options.js?v=187304be"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/scripts/furo.js?v=46bd48cc"></script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
+    </body>
+</html>
