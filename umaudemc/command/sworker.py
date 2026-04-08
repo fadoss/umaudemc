@@ -155,7 +155,10 @@ def handle_request(message, conn, addr, keep_file):
 
 	command = Dummy(message)
 
-	with tempfile.TemporaryDirectory(delete=not keep_file) as tmp_dir:
+	# For compatibility with versions before 3.12
+	tmpdir_opts = {'delete': not keep_file} if sys.version_info >= (3, 12) else {}
+
+	with tempfile.TemporaryDirectory(**tmpdir_opts) as tmp_dir:
 		# Print the temporary working directory for debugging purposes
 		if keep_file:
 			print('Temporary directory:', tmp_dir)

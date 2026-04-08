@@ -62,7 +62,7 @@ model checking. However, other external backends can be installed:
 
 * The built-in LTL model checker included in Maude and its extension for
 strategy-controlled systems are already available in the `maude` library.
-* [LTSmin](https://ltsmin.utwente.nl) is a language-independent model checker,
+* [LTSmin](https://github.com/utwente-fmt/ltsmin) is a language-independent model checker,
 for which a [Maude language extension](https://maude.ucm.es/strategies)
 has been written. The environment variable `LTSMIN_PATH` should be set to
 the path containing the LTSmin binaries and `MAUDEMC_PATH` should point
@@ -104,15 +104,10 @@ they appear in the table.
 For the probabilistic model-checking command `pcheck`, two backends are supported:
 * [PRISM](https://www.prismmodelchecker.org/). If not installed in the system path,
 its location should be provided using the `PRISM_PATH` environment variable.
-* [Storm](https://www.stormchecker.org/). Its location should be specified
-with the `STORM_PATH` environment variable if not available in the system path. If
-its Python bindings [StormPy](https://moves-rwth.github.io/stormpy/) are available,
-i.e. the module `stormpy` is installed for the Python interpreter running `umaudemc`,
- they will be used instead of the command-line communication.
-
-For the statistical model-checking command `scheck`, the [SciPy](https://scipy.org/)
-Python package is recommended. Otherwise, confidence intervals will be calculated
-with respect to the normal distribution instead of the Student's t-distribution.
+* [Storm](https://www.stormchecker.org/). Its Python bindings
+[StormPy](https://stormchecker.github.io/stormpy/) can be installed with
+`pip install stormpy`. If not available, the `storm` binary path should be pointed
+by the `STORM_PATH` environment variable if not installed in the system path.
 
 Moreover, to read test cases specifications in YAML, the
 [PyYAML](https://pypi.org/project/pyaml/) package is required. [Matplotlib](https://matplotlib.org/)
@@ -122,31 +117,9 @@ is needed to plot the results of parametric queries with `--plot` in `scheck`.
 Documentation
 -------------
 
-The available program options are shown when the `--help` is introduced.
-Some deserve more explanations:
-
-* `--slabel` sets the format of state labels that appear in counterexamples and
-graphs. The format string may contain the templates `%t`, `%s`, `%i` that will
-be replaced by the subject term, the next strategy to be executed (only in
-strategy-controlled systems), and the internal index of the state,
-respectively. An optional length limit can be written between the `%` and the
-letter. Text between curly brackets will be interpreted as arbitrary Maude
-terms and reduced in the current module, after replacing the `%t` templates in
-it. This is useful to make traces and graphs more readable, and to check atomic
-propositions like in `%t -- p={%t |= p}`.
-* `--elabel` sets the format of edge labels in counterexamples and graphs. The
-format string may contain the templates `%s`, `%l`, `%n`, `%o` that will be
-replaced by the statement the caused the transition, by its label, by its line
-number, and by the string `opaque` if the transition was caused by an opaque
-strategy, respectively.
-* The model adaptations for branching-time logics `--purge-fails` and
-`--merge-states` are chosen automatically by the tool depending on the input
-formulae. However, they can be manually overwritten.
-* The option `--kleene-iteration` or `-k` in `check` when checking properties
-on strategy-controlled specifications makes the iteration strategy be
-interpreted as the Kleene star (i.e. infinite iterations are discarded).
-
-Further information is available at the model checkers'
+The available program options are shown when the `--help` flag is introduced.
+Further information is available in the
+[`umaudemc` documentation](https://fadoss.github.io/umaudemc) and the model checkers'
 [manual](https://maude.ucm.es/strategies/modelchecker-manual.pdf).
 
 ### Specification of probabilities

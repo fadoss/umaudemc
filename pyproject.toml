@@ -1,6 +1,6 @@
 [project]
 name            = 'umaudemc'
-version         = '0.17.1'
+version         = '0.18.0'
 description     = 'Unified Maude model-checking utility'
 license         = 'GPL-3.0-or-later'
 classifiers     = [
@@ -40,7 +40,7 @@ SMC     = ['scipy']
 [project.urls]
 "Homepage"      = 'https://github.com/fadoss/umaudemc'
 "Bug Tracker"   = 'https://github.com/fadoss/umaudemc/issues'
-"Documentation" = 'https://github.com/fadoss/umaudemc'
+"Documentation" = 'https://fadoss.github.io/umaudemc'
 "Source Code"   = 'https://github.com/fadoss/umaudemc'
 
 [project.scripts]

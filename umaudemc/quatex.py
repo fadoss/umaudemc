@@ -184,6 +184,12 @@ class QuaTExLexer:
 			self.ltype = self.LT_STRING
 			self._capture_string()
 
+		# Format string
+		elif c == 'f' and self._peek() == '"':
+			self._next()
+			self.ltype = self.LT_STRING
+			self._capture_string()
+
 		# Names cannot start with a number
 		elif c.isalpha() or c == '$':
 			self.ltype = self.LT_NAME
@@ -443,6 +449,76 @@ class QuaTExParser:
 
 		return result
 
+	def _parse_string(self, token, line, column):
+		"""Parse a QuaTEx string or format string"""
+
+		# Regular string
+		if token[0] != 'f':
+			return ast.Constant(token[1:-1])
+
+		# Format string
+		parts, index, last_index, in_expr = [], 2, 2, False
+
+		while index < len(token) - 1:
+			char = token[index]
+
+			# Nothing special
+			if char not in '{}':
+				index += 1
+
+			# Literal curly brace
+			elif token[index + 1] == char and not in_expr:
+				index += 2
+
+			# Opening brace
+			elif char == '{':
+				parts.append(ast.Constant(token[last_index:index].replace('{{', '{').replace('}}', '}')))
+				last_index, in_expr = index + 1, True
+				index += 1
+
+			# Spare closing brace
+			elif not in_expr:
+				self._eprint('spare closing bracket in format string', line=line, column=column + index)
+				return None
+
+			# Closing brace
+			else:
+				text = token[last_index:index].strip()
+				last_index, in_expr = index + 1, False
+				index += 1
+
+				# Integer format
+				format_spec = None
+				if text.endswith(':g'):
+					format_spec = ast.JoinedStr([ast.Constant('g')])
+					text = text[:-2].rstrip()
+
+				# Check it is a valid variable name
+				if text.startswith('$') and (value := self.constants.get(text[1:])) is not None:
+					current = ast.Constant(value)
+
+				elif (text[0].isalpha() or text[0] == '$') and all(map(QuaTExLexer._is_name, text)):
+					if text not in self.fvars:
+						self._eprint(f'unknown variable "{text}".', line=line, column=column + index)
+						self.ok = False
+					current = ast.Name(text, ast.Load())
+
+				else:
+					self._eprint(f'only variables can appear in format strings, found "{text}"', line=line, column=column + index)
+					return None
+
+				parts.append(ast.FormattedValue(current, conversion=-1, format_spec=format_spec))
+
+		# Unclosed block
+		if in_expr:
+			self._eprint('unclosed bracket group in format string')
+			return None
+
+		elif last_index < len(token):
+			parts.append(ast.Constant(token[last_index:len(token) - 1].replace('{{', '{').replace('}}', '}')))
+
+		return ast.JoinedStr(parts)
+
 	def _parse_expr(self, end_token, constexpr=False):
 		"""Parse an expression"""
 
@@ -628,9 +704,12 @@ class QuaTExParser:
 					elif ltype == self.lexer.LT_NUMBER:
 						argument = ast.Constant(int(token))
 					else:
-						token = token[1:-1]
-						self.observations.append(token)
-						argument = ast.Constant(token)
+						if not (argument := self._parse_string(token, line, column)):
+							return None
+
+						# Only constant observations can be added to the observation list
+						if isinstance(argument, ast.Constant):
+							self.observations.append(argument.value)
 
 					current = ast.Call(ast.Name('rval', ast.Load()), [argument], [])
 
@@ -664,7 +743,6 @@ class QuaTExParser:
 						self._eprint(f'unknown variable "{token}".', line=line, column=column)
 						self.ok = False
 
-
 					# We continue with the peeked token
 					token = next_token
 					continue
@@ -680,7 +758,8 @@ class QuaTExParser:
 					self._eprint(f'strings like {token} can only appear in rval and function arguments.')
 					return None
 
-				current = ast.Constant(token[1:-1])
+				if not (current := self._parse_string(token, line, column)):
+						return None
 
 			elif self.lexer.ltype == self.lexer.LT_OTHER:
 				if token in self.BINARY_OPS:
@@ -745,7 +824,7 @@ class QuaTExParser:
 				# Get the filename, it must be a string
 				path = self.lexer.get_token()
 
-				if self.lexer.ltype != self.lexer.LT_STRING:
+				if self.lexer.ltype != self.lexer.LT_STRING or path.startswith('f'):
 					self._eprint(f'unexpected token "{path}" where a string is required.')
 					return False
 
