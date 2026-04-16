@@ -1,0 +1,3 @@
+# Format strings
+
+umaudemc scheck dice initial format.quatex -s 6 -d 0.05 --assign pmaude

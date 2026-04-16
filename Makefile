@@ -14,17 +14,14 @@ CODE      = umaudemc/*.py umaudemc/*/*.py
 dist/umaudemc: dist $(RESOURCES) $(CODE)
 	# Create temporary directory and copy the package into it
 	mkdir -p zip
-	cp -r umaudemc zip
+	cp --parents $(CODE) $(RESOURCES) zip/
 	# Create a __main__ file for the package that invokes the umaudemc one
 	echo -e 'import sys\nfrom umaudemc.__main__ import main\nsys.exit(main())' > zip/__main__.py
+	# Set timestamps to current time
 	touch -ma zip/* zip/*/*
-	# Compress that directory into a zip file
-	cd zip ; zip -q ../umaudemc.zip $(RESOURCES) $(CODE) __main__.py
+	# Compress that directory into a zipapp file
+	python -m zipapp -c -p "$(PYTHON)" zip -o $@
 	rm -rf zip
-	# Put the shebang and then the zip file into the executable bundle
-	echo '#!$(PYTHON)' > $@
-	cat umaudemc.zip >> $@
-	rm umaudemc.zip
 	chmod a+x $@
 
 wheel:

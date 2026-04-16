@@ -493,12 +493,18 @@ class QuaTExParser:
 					format_spec = ast.JoinedStr([ast.Constant('g')])
 					text = text[:-2].rstrip()
 
-				# Check it is a valid variable name
+				# Check if it is a known constant name
 				if text.startswith('$') and (value := self.constants.get(text[1:])) is not None:
 					current = ast.Constant(value)
 
+				# Check if it is a valid variable name
 				elif (text[0].isalpha() or text[0] == '$') and all(map(QuaTExLexer._is_name, text)):
-					if text not in self.fvars:
+					# In a statement expression (where variables are not known in advance)
+					if not self.known_vars:
+						self.fvars.append((text, line, column + index))
+
+					# In a function definition (where variables are known)
+					elif text not in self.fvars:
 						self._eprint(f'unknown variable "{text}".', line=line, column=column + index)
 						self.ok = False
 					current = ast.Name(text, ast.Load())
@@ -736,6 +742,7 @@ class QuaTExParser:
 					if token.startswith('$') and (value := self.constants.get(token[1:])) is not None:
 						current = ast.Constant(value)
 
+					# In a statement expression (where variables are not known in advance)
 					elif not self.known_vars:
 						self.fvars.append((token, line, column))
 

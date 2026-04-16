@@ -1,0 +1,7 @@
+// Simple (and forced) example for format strings
+
+ProbFace(n) = s.rval(f"getValue(C) == {n:g}") ;
+Generic(s) = s.rval(s) ;
+
+eval parametric(E[ ProbFace(x) ], x, 1, 1, 6) ;
+eval parametric(E[ Generic(f"getValue(C) == {n:g}") ], n, 1, 1, 6) ;
