@@ -10,25 +10,46 @@ import random
 from .common import usermsgs, maude
 
 
-def get_quantile_func():
-	"""Get the quantile function for calculating confidence intervals"""
+def get_radius_func(method):
+	"""Get the function that calculates the radius of a confidence interval"""
 
 	try:
-		# SciPy is required for obtaining the quantiles of the Student's
-		# t-distribution, although it is a huge dependency including NumPy
-		from scipy.special import stdtrit
-		return stdtrit
+		match method:
+			# Sequential Clopper-Pearson
+			case 'seq-clopper-pearson' | 'scp':
+				message = 'using the Chow-Robbins method with the normal distribution'
+				from scipy.stats import beta
 
+				def beta_radius(query, alpha):
+					# Lower and upper bounds
+					bmin = beta.ppf(alpha / 2, query.sum, query.n - query.sum + 1) if query.sum > 0 else 0.0
+					bmax = beta.ppf(1 - alpha / 2, query.sum + 1, query.n - query.sum) if query.n > query.sum else 1.0
+
+					return (bmax - bmin) / 2
+
+				return beta_radius
+
+			# Chow-Robbins
+			case _:
+				# This can only happen through the API, because the CLI checks the options
+				if method not in ('chow-robbins', 'cr'):
+					usermsgs.print_warning(f'unknown statistical method {method}, defaulting to chow-robbins')
+
+				message = 'using the normal distribution instead of Student\'s t-distribution'
+				from scipy.special import stdtrit
+
+				return lambda query, alpha: query.s * (stdtrit(query.n - 1, 1 - alpha / 2) / math.sqrt(query.n))
+
+	# SciPy is required for obtaining the quantiles of the Student's
+	# t-distribution and the beta, although it is a huge dependency including NumPy
 	except ImportError:
-		usermsgs.print_warning('Warning: using the normal distribution for calculating '
-		                       'confidence intervals instead of Student\'s t-distribution, '
+		usermsgs.print_warning(f'Warning: {message} for calculating confidence intervals, '
 		                       'since SciPy is not available.')
 
 		from statistics import NormalDist
 		normal = NormalDist()
-		# The first argument is the degrees of freedom of the
-		# Student's t-distribution, so it is ignored here
-		return lambda _, p: normal.inv_cdf(p)
+
+		return lambda query, alpha: query.s * (normal.inv_cdf(1 - alpha / 2) / math.sqrt(query.n))
 
 
 def run(program, qdata, simulator):
@@ -134,7 +155,7 @@ def make_parameter_dicts(qinfo, delta):
 			x += step
 
 
-def check_interval(qdata, num_sims, min_sim, alpha, quantile, verbose):
+def check_interval(qdata, num_sims, min_sim, alpha, radius_fn, verbose):
 	"""Check the confidence interval"""
 
 	# Whether the size of the confidence interval for all queries have converged
@@ -155,13 +176,9 @@ def check_interval(qdata, num_sims, min_sim, alpha, quantile, verbose):
 			query.mu, query.s, query.h = query.sum, 0.0, 0.0
 		# General case
 		else:
-			# The radius encloses the confidence level in the reference
-			# distribution for calculating confidence intervals
-			tinv = quantile(query.n - 1, 1 - alpha / 2) / math.sqrt(query.n)
-
 			query.mu = query.sum / query.n
 			query.s = math.sqrt(max(query.sum_sq - query.sum * query.mu, 0.0) / (query.n - 1))
-			query.h = query.s * tinv
+			query.h = radius_fn(query, alpha)
 
 		if query.h <= query.delta and query.n >= min_sim:
 			query.converged = True
@@ -184,14 +201,14 @@ def check_interval(qdata, num_sims, min_sim, alpha, quantile, verbose):
 
 
 def run_single(program, qdata, num_sims, min_sim, max_sim, simulator, alpha, block_size,
-               verbose=False, dump=None):
+               verbose=False, method='chow-robbins', dump=None):
 	"""Run simulation in a single thread"""
 
 	# Size of the first block of execution (it coincides with num_sims
 	# but these number will differ if more blocks are executed)
 	block = num_sims
 
-	quantile = get_quantile_func()
+	quantile = get_radius_func(method)
 
 	# This loop continues until the maximum number of simulation is reached
 	# or the confidence interval converges to the given delta
@@ -274,7 +291,8 @@ def thread_main(program, qdata, simulator, num_sims, block_size, seed, queue, ba
 		block = block_size
 
 
-def run_parallel(program, qdata, num_sims, min_sim, max_sim, simulator, alpha, block_size, jobs, verbose=False, dump=None):
+def run_parallel(program, qdata, num_sims, min_sim, max_sim, simulator, alpha, block_size, jobs,
+                 verbose=False, method='chow-robbins', dump=None):
 	"""Run the simulation in multiple threads"""
 	import multiprocessing as mp
 	mp.set_start_method('fork', force=True)
@@ -284,7 +302,7 @@ def run_parallel(program, qdata, num_sims, min_sim, max_sim, simulator, alpha, b
 		jobs = os.cpu_count()
 
 	# Like in run_single
-	quantile = get_quantile_func()
+	quantile = get_radius_func(method)
 
 	# Process communication stuff
 
@@ -379,7 +397,7 @@ def qdata_to_dict(num_sims, qdata, program):
 	return dict(nsims=num_sims, queries=queries)
 
 
-def check(program, simulator, seed, alpha, delta, block, min_sim, max_sim, jobs, verbose=False, dump=None):
+def check(program, simulator, seed, alpha, delta, block, min_sim, max_sim, jobs, method, verbose=False, dump=None):
 	"""Run the statistical model checker"""
 
 	# The number of simulations for the first block
@@ -403,7 +421,7 @@ def check(program, simulator, seed, alpha, delta, block, min_sim, max_sim, jobs,
 	if jobs == 1 and num_sims != 1:
 		with (open(dump, 'w') if dump else contextlib.nullcontext()) as dump_file:
 			return run_single(program, qdata, num_sims, min_sim, max_sim, simulator, alpha,
-					  block, verbose=verbose, dump=dump_file)
+					  block, verbose=verbose, method=method, dump=dump_file)
 	else:
 		return run_parallel(program, qdata, num_sims, min_sim, max_sim, simulator, alpha,
-				    block, jobs, verbose=verbose, dump=dump)
+				    block, jobs, verbose=verbose, method=method, dump=dump)

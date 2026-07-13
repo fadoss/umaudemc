@@ -1,7 +1,7 @@
 (sec:intro)=
 # Introduction
 
-Maude {cite:p}`maude` let users specify concurrent and complex systems by means of terms, equations and rules, the language of rewriting logic {cite:p}`rewritingLogic`. These models can be directly executed or simulated by the interpreter, or analyzed by various tools. One of them is a built-in model checker {cite:p}`maudemc` for linear temporal logic (LTL) properties, which was first extended to support strategy-controlled models {cite:p}`fscd,ause`. Since rewriting is just the application of rules one after the other, in any order and anywhere, Maude incorporated a strategy language {cite:p}`theslang` to gain some global control on the process. It is designed as a new specification layer on top of equations and rules, so that the same model can exhibit different behaviors when controlled by alternative strategies. Both standard and strategy-controlled systems can be qualitatively checked using the `umaudemc` tool against LTL, CTL, CTL*, and μ-calculus properties through builtin and external tools {cite:p}`smcJournal-btime`, all integrated into the unified Maude model checking tool (`umaudemc`).
+Maude {cite:p}`maude` lets users specify concurrent and complex systems by means of terms, equations and rules, the language of rewriting logic {cite:p}`rewritingLogic`. These models can be directly executed or simulated by the interpreter, or analyzed by various tools. One of them is a built-in model checker {cite:p}`maudemc` for linear temporal logic (LTL) properties, which was first extended to support strategy-controlled models {cite:p}`fscd,ause`. Since rewriting is just the application of rules one after the other, in any order and anywhere, Maude incorporated a strategy language {cite:p}`theslang` to gain some global control on the process. It is designed as a new specification layer on top of equations and rules, so that the same model can exhibit different behaviors when controlled by alternative strategies. Both standard and strategy-controlled systems can be qualitatively checked using the `umaudemc` tool against LTL, CTL, CTL*, and μ-calculus properties through builtin and external tools {cite:p}`smcJournal-btime`, all integrated into the unified Maude model-checking tool (`umaudemc`).
 
 In addition to qualitative model checking, the `umaudemc` tool supports quantitative model checking with probabilistic and statistical methods {cite:p}`qmaude`. The same models where qualitative properties have been checked can be [extended with quantitative information](#sec:probspec) to check quantitative properties with the [`pcheck`](#sec:pcheck) and [`scheck`](#sec:scheck) commands.
 
@@ -54,7 +54,6 @@ The philosophers can try three different moves: taking their `left` fork, their 
 ### Model preparation
 
 The following ingredients should be supplied to prepare any Maude specification for model checking:
-supplied:
 
 * A model specified by a system module `M` with a designated sort of states.
 * A set of atomic propositions and a satisfaction relation $\vDash$ that specifies which are satisfied in each state.
@@ -232,7 +231,7 @@ smod PHILOSOPHERS-TURNS is
 endsm
 ```
 
-The `turns` strategy in the module above makes the philosophers eat in turns. With 3 philosophers, the strategies `turns(0,3)`, `turns(1,3)`, `turns(2,3)` follow continuously in a loop. This is not a convenient solution to the philosophers problem due to the absence of parallelism, but it ensures that all of them eat infinitely often.
+The `turns` strategy in the module above makes the philosophers eat in turns. With three philosophers, the sequence of recursive calls `turns(0,3)`, `turns(1,3)`, and `turns(2,3)` is repeated in a loop, causing the philosophers number 0, 1, and 2 to eat in that order. This is not a convenient solution to the philosophers problem due to the absence of parallelism, but it ensures that all of them eat infinitely often.
 
 Strategies always select a subset of the model executions. Hence, all linear temporal properties satisfied by the unrestricted model will be satisfied by the model controlled by no matter which strategy. However, the model checker also allows considering some explicitly selected strategies as atomic steps, as described hereafter, breaking this rule.
 
@@ -246,7 +245,7 @@ Strategies are commonly used to specify finite rewriting sequences, those whose 
     = right[Id <- 2]}} =>       < (o | 0 | ψ)   (o | 1 | ψ)   (o | 2 | ψ)   >
 ```
 
-This is a finite trace because the strategy `all`, the application of any rule, cannot be executed in the last state. Then, the conditional operator will execute is negative `idle` branch and terminate. The philosophers, unable to do any other movement, will remain like this indefinitely.
+This is a finite trace because the strategy `all`, the application of any rule, cannot be executed in the last state. Then, the conditional operator will execute its negative `idle` branch and terminate. The philosophers, unable to do any other movement, will remain like this indefinitely.
 
 The interpretation of finite traces is equivalent to that of terminating or *deadlocked* rewriting sequences in the standard model checker. In fact, the finite execution above is a deadlocked one, but this is not true in general. Suppose `free` were defined `all ; free` instead. Then, the trace above would be discarded since the strategy commits to execute `all` again in the fourth state, which is impossible. Conversely, the strategy `all*` admits all finite rewriting sequences, extended by repeating the last state forever, even if they can be continued otherwise with a genuine rule transition.
 
@@ -301,12 +300,12 @@ The model transitions are fundamentally rule applications, both for the strategy
 \draw[double, ->] (BOOL) -- (SAT);
 ```
 
-The problem setting and the usage of the strategy-aware model checker does not differ much of the [standard procedures](#sec:modelprep). The only difference is that, as part of the model specification, a strategy must be provided. The model is now specified by
+The problem setting and the usage of the strategy-aware model checker do not differ much of the [standard procedures](#sec:modelprep). The only difference is that, as part of the model specification, a strategy must be provided. The model is now specified by
 
 * a Maude system module `M`, and
-* a strategy expression $\alpha$, possible using some strategy definitions in a strategy module `SM` that controls `M`. If the strategy-controlled model checker is used from Maude, the controlling strategy can only be a named strategy without arguments and the strategy module is always required.
+* a strategy expression $\alpha$, possibly using some strategy definitions in a strategy module `SM` that controls `M`. If the strategy-controlled model checker is used from Maude, the controlling strategy can only be a named strategy without arguments and the strategy module is always required.
 
-For instance, in the dining-philosophers examples, the base rewriting model `M` is the system module `PHILOSOPHERS-PREDS`, and the controlling strategy can be either `parity` in `PHILOSOPHERS-PARITY` or `turns` in `PHILOSOPHERS-TURNS`.
+For instance, in the dining-philosophers examples, the base rewriting model `M` is the system module `PHILOSOPHERS-DINNER`, and the controlling strategy can be either `parity` in `PHILOSOPHERS-PARITY` or `turns` in `PHILOSOPHERS-TURNS`.
 
 As illustrated in the diagram, the collection of predefined and user-defined modules for strategy-aware model checking is very similar to that for [standard model checking](#sec:modelprep). In the typical setting, the rule-based model is specified in a system module `M`, one or more strategies controlling `M` are defined in an extension of this module that we will call `SM`, its atomic propositions and state are specified in a protected extension of `M` called `M-PREDS` that includes the predefined `SATISFACTION` module, and everything is combined in a strategy module `SM-CHECK`. This latter module imports the predefined `STRATEGY-MODEL-CHECKER` module to allow access to the strategy-aware model checker. The standard `MODEL-CHECKER` module is compatible with the strategy-aware version and both can be imported and used at the same time.
 
@@ -323,7 +322,7 @@ The usual meaning of the star operator in formal languages and regular expressio
 
 The [`check`](#sec:check) command can be passed a flag `--kleene-iteration` or simply `-k` to make the iteration be interpreted as the Kleene star when checking LTL, CTL, or CTL\* properties (μ-calculus is not supported). If the Spot backend is available, LTL properties will be handled by an extension of the automata-theoretic model-checking approach where the model is a Streett automaton that captures the finiteness restrictions of the iteration. Otherwise, and for all other supported logics, the temporal formulae are extended with premises describing the aforementioned restrictions. Unless there are no iterations, CTL properties become proper CTL\* formulae after the transformation, so a model-checking backend for this more general logic is required and performance could be substantially affected.
 
-The Kleene-star semantics model checker does not directly use the transition system produced by Maude for the strategy-controlled system, but relies on a Python-based implementation of the strategy language included in `umaudemc`, where iterations can be effectively traced. At the moment, the `--full-matchrew` option of the command is always enabled, and the `--merge-states` choice is not properly respected by the LTSmin backend.
+The Kleene-star semantics model checker does not directly use the transition system produced by Maude for the strategy-controlled system, but relies on a Python-based implementation of the strategy language included in `umaudemc`, where iterations can be effectively traced. Currently, when the `--kleene-iteration` option of `check` is activated, the `--full-matchrew` option is always enabled, and the `--merge-states` choice is not properly respected by the LTSmin backend.
 
 (sec:probspec)=
 ## Probabilistic models
@@ -453,7 +452,7 @@ For the `ctmc-` variants of the methods, weights are interpreted as firing rates
 
   * {codemath}`choice($w_1$ : $\alpha_1$, $\ldots$, $w_n$ : $\alpha_n$)` that selects one of the strategies $\alpha_k$ according to their weights $w_k$. These weights are terms in the `Nat` or `Float` sorts that may contain variables if they are defined in the outer scope. This is an evolution of the nondeterministic choice operator {codemath}`$\alpha_1$ | $\cdots$ | $\alpha_n$`, and similar constructs exist in a probabilistic extension of ELAN {cite:p}`pstratElan` and in Porgy {cite:p}`porgyJournal`.
 
-  * {codemath}`sample $X$ := $\pi$($t_1$, $\ldots$, $t_n$) in $\alpha$` that samples the variable $X$ from a probabilistic distribution with parameters $t_1, \ldots, t_n$ that may contain variables defined in the outer contexts. The new variable $X$ can be freely used in $\alpha$. Both the variable $X$ and the parameters must be of sort `Float`. The available distributions are {codemath}`bernouilli($p$)`, {codemath}`uniform($a$, $b$)`, {codemath}`exp($\lambda$)`, {codemath}`norm($\mu$, $\sigma$)`, and {codemath}`gamma($\alpha$, $\beta$)`. `uniform` can either be the continous or the discrete uniform distribution depending on whether the bounds $a$ and $b$ are of integer type.
+  * {codemath}`sample $X$ := $\pi$($t_1$, $\ldots$, $t_n$) in $\alpha$` that samples the variable $X$ from a probabilistic distribution with parameters $t_1, \ldots, t_n$ that may contain variables defined in the outer contexts. The new variable $X$ can be freely used in $\alpha$. Both the variable $X$ and the parameters must be of sort `Float`. The available distributions are {codemath}`bernouilli($p$)`, {codemath}`uniform($a$, $b$)`, {codemath}`exp($\lambda$)`, {codemath}`norm($\mu$, $\sigma$)`, and {codemath}`gamma($\alpha$, $\beta$)`. `uniform` can either be the continuous or the discrete uniform distribution depending on whether the bounds $a$ and $b$ are of floating-point or integer type.
 
     The `sample` operator is not intended for discrete probabilistic model generation when continuous probabilistic distributions are used, but it can generate finite models with discrete distributions. It can be used for statistical model checking in any case.
 
@@ -547,6 +546,6 @@ In addition to the previous general methods, there are some others for statistic
 
   Sample operators can also be used.
 
-* `step` (without a strategy) consider a rule application as the atomic step of the model. For the statistical analyses to be sound, there must be a single possible (random) rewrite at every step.
+* `step` (without a strategy) considers a rule application as the atomic step of the model. For the statistical analyses to be sound, there must be a single possible (random) rewrite at every step.
 
 * `pmaude` assigns probabilities to an APMaude model according to the conventions of that framework {cite:p}`pmaude`. In particular, the Maude specification must define a function `tick` on the state sort and a function `getTime` from the state sort to `Float`. Every execution $(t_n)_{n=0}^\infty$ starts by rewriting the initial term with the rules of the module to obtain $t_0$, and then $t_{n+1}$ is obtained by rewriting {codemath}`tick($t_n$)` exhaustively with the rules of the module. Randomness relies on the PMaude infrastructure and the `random` and `counter` operators in the Maude prelude, and random seeds are refreshed on each execution. If a strategy expression is provided, it will be ignored.

@@ -1,5 +1,18 @@
 # Unified Maude model-checking tool
 
+```{toctree}
+:maxdepth: 2
+:hidden:
+
+intro
+check
+pcheck
+scheck
+graph
+biblio
+apiref
+```
+
 The unified Maude model‑checking utility `umaudemc` is a uniform command‑line, graphical, and programming interface to different model checkers operating on Maude specifications. On both standard and strategy‑controlled Maude specifications, `umaudemc` can be used for
 
 * checking LTL, CTL, CTL*, and μ‑calculus properties (see [](#sec:check)),
@@ -37,13 +50,13 @@ select command in the file.
 Moreover, the following arguments may be inserted between `umaudemc` and the subcommand:
 
 `--verbose`, `-v`
-: Select the verbose mode so that more information is printed by the tool.
+: Selects the verbose mode so that more information is printed by the tool.
 
 `--no-advise`
 : Suppress debug advisories from Maude, like the `-no-advise` option of the Maude interpreter.
 
 `--version`
-: Show the current version of the tool and the optional dependencies that have been detected to be available or missing.
+: Shows the current version of the tool and the optional dependencies that have been detected to be available or missing.
 
 Moreover, `umuademc` can be used as a Python library (see [](#sec:apiref)).
 

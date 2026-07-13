@@ -220,7 +220,7 @@ def scheck(args):
 		# Call the statistical model checker
 		num_sims, qdata = check(program, simulator,
 		                        args.seed, args.alpha, args.delta, args.block,
-		                        min_sim, max_sim, args.jobs, args.verbose, args.dump)
+		                        min_sim, max_sim, args.jobs, args.smethod, args.verbose, args.dump)
 
 	# Check the discarded count when there is no convergence
 	for query in qdata:

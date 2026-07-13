@@ -1,0 +1,3 @@
+get() = s.rval("S1") ;
+
+eval E[# get()] ;

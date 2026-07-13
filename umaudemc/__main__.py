@@ -302,6 +302,12 @@ def build_parser():
 		default='30-'
 	)
 	parser_scheck.add_argument(
+		'--smethod',
+		help='Statistical method to estimate the confidence interval',
+		choices=('chow-robbins', 'seq-clopper-pearson', 'cr', 'scp'),
+		default='chow-robbins',
+	)
+	parser_scheck.add_argument(
 		'--seed', '-s',
 		help='Random seed',
 		type=int

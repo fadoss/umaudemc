@@ -15,7 +15,7 @@ from array import array
 from contextlib import ExitStack
 
 from .common import load_specification, usermsgs, MaudeFileFinder
-from .statistical import QueryData, check_interval, get_quantile_func, make_parameter_dicts
+from .statistical import QueryData, check_interval, get_radius_func, make_parameter_dicts
 
 # Regular expression for Maude inclusions
 LOAD_REGEX = re.compile(rb'^\s*s?load\s+("((?:[^"\\]|\\.)+)"|\S+)')
@@ -301,7 +301,7 @@ def distributed_check(args, initial_data, min_sim, max_sim, program, constants, 
 		converged_queries = array('i')
 		next_to_tell = [0] * len(sockets)
 
-		quantile = get_quantile_func()
+		quantile = get_radius_func(args.smethod)
 
 		while sockets:
 			events = selector.select()

@@ -1,0 +1,16 @@
+***
+*** Simple Bernoulli experiment
+***
+
+smod BERNOULLI is
+	protecting FLOAT .
+
+	vars P S1 S2 : Float .
+
+	*** Rule for arbitrarily setting the state
+	rl [set] : S1 => S2 [nonexec] .
+
+	*** Sample a Bernoulli distribution
+	strat bern : Float @ Float .
+	sd bern(P) := sample S2 := bernoulli(P) in set[S2 <- S2] .
+endsm
