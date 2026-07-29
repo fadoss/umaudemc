@@ -19,7 +19,7 @@ Query 2 (line 6:1)
 The third argument of `scheck` specifies the path of a QuaTEx file with one or more queries. All assignment methods allowed by [`pcheck`](#sec:pcheck) are supported here, as well as some [additional ones](#sec:probspec-scheck) (`step` and `pmaude`), even though [some particularities](#sec:scheck-methods) should be taken into account. All [general](#sec:usage) and most [strategy-specific](#sec:check-strat) options can also be given. The simulation is controlled by the following parameters:
 
 `--alpha ⟨number⟩`, `-a ⟨number⟩`
-: Required significance level for the confidence interval, i.e., the long-run proportion of computed intervals that would not contain the true value of desired parameter. Its complement $1 - \alpha$ is known as the confidence level of the interval and it must satisfy $0 \leq \alpha \leq 1$.
+: Required significance level for the confidence interval, i.e., the long-run proportion of computed intervals that would not contain the true value of desired parameter. Its complement $1 - \alpha$ is known as the confidence level of the interval and it must satisfy $0 \leq \alpha \leq 1$. The default value is 0.05.
 
 `--delta ⟨number⟩`, `-d ⟨number⟩`
 : Maximum admissible radius for the confidence interval around the mean. It can be overwritten for each query in the input QuaTEx file with a `with delta = ⟨number⟩` suffix to the `eval` command.
@@ -47,8 +47,12 @@ The third argument of `scheck` specifies the path of a QuaTEx file with one or m
 
 `--smethod ⟨method⟩`
 : The statistical method used to estimate the confidence interval and decide when model checking has converged. It can be one of the following options:
-   * `chow-robbins` (`cr`) for the Chow-Robbins method {cite:p}`chowrobbins`.
-   * `seq-clopper-pearson` (`scp`) for the sequential Clopper-Pearson method. This method is intended for estimating probabilities, for which it has a better coverage than the Chow-Roobins method.
+   * `chow-robbins` (`cr`) for the Chow-Robbins method {cite:p}`chowrobbins`. This is the default one.
+   * `seq-clopper-pearson` (`scp`) for the sequential Clopper-Pearson method.
+   * `hoeffding(`$d`)` for a method based on [Hoeffding's inequality](https://en.wikipedia.org/wiki/Hoeffding's_inequality) {cite:p}`hoeffding`, where $d$ is the length of an interval that almost surely contains all possible values of the estimated quantity. Unlike in previous methods, the number of simulations is calculated in advance based on the given $\delta$ and $d$.
+   * `okamoto` is equivalent to `hoeffding(1.0)`.
+   * `chen` for the Chen method {cite:p}`chen` (Algorithm M1).
+   Notice that `seq-clopper-pearson`, `okamoto`, and `hoeffding` are intended to estimate probabilities, for which they usually have a better coverage than the Chow-Robbins method.
 
 `--plot`, `-p`
 : Plots the results of all parametric queries in the input file: a line chart will display the mean of each parametric query for the input value with the radius of the confidence interval highlighted around that line. [Matplotlib](https://matplotlib.org) is required to use this option.

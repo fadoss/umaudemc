@@ -93,9 +93,9 @@ class Worker:
 		block = self.block
 
 		# Query data
-		# (delta, its second argument, does not matter because
+		# (its second and last arguments do not matter because
 		# convergence is not evaluated by the worker)
-		qdata = [QueryData(k, 1.0, idict)
+		qdata = [QueryData(k, 1.0, idict, None)
 		         for k, qinfo in enumerate(program.queries)
 		         for idict, _ in make_parameter_dicts(qinfo, 1.0)]
 

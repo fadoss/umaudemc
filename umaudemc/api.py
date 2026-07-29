@@ -419,7 +419,7 @@ class MaudeModel:
 
 		return result, stats
 
-	def scheck(self, quatex, assign='uniform', alpha=0.05, delta=0.5, block=30, nsims=(30, None),
+	def scheck(self, quatex, assign='uniform', alpha=0.05, delta=None, block=None, nsims=(0, None),
 	           seed=None, jobs=1, method='chow-robbins', usermsgs=_usermsgs, verbose=False, constants=None):
 		"""
 		Statistical model checking of a given QuaTEx expression
@@ -462,13 +462,18 @@ class MaudeModel:
 			return None
 
 		# Check the simulation parameters
-		if not (0 <= alpha <= 1) or delta < 0 or block <= 0:
-			usermsgs.print_error(f'Wrong simulation parameters: alpha, delta, or block are outside bounds.')
+		if not (0 <= alpha <= 1) or not (delta is None or delta >= 0) or not (block is None or block > 0):
+			usermsgs.print_error('Wrong simulation parameters: alpha, delta, or block are outside bounds.')
 			return None
 
 		# No queries in the input file
 		if not program.nqueries:
 			return {'nsims': 0, 'queries': ()}
+
+		# Check whether there is a minimum number of executions or a radius bound
+		if nsims[0] is None and delta is None:
+			usermsgs.print_error('Wrong simulation parameters: either delta or a minimum number of executions should be given.')
+			return None
 
 		# Get the simulator for the given assignment method
 		if not (simulator := _simulators.get_simulator(assign, self._make_data())):

@@ -112,19 +112,28 @@ def plot_results(program, qdata):
 def parse_range(rtext):
 	"""Parse a min-max range with potential omissions"""
 
+	# An empty (as a string) or unset range has no constraints
+	if not rtext:
+		return 0, None
+
 	try:
 		lims = tuple((int(arg) if arg else None) for arg in rtext.split('-'))
 
 	except ValueError as ve:
 		usermsgs.print_error(f'invalid range: {ve}.')
-		return None, None
+		return None
 
 	if len(lims) > 2:
 		usermsgs.print_error('too many steps in the simulation range.')
-		return None, None
+		return None
 
+	# Fixed number of simulations
 	if len(lims) == 1:
 		return lims[0], lims[0]
+
+	# The lower limit is never None (but 0) for convenience
+	if lims[0] is None:
+		lims = 0, lims[1]
 
 	return lims
 
@@ -188,18 +197,25 @@ def scheck(args):
 		usermsgs.print_error(f'Wrong value {args.alpha} for the alpha parameter (must be between 0 and 1).')
 		return 1
 
-	if args.delta < 0:
+	# delta must be positive, but it can be ommited (unrestricted interval size)
+	if args.delta is not None and args.delta <= 0:
 		usermsgs.print_error(f'Wrong value {args.delta} for the delta parameter (must be positive).')
 		return 1
 
-	if args.block <= 0:
+	# The block size must be positive, but it can omitted (a default value will be chosen)
+	if args.block is not None and args.block <= 0:
 		usermsgs.print_error(f'Wrong block size {args.block} (must be positive).')
 		return 1
 
-	min_sim, max_sim = parse_range(args.nsims)
-
-	if min_sim is None and max_sim is None:
+	if (sim_range := parse_range(args.nsims)) is None:
 		return 1
+
+	min_sim, max_sim = sim_range
+
+	# Set default values when no enough parameters are set
+	if not min_sim and not args.delta:
+		args.delta = 0.5
+		min_sim = 30
 
 	# Distributed computations follow a different path
 	if args.distribute:
@@ -221,6 +237,9 @@ def scheck(args):
 		num_sims, qdata = check(program, simulator,
 		                        args.seed, args.alpha, args.delta, args.block,
 		                        min_sim, max_sim, args.jobs, args.smethod, args.verbose, args.dump)
+
+	if num_sims is None:
+		return 1
 
 	# Check the discarded count when there is no convergence
 	for query in qdata:

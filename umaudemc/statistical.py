@@ -8,48 +8,7 @@ import os
 import random
 
 from .common import usermsgs, maude
-
-
-def get_radius_func(method):
-	"""Get the function that calculates the radius of a confidence interval"""
-
-	try:
-		match method:
-			# Sequential Clopper-Pearson
-			case 'seq-clopper-pearson' | 'scp':
-				message = 'using the Chow-Robbins method with the normal distribution'
-				from scipy.stats import beta
-
-				def beta_radius(query, alpha):
-					# Lower and upper bounds
-					bmin = beta.ppf(alpha / 2, query.sum, query.n - query.sum + 1) if query.sum > 0 else 0.0
-					bmax = beta.ppf(1 - alpha / 2, query.sum + 1, query.n - query.sum) if query.n > query.sum else 1.0
-
-					return (bmax - bmin) / 2
-
-				return beta_radius
-
-			# Chow-Robbins
-			case _:
-				# This can only happen through the API, because the CLI checks the options
-				if method not in ('chow-robbins', 'cr'):
-					usermsgs.print_warning(f'unknown statistical method {method}, defaulting to chow-robbins')
-
-				message = 'using the normal distribution instead of Student\'s t-distribution'
-				from scipy.special import stdtrit
-
-				return lambda query, alpha: query.s * (stdtrit(query.n - 1, 1 - alpha / 2) / math.sqrt(query.n))
-
-	# SciPy is required for obtaining the quantiles of the Student's
-	# t-distribution and the beta, although it is a huge dependency including NumPy
-	except ImportError:
-		usermsgs.print_warning(f'Warning: {message} for calculating confidence intervals, '
-		                       'since SciPy is not available.')
-
-		from statistics import NormalDist
-		normal = NormalDist()
-
-		return lambda query, alpha: query.s * (normal.inv_cdf(1 - alpha / 2) / math.sqrt(query.n))
+from .smethods import get_statistical_method
 
 
 def run(program, qdata, simulator):
@@ -114,13 +73,15 @@ def run(program, qdata, simulator):
 class QueryData:
 	"""Data associated to a query under evaluation"""
 
-	def __init__(self, query, delta, params):
+	def __init__(self, query, delta, params, smethod):
 		# Query expression index
 		self.query = query
 		# Initial dictionary of variable values
 		self.params = params
 		# Radius of the confidence interval
-		self.delta = delta
+		self.delta = delta if delta is not None else math.inf
+		# Statistical method used for calculating the confidence interval
+		self.smethod = smethod
 
 		# Sum of the query outcomes
 		self.sum = 0.0
@@ -155,7 +116,7 @@ def make_parameter_dicts(qinfo, delta):
 			x += step
 
 
-def check_interval(qdata, num_sims, min_sim, alpha, radius_fn, verbose):
+def check_interval(qdata, num_sims, min_sim, alpha, verbose):
 	"""Check the confidence interval"""
 
 	# Whether the size of the confidence interval for all queries have converged
@@ -178,10 +139,9 @@ def check_interval(qdata, num_sims, min_sim, alpha, radius_fn, verbose):
 		else:
 			query.mu = query.sum / query.n
 			query.s = math.sqrt(max(query.sum_sq - query.sum * query.mu, 0.0) / (query.n - 1))
-			query.h = radius_fn(query, alpha)
+			query.smethod.check(query, alpha, min_sim)
 
-		if query.h <= query.delta and query.n >= min_sim:
-			query.converged = True
+		if query.converged:
 			query.discarded = num_sims - query.n
 			which.append(k)
 		else:
@@ -201,14 +161,12 @@ def check_interval(qdata, num_sims, min_sim, alpha, radius_fn, verbose):
 
 
 def run_single(program, qdata, num_sims, min_sim, max_sim, simulator, alpha, block_size,
-               verbose=False, method='chow-robbins', dump=None):
+               verbose=False, dump=None):
 	"""Run simulation in a single thread"""
 
 	# Size of the first block of execution (it coincides with num_sims
 	# but these number will differ if more blocks are executed)
 	block = num_sims
-
-	quantile = get_radius_func(method)
 
 	# This loop continues until the maximum number of simulation is reached
 	# or the confidence interval converges to the given delta
@@ -227,7 +185,7 @@ def run_single(program, qdata, num_sims, min_sim, max_sim, simulator, alpha, blo
 					query.sum_sq += value * value
 					query.n += 1
 
-		converged, _ = check_interval(qdata, num_sims, min_sim, alpha, quantile, verbose)
+		converged, _ = check_interval(qdata, num_sims, min_sim, alpha, verbose)
 
 		if converged or max_sim and num_sims >= max_sim:
 			break
@@ -301,9 +259,6 @@ def run_parallel(program, qdata, num_sims, min_sim, max_sim, simulator, alpha, b
 	if jobs <= 0:
 		jobs = os.cpu_count()
 
-	# Like in run_single
-	quantile = get_radius_func(method)
-
 	# Process communication stuff
 
 	# Random number seeds
@@ -337,7 +292,7 @@ def run_parallel(program, qdata, num_sims, min_sim, max_sim, simulator, alpha, b
 				query.sum_sq += sum_sq[k]
 				query.n += counts[k]
 
-		converged, which = check_interval(qdata, num_sims, min_sim, alpha, quantile, verbose)
+		converged, which = check_interval(qdata, num_sims, min_sim, alpha, verbose)
 
 		if converged or max_sim and num_sims >= max_sim:
 			break
@@ -397,14 +352,43 @@ def qdata_to_dict(num_sims, qdata, program):
 	return dict(nsims=num_sims, queries=queries)
 
 
-def check(program, simulator, seed, alpha, delta, block, min_sim, max_sim, jobs, method, verbose=False, dump=None):
-	"""Run the statistical model checker"""
+def initialize_methods(qdata, delta, alpha, block, min_sim, max_sim, verbose=False):
+	"""Initialize the statistical methods of the given queries"""
 
-	# The number of simulations for the first block
-	num_sims = max(block, min_sim or 1)
+	max_required, max_query = min_sim, None
+
+	# Set default value for block size
+	if block is None:
+		block = 30
+
+	for query in qdata:
+		# A number of execution is required for this query
+		if required := query.smethod.init(query.delta, alpha, min_sim):
+			# Insufficient number of executions
+			if max_sim and required > max_sim:
+				usermsgs.print_warning(f'Query {query.query + 1} requires {required} simulations by {query.smethod.NAME}, '
+				                       f'but at most {max_sim} are allowed')
+
+			elif required > max_required:
+				max_required = required
+				max_query = query
+
+
+	# Inform about the number of required
+	if verbose and max_query:
+		usermsgs.print_info(f'Query {max_query.query + 1} requires {max_required} simulations by {max_query.smethod.NAME}')
+
+	# Number of simulations for the first block
+	num_sims = max(block, min_sim)
 
 	if max_sim:
 		num_sims = min(num_sims, max_sim)
+
+	return block, num_sims
+
+
+def check(program, simulator, seed, alpha, delta, block, min_sim, max_sim, jobs, smethod, verbose=False, dump=None):
+	"""Run the statistical model checker"""
 
 	# Set the random seed (both Python's and Maude's)
 	if seed is not None and seed >= 0:
@@ -413,15 +397,26 @@ def check(program, simulator, seed, alpha, delta, block, min_sim, max_sim, jobs,
 
 	# Each query maintains some data like the sum of the outcomes
 	# and the sum of their squares
-	qdata = [QueryData(k, dt, idict)
+	qdata = [QueryData(k, dt, idict, method)
 	         for k, qinfo in enumerate(program.queries)
-	         for idict, dt in make_parameter_dicts(qinfo, delta)]
+	         for idict, dt in make_parameter_dicts(qinfo, delta)
+		 if (method := get_statistical_method(qinfo.method if qinfo.method else smethod,
+		                                      qinfo=qinfo if qinfo.method else None))]
+
+	# All queries have been discarded
+	if not qdata:
+		usermsgs.print_error('No valid queries in the input file.')
+		return None, None
+
+	# Initialize statistical methods
+	# (get the block size and the number of simulations for the first block)
+	block, num_sims = initialize_methods(qdata, delta, alpha, block, min_sim, max_sim, verbose=verbose)
 
 	# Run the simulations
 	if jobs == 1 and num_sims != 1:
 		with (open(dump, 'w') if dump else contextlib.nullcontext()) as dump_file:
 			return run_single(program, qdata, num_sims, min_sim, max_sim, simulator, alpha,
-					  block, verbose=verbose, method=method, dump=dump_file)
+					  block, verbose=verbose, dump=dump_file)
 	else:
 		return run_parallel(program, qdata, num_sims, min_sim, max_sim, simulator, alpha,
-				    block, jobs, verbose=verbose, method=method, dump=dump)
+				    block, jobs, verbose=verbose, dump=dump)

@@ -15,7 +15,7 @@ from array import array
 from contextlib import ExitStack
 
 from .common import load_specification, usermsgs, MaudeFileFinder
-from .statistical import QueryData, check_interval, get_radius_func, make_parameter_dicts
+from .statistical import QueryData, check_interval, get_statistical_method, make_parameter_dicts, initialize_methods
 
 # Regular expression for Maude inclusions
 LOAD_REGEX = re.compile(rb'^\s*s?load\s+("((?:[^"\\]|\\.)+)"|\S+)')
@@ -268,6 +268,10 @@ def distributed_check(args, initial_data, min_sim, max_sim, program, constants, 
 	   or not process_dspec(dspec, args.distribute):
 		return None, None
 
+	# Set a default block size if not provided
+	if args.block is None:
+		args.block = 30
+
 	# Gather all sockets in a context to close them when we finish
 	with ExitStack() as stack:
 
@@ -276,6 +280,19 @@ def distributed_check(args, initial_data, min_sim, max_sim, program, constants, 
 			return None, None
 
 		print('All workers are ready. Starting...', file=sys.stderr)
+
+		# Query data
+		qdata = [QueryData(k, delta, idict, method)
+		         for k, qinfo in enumerate(program.queries)
+		         for idict, delta in make_parameter_dicts(qinfo, args.delta)
+		         if (method := get_statistical_method(qinfo.method if qinfo.method else args.smethod, qinfo if qinfo.method else None))]
+
+		# All queries have been discarded
+		if not qdata:
+			usermsgs.print_error('No valid queries in the input file.')
+			return None, None
+
+		initialize_methods(qdata, args.delta, args.alpha, args.block, min_sim, max_sim)
 
 		# Use a selector to wait for updates from any worker
 		selector = selectors.DefaultSelector()
@@ -288,10 +305,6 @@ def distributed_check(args, initial_data, min_sim, max_sim, program, constants, 
 		buffer = array('d')
 		ibuffer = array('i')
 
-		# Query data
-		qdata = [QueryData(k, delta, idict)
-		         for k, qinfo in enumerate(program.queries)
-		         for idict, delta in make_parameter_dicts(qinfo, args.delta)]
 		nqueries = len(qdata)
 		num_sims = 0
 
@@ -300,8 +313,6 @@ def distributed_check(args, initial_data, min_sim, max_sim, program, constants, 
 		# a list with the next index to be transmitted to each worker
 		converged_queries = array('i')
 		next_to_tell = [0] * len(sockets)
-
-		quantile = get_radius_func(args.smethod)
 
 		while sockets:
 			events = selector.select()
@@ -341,7 +352,7 @@ def distributed_check(args, initial_data, min_sim, max_sim, program, constants, 
 					sockets.remove(key.fileobj)
 
 			# Check whether the simulation has converged
-			converged, which = check_interval(qdata, num_sims, min_sim, args.alpha, quantile, args.verbose)
+			converged, which = check_interval(qdata, num_sims, min_sim, args.alpha, args.verbose)
 
 			# More converged queries
 			if which:

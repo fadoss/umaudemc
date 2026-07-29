@@ -11,7 +11,7 @@ from . import usermsgs
 class QuaTExQuery:
 	"""QuaTeX query information"""
 
-	def __init__(self, fname, line, column, expr, parameters, delta):
+	def __init__(self, fname, line, column, expr, parameters, delta, method):
 		self.filename = fname  # file cointing the query
 		self.line = line  # query location
 		self.column = column
@@ -19,6 +19,7 @@ class QuaTExQuery:
 
 		self.expr = expr  # query expression (only needed for compilation)
 		self.delta = delta  # delta value
+		self.method = method  # statistical method
 
 
 class QuaTExProgram:
@@ -398,37 +399,57 @@ class QuaTExParser:
 
 		return tuple(spec)
 
-	def _parse_delta(self, parameter):
-		"""Parse the delta annotation"""
+	def _parse_modifier(self, parameter):
+		"""Parse the delta or method annotation"""
 
-		if not self._expect('delta', '='):
-			return None
+		delta_mod, method_mod = None, None
 
-		# Only the parameter can appear as free variable in the expression
-		self.fvars.clear()
+		# Multiple comma-separated modifiers can be given
+		while self.lexer.lexeme != ';':
 
-		if parameter:
-			self.fvars.append(parameter[0])
+			if not (kywd := self._expect_any('delta', 'method')) or not self._expect('='):
+				return None
 
-		if (delta := self._parse_expr(';', constexpr=True)) is None:
-			return None
+			if kywd == 'delta':
+				# Only the parameter can appear as free variable in the expression
+				self.fvars.clear()
 
-		# Prepare delta as a function on the parameter (if any)
-		args = [ast.arg(parameter[0])] if parameter else []
+				if parameter:
+					self.fvars.append(parameter[0])
 
-		delta_fn = ast.Expression(ast.Lambda(ast.arguments(args=args), delta))
-		ast.fix_missing_locations(delta_fn)
+				if (delta := self._parse_expr((';', ','), constexpr=True)) is None:
+					return None
 
-		return eval(compile(delta_fn, '<delta>', 'eval'), {}, {})
+				# Prepare delta as a function on the parameter (if any)
+				args = [ast.arg(parameter[0])] if parameter else []
 
-	def _parse_constexpr(self, end_token):
+				delta_fn = ast.Expression(ast.Lambda(ast.arguments(args=args), delta))
+				ast.fix_missing_locations(delta_fn)
+
+				delta_mod = eval(compile(delta_fn, '<delta>', 'eval'), {}, {})
+
+			else:  # method
+
+				# The statistical method should be specified with a string
+				if not (token := self.lexer.get_token()) or self.lexer.ltype != self.lexer.LT_STRING:
+					self._eprint('a string is expected for the method modifier')
+					return None
+
+				method_mod = token[1:-1]
+
+				if not self._expect_any(';', ','):
+					return None
+
+		return delta_mod, method_mod
+
+	def _parse_constexpr(self, end_tokens):
 		"""Parse a constant expression as a number"""
 
 		# Soft errors, like unbound variables, are hard here because
 		# we run the code to obtain a value for the expression
 		old_ok, self.ok = self.ok, True
 
-		if (expr := self._parse_expr(end_token, constexpr=True)) is None:
+		if (expr := self._parse_expr(end_tokens, constexpr=True)) is None:
 			return None
 
 		elif not self.ok:
@@ -525,7 +546,7 @@ class QuaTExParser:
 
 		return ast.JoinedStr(parts)
 
-	def _parse_expr(self, end_token, constexpr=False):
+	def _parse_expr(self, end_tokens, constexpr=False):
 		"""Parse an expression"""
 
 		# Current expression (as a Python AST node)
@@ -551,9 +572,9 @@ class QuaTExParser:
 				current = self._do_binop(op_index, left, current) if left else self._do_unaryop(op_index, current)
 				arg_stack.pop()
 
-			if token == end_token:
+			if token in end_tokens:
 				if self.stack or not current:
-					self._eprint(f'unexpected end of expression when "{end_token}" is found.')
+					self._eprint(f'unexpected end of expression when "{token}" is found.')
 					return None
 
 				return current
@@ -881,22 +902,24 @@ class QuaTExParser:
 
 				# Parse parameter specification in parametric queries
 				parameter = self._parse_parameter() if parameter else None
-				delta = None
+				delta, smethod = None, None
 
-				# Check whether there is a "with delta = <number>" prefix
+				# Check whether there is a "with <modifier> = <value>" prefix
 				if (token := self._expect_any('with', ';')) is None:
 					return False
 
 				if token == 'with':
-					if (delta := self._parse_delta(parameter)) is None:
+					if (mods := self._parse_modifier(parameter)) is None:
 						return False
+
+					delta, smethod = mods
 
 				# Ignore parameterized expressions with empty range
 				if parameter and parameter[1] > parameter[3]:
 					usermsgs.print_warning_loc(self.lexer.filename, line, column,
 					                           'ignoring parametric query with empty range.')
 				else:
-					self.queries.append(QuaTExQuery(self.lexer.filename, line, column, expr, parameter, delta))
+					self.queries.append(QuaTExQuery(self.lexer.filename, line, column, expr, parameter, delta, smethod))
 
 			# Function definition -- <name> ( <args> ) = <expr> ;
 			else:
