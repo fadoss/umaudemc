@@ -19,16 +19,16 @@ Query 2 (line 6:1)
 The third argument of `scheck` specifies the path of a QuaTEx file with one or more queries. All assignment methods allowed by [`pcheck`](#sec:pcheck) are supported here, as well as some [additional ones](#sec:probspec-scheck) (`step` and `pmaude`), even though [some particularities](#sec:scheck-methods) should be taken into account. All [general](#sec:usage) and most [strategy-specific](#sec:check-strat) options can also be given. The simulation is controlled by the following parameters:
 
 `--alpha ⟨number⟩`, `-a ⟨number⟩`
-: Required significance level for the confidence interval, i.e., the long-run proportion of computed intervals that would not contain the true value of desired parameter. Its complement $1 - \alpha$ is known as the confidence level of the interval and it must satisfy $0 \leq \alpha \leq 1$.
+: Required significance level for the confidence interval, i.e., the long-run proportion of computed intervals that would not contain the true value of desired parameter. Its complement $1 - \alpha$ is known as the confidence level of the interval and it must satisfy $0 \leq \alpha \leq 1$. The default value is 0.05.
 
 `--delta ⟨number⟩`, `-d ⟨number⟩`
 : Maximum admissible radius for the confidence interval around the mean. It can be overwritten for each query in the input QuaTEx file with a `with delta = ⟨number⟩` suffix to the `eval` command.
 
 `--nsims ⟨range⟩`, `-n ⟨number⟩`
-: Fixed number or bounds for the number of single simulations or samples. It can be either a single number, a pair $m$-$M$ of a minimum $m$ and maximum $M$ number of executions, or a half-opened range. When the number of simulations is bounded above, the confidence level and interval radius in the previous arguments may not be attained. When executions are discarded with the `discard` operator in QuaTEx, the upper bound refers to total executions while the lower bound refers to non-discarded executions. Its default value is `30-`.
+: Fixed number or bounds for the number of simulations or samples. It can be either a single number, a pair $m$-$M$ of a minimum $m$ and a maximum $M$ number of executions, or a half-opened range. When the number of simulations is bounded above, the confidence level and interval radius in the previous arguments may not be attained. When executions are discarded with the `discard` operator in QuaTEx, the upper bound refers to total executions while the lower bound refers to non-discarded executions. Its default value is `0-`.
 
 `--block ⟨number⟩`, `-b ⟨number⟩`
-: Number of simulations before checking the confidence interval again. The first round of samples can be larger if the minimum number of simulations is greater than this block size, and the last round may be shorter if the maximum number of simulations is reached.
+: Number of simulations before checking the confidence interval again. The first round of samples can be larger if the minimum number of simulations is greater than this block size, and the last round may be shorter if the maximum number of simulations is reached. If sequential methods are used (`chow-robbins`, `seq-clopper-pearson`, or `chen`), the default block size is 30. Otherwise, the confidence intervals will only be calculated when the number of required executions is reached.
 
 `--seed ⟨number⟩`, `-s ⟨number⟩`
 : Seed for the random number generator or 0 to use the default random seed. The default value is 0.
@@ -45,6 +45,16 @@ The third argument of `scheck` specifies the path of a QuaTEx file with one or m
 `--assign ⟨method⟩`
 : The probability assignment method, as explained above. Instead of the literal description of the method, a filename prefixed by `@` may be entered to load it from file. The default method is `step` when a strategy is provided and `uniform` otherwise.
 
+`--smethod ⟨method⟩`
+: The statistical method used to estimate the confidence interval and decide when model checking has converged. It can be one of the following options:
+   * `chow-robbins` (`cr`) for the Chow-Robbins method {cite:p}`chowrobbins`. This is the default one.
+   * `seq-clopper-pearson` (`scp`) for the sequential Clopper-Pearson method.
+   * `hoeffding(`$d$`)` for a method based on [Hoeffding's inequality](https://en.wikipedia.org/wiki/Hoeffding's_inequality) {cite:p}`hoeffding`, where $d$ is the length of an interval that almost surely contains all possible values of the estimated quantity. Unlike in previous methods, the number of simulations is calculated in advance based on the given $\delta$ and $d$.
+   * `okamoto` is equivalent to `hoeffding(1.0)`.
+   * `chen` for the Chen method {cite:p}`chen` (Algorithm M1).
+
+  Notice that `seq-clopper-pearson`, `okamoto`, and `chen` are intended to estimate probabilities. In that context, they usually have better coverage than the Chow-Robbins method.
+
 `--plot`, `-p`
 : Plots the results of all parametric queries in the input file: a line chart will display the mean of each parametric query for the input value with the radius of the confidence interval highlighted around that line. [Matplotlib](https://matplotlib.org) is required to use this option.
 
@@ -52,9 +62,9 @@ The third argument of `scheck` specifies the path of a QuaTEx file with one or m
 : Distribute the computation among some machines specified in the provided file. More information in [](#sec:sworker). 
 
 `--dump ⟨path⟩`
-: Dump the results of the query evaluation to the given file. When running parallel simulations (with the `-j` option), a separate file will be generated for each process.
+: Dump the results of the query evaluation to the given file. When running parallel simulations (with the `-j` or `--distribute` options), a separate file will be generated for each process or worker.
 
-Simulations will be executed until the radius of the confidence interval with significance level $\alpha$ is below $\delta$ or when the maximum number of simulations is reached. If the [SciPy](https://scipy.org/) package is installed, the reference distribution for computing the confidence interval will be the [Student's $t$](https://en.wikipedia.org/wiki/Student's_t-distribution) with as many degrees of freedom as the number of simulations less one. Otherwise, a [normal distribution](https://en.wikipedia.org/wiki/Normal_distribution) will be used. When the statistical model checker finishes, the estimated mean, standard deviation, and confidence interval radius will be printed for each query. The temporary values of these parameters after each simulation block can be shown with the verbose `-v` flag.
+Simulations will be executed until the radius of the confidence interval with significance level $\alpha$ is below $\delta$ or when the maximum number of simulations is reached. If the [SciPy](https://scipy.org/) package is installed, the reference distribution for computing the confidence interval will be [Student's $t$](https://en.wikipedia.org/wiki/Student's_t-distribution) with as many degrees of freedom as the number of simulations less one. Otherwise, a [normal distribution](https://en.wikipedia.org/wiki/Normal_distribution) will be used. When the statistical model checker finishes, the estimated mean, standard deviation, and confidence interval radius will be printed for each query. The temporary values of these parameters after each simulation block can be shown with the verbose `-v` flag.
 
 (sec:quatex)=
 ## QuaTEx
@@ -83,11 +93,11 @@ Let us describe in more detail the main aspects of the QuaTEx language:
 * **Importation** of other QuaTEx files can be achieved with `import "⟨path⟩" ;` using a relative or absolute path. 
 * **Variables** (`Var`) are identifiers that do not start with `$`. They can be bound to numerical or string values.
 * **Constants** (`Const`) are identifiers that start with `$`. They can be used anywhere in expressions, and they must be defined with `-D⟨name⟩=⟨value⟩` in the command line. Only numerical constants are admitted for the moment.
-* **Format strings** are strings prefixed by a `f` character (`f"..."`) that may contain `{⟨name⟩}` substrings to be replaced by the value of the variable with the given name in the context where they appear. Literal curly braces should be written with `{{` and `}}`. Numerical values are floating-point numbers in QuaTEx, even if written as integer literals, so the `g` modifier, like in `{⟨name⟩:g}`, can be added to print integer values as such.
+* **Format strings** are strings prefixed by an `f` character (`f"..."`) that may contain `{⟨name⟩}` substrings to be replaced by the value of the variable with the given name in the context where they appear. Literal curly braces should be written with `{{` and `}}`. Numerical values are floating-point numbers in QuaTEx, even if written as integer literals, so the `g` modifier, like in `{⟨name⟩:g}`, can be added to print integer values as such.
 * **Observations** are expressions of the form `s.rval(⟨argument⟩)` where the argument is a string literal, a format string, or a variable bound to a string. If using the [`pcheck` assignment method](#sec:probspec-scheck), the argument can also be an integer number $n$ to evaluate the {codemath}`val($n$, $s$)` operator that may be defined in the Maude module. Observations can only be used when the current state is defined. Hence, they cannot be used in the bounds of the parametric query or the value of the `with delta` modifier.
-* **Next** (`#`) is an operator that advance the evaluation of the formula to the next state of the execution. It can only be followed by a function call. Only tail-recursive function calls are allowed.
+* **Next** (`#`) is an operator that advances the evaluation of the formula to the next state of the execution. It can only be followed by a function call. Only tail-recursive function calls are allowed.
 * **State formulas** are restricted formulas that cannot contain the *next* operator. Arithmetic is only defined on them, and conditions in conditionals can only be state expressions. The usual arithmetic operators on numbers (sum `+`, subtraction `-`, product `*`, division `*`, modulo `%`, equality `==`, inequality `!=`, and the order relations `<`, `<=`, `>`, and `>=`) and Boolean values (conjunction `&&`, and disjunction `||`).
-* **`discard`** is special word that can be used in path expressions to discard the current execution for that query (although it may still be processed by other simultaneous queries). Hence, it will not produce any sample for estimating the expected value of the expression. The query output will indicate the total number and the proportion of executions that have been discarded, which can be understood as the probability that the discarding condition is met. The expected value of that query can then be interpreted as a conditional expected value on the non-discarded execution paths. The total and the upper bound on the number of simulations include discarded executions, but the lower bound does not.
+* **`discard`** is a special word that can be used in path expressions to discard the current execution for that query (although it may still be processed by other simultaneous queries). Hence, it will not produce any sample for estimating the expected value of the expression. The query output will indicate the total number and the proportion of executions that have been discarded, which can be understood as the probability that the discarding condition is met. The expected value of that query can then be interpreted as a conditional expected value on the non-discarded execution paths. The total and the upper bound on the number of simulations include discarded executions, but the lower bound does not.
 
 ## Examples
 
@@ -102,7 +112,7 @@ eval E[StepsFor(10)];
 eval E[StepsFor(20)];
 ```
 
-The *next* operator `#` evaluates the function in the next step of the simulation, and `s.rval` reduces the given string as a Maude term of sorts `Int`, `Float`, `Integer`, `Real`, or `Bool` and returns the result as a floating-point number, where `true` and `false` are respectively converted to 1 and 0[^1]. This term is called an *observation* and may contain a single variable, no matter whose name, that will be instantiated with the current state term.  Moreover, the strings `time` and `steps` will be directly interpreted as the current time and number of steps. The current time is calculated as in a CTMC, regardless of whether the prefix `ctmc-` is used, for all methods but `strategy`, `step` (where `time` behaves like `steps`), and `pmaude`. Assuming the previous QuaTEx query is stored in a file `coin.quatex`, the following command evaluates that expression with `scheck`.
+The *next* operator `#` evaluates the function in the next step of the simulation, and `s.rval` reduces the given string as a Maude term of sort `Int`, `Float`, `Integer`, `Real`, or `Bool` and returns the result as a floating-point number, where `true` and `false` are respectively converted to 1 and 0.[^1] This term is called an *observation* and may contain a single variable, no matter whose name, that will be instantiated with the current state term.  Moreover, the strings `time` and `steps` will be directly interpreted as the current time and number of steps. The current time is calculated as in a CTMC, regardless of whether the prefix `ctmc-` is used, for all methods but `strategy`, `step` (where `time` behaves like `steps`), and `pmaude`. Assuming the previous QuaTEx query is stored in a file `coin.quatex`, the following command evaluates that expression with `scheck`.
 
 ```console
 $ umaudemc scheck coin head coin.quatex -a 0.01
@@ -145,7 +155,7 @@ Plots of the confidence intervals, generated by `scheck`.
 (sec:sworker)=
 ## Distributed model checking
 
-Simulations can be easily parallelized in `scheck` with the `--jobs` option. Distributing computation among different machines is also supported, but requires more configuration. First, the machines running the simulations (called *workers* in the following) must start the `sworker` subcommand.
+Simulations can be easily parallelized in `scheck` with the `--jobs` option. Distributing computations among different machines is also supported, but requires more configuration. First, the machines running the simulations (called *workers* in the following) must start the `sworker` subcommand.
 
 ```console
 $ umaudemc sworker [-p ⟨port⟩] [-a ⟨address⟩]

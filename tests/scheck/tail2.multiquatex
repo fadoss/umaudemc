@@ -1,0 +1,8 @@
+Tail() = if (s.rval("C |= tail")) then
+	s.rval("steps")
+else
+	# Tail()
+fi ;
+
+eval E[Tail()] with method = "hoeffding(2.0)" ;
+eval E[Tail()] with method = "hoeffding(3.0)" ;

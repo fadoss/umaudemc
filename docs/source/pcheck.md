@@ -1,7 +1,7 @@
 (sec:pcheck)=
 # Probabilistic model checking
 
-Probabilistic model checking is available through the `pcheck` subcommand on Maude models extended with probabilities by some [probabilistic assignment method](#sec:probspec) specified with the `--assign` option.
+Probabilistic model checking is available through the `pcheck` subcommand on Maude models extended with probabilities by the [probabilistic assignment method](#sec:probspec) specified with the `--assign` option.
 
 ```console
 $ umaudemc pcheck ⟨filename⟩ ⟨initial state⟩ ⟨formula⟩ [ ⟨strategy⟩ ]

@@ -52,14 +52,12 @@ class Worker:
 	def __init__(self):
 		self.program = None
 		self.simulator = None
-		self.block = 100
+		self.dump = None
 
 	def setup(self, tmp_dir, args):
 		"""Setup the execution environment"""
 
 		# Copy parameters
-		self.block = args.block
-
 		maude.setRandomSeed(args.seed)
 		random.seed(args.seed)
 
@@ -83,19 +81,26 @@ class Worker:
 		if not self.simulator:
 			return False
 
+		# Setup the dump
+		if args.dump:
+			self.dump = open(os.path.join(tmp_dir, 'dump.log'), 'w')
+
 		return True
 
 	def run(self, conn):
 		"""Run the simulation until it is finished"""
 
+		# Wait for start signal and read block size
+		conn.recv(1)
+		block = int.from_bytes(conn.recv(4), signed=False)
+
 		program = self.program
 		simulator = self.simulator
-		block = self.block
 
 		# Query data
-		# (delta, its second argument, does not matter because
+		# (its second and last arguments do not matter because
 		# convergence is not evaluated by the worker)
-		qdata = [QueryData(k, 1.0, idict)
+		qdata = [QueryData(k, 1.0, idict, None)
 		         for k, qinfo in enumerate(program.queries)
 		         for idict, _ in make_parameter_dicts(qinfo, 1.0)]
 
@@ -112,6 +117,10 @@ class Worker:
 				# Run the simulation and compute all queries at once
 				values = run(program, qdata, simulator)
 
+				# Dump evaluations if required
+				if self.dump:
+					print(*values, file=self.dump)
+
 				for k, value in enumerate(values):
 					if value is not None:
 						sums[k] += value
@@ -126,6 +135,15 @@ class Worker:
 			# Stop command
 			if answer == b's':
 				print('Done')
+
+				# Send the dump if requested
+				if self.dump:
+					self.dump.close()
+					conn.send(b'd')
+					with open(self.dump.name, 'rb') as dfile:
+						conn.sendfile(dfile)
+					conn.shutdown(socket.SHUT_WR)
+
 				return
 
 			# Partial convergence
@@ -141,7 +159,13 @@ class Worker:
 
 			elif answer != b'c':
 				usermsgs.print_error(f'Unknown command {answer.decode()}. Stopping.')
+				if self.dump:
+					self.dump.close()
+					self.dump = None
 				return
+
+			# Receive the new block size
+			block = int.from_bytes(conn.recv(4), signed=False)
 
 			# Reset the accumulators for the next round
 			for k in range(len(qdata)):
@@ -179,9 +203,6 @@ def handle_request(message, conn, addr, keep_file):
 		# Send confirmation
 		conn.send(b'o')
 
-		# Wait for start signal
-		conn.recv(1)
-
 		worker.run(conn)
 
 
@@ -194,8 +215,9 @@ def sworker(args):
 			while True:
 				print(f'👂 Listening on {args.address}:{args.port}...')
 				conn, addr = sock.accept()
+				addr_str = ':'.join(map(str, addr))
 
-				usermsgs.print_info(f'Accepted connection from {":".join(map(str, addr))}.')
+				usermsgs.print_info(f'Accepted connection from {addr_str}.')
 
 				while True:
 					# Read the initiation message
@@ -203,9 +225,16 @@ def sworker(args):
 						break
 
 					# A separate process to cleanup Maude state
-					process = mp.Process(target=handle_request, args=(message, conn, addr, args.keep_file))
+					process = mp.Process(target=handle_request, args=(message, conn, addr_str, args.keep_file))
 					process.start()
 					process.join()
+
+					# Check whether process has failed
+					if process.exitcode != 0:
+						usermsgs.print_error(f'{addr_str}: worker process failed with exit code {process.exitcode}')
+
+						try: conn.send(b'e')
+						except ConnectionError: pass
 
 	except KeyboardInterrupt:
 		print('Server closed by the user.')

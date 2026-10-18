@@ -280,7 +280,7 @@ def build_parser():
 	)
 	parser_scheck.add_argument(
 		'--alpha', '-a',
-		help='Complement of the confidence level (probability outside the confidence interval)',
+		help='Complement of the confidence level (ratio of confidence intervals that may not contain the value)',
 		type=float,
 		default=0.05
 	)
@@ -288,18 +288,20 @@ def build_parser():
 		'--delta', '-d',
 		help='Maximum admissible radius for the confidence interval',
 		type=float,
-		default=0.5
 	)
 	parser_scheck.add_argument(
 		'--block', '-b',
 		help='Number of simulations before checking the confidence interval',
 		type=int,
-		default=30
 	)
 	parser_scheck.add_argument(
 		'--nsims', '-n',
 		help='Number of simulations (it can be a fixed number or a range min-max, where any of the limits can be omitted)',
-		default='30-'
+	)
+	parser_scheck.add_argument(
+		'--smethod',
+		help='Statistical method to estimate the confidence interval',
+		default='chow-robbins',
 	)
 	parser_scheck.add_argument(
 		'--seed', '-s',

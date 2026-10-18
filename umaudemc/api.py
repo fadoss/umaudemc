@@ -213,7 +213,7 @@ class MaudeModel:
 		:param merge_states: Whether successors with a common term should be merged
 			(edge, value or none, by default selected depending on the logic)
 		:type merge_states: str
-		:param backends: Prioritized list of model checking backends to be used
+		:param backends: Prioritized list of model-checking backends to be used
 		:type backends: str or list of str
 		:param formula_str: Formula given a string (in case formula is a list)
 		:type formula_str: str or None
@@ -349,7 +349,7 @@ class MaudeModel:
 		:param merge_states: Whether successors with a common term should be merged
 			(edge, value or none, by default selected depending on the logic)
 		:type merge_states: str
-		:param backends: Prioritized list of model checking backends to be used
+		:param backends: Prioritized list of model-checking backends to be used
 		:type backends: str or list of str
 		:param timeout: Timeout for the model-checking task
 		:type timeout: int or None
@@ -419,8 +419,8 @@ class MaudeModel:
 
 		return result, stats
 
-	def scheck(self, quatex, assign='uniform', alpha=0.05, delta=0.5, block=30, nsims=(30, None),
-	           seed=None, jobs=1, usermsgs=_usermsgs, verbose=False, constants=None):
+	def scheck(self, quatex, assign='uniform', alpha=0.05, delta=None, block=None, nsims=(0, None),
+	           seed=None, jobs=1, method='chow-robbins', usermsgs=_usermsgs, verbose=False, constants=None):
 		"""
 		Statistical model checking of a given QuaTEx expression
 
@@ -440,6 +440,8 @@ class MaudeModel:
 		:type seed: int
 		:type jobs: Number of parallel simulation threads
 		:type jobs: int
+		:type method: Statistical method for estimating confidence intervals
+		:type jobs: str
 		:param usermsgs: Partially override default user message printing functions
 		:type usermsgs: An object with print_error, print_warning and print_info methods
 		:param verbose: Enable verbose messages about the simulation state between blocks
@@ -460,13 +462,18 @@ class MaudeModel:
 			return None
 
 		# Check the simulation parameters
-		if not (0 <= alpha <= 1) or delta < 0 or block <= 0:
-			usermsgs.print_error(f'Wrong simulation parameters: alpha, delta, or block are outside bounds.')
+		if not (0 <= alpha <= 1) or not (delta is None or delta >= 0) or not (block is None or block > 0):
+			usermsgs.print_error('Wrong simulation parameters: alpha, delta, or block are outside bounds.')
 			return None
 
 		# No queries in the input file
 		if not program.nqueries:
 			return {'nsims': 0, 'queries': ()}
+
+		# Check whether there is a minimum number of executions or a radius bound
+		if nsims[0] is None and delta is None:
+			usermsgs.print_error('Wrong simulation parameters: either delta or a minimum number of executions should be given.')
+			return None
 
 		# Get the simulator for the given assignment method
 		if not (simulator := _simulators.get_simulator(assign, self._make_data())):
@@ -477,7 +484,7 @@ class MaudeModel:
 		# Call the statistical model checker
 		num_sims, qdata = _statistical.check(program, simulator,
 		                                     seed, alpha, delta, block, min_sim, max_sim,
-		                                     jobs, verbose)
+		                                     jobs, method, verbose)
 
 		# Return cleaned-up version of the result
 		return _statistical.qdata_to_dict(num_sims, qdata, program)

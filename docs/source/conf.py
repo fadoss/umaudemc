@@ -36,6 +36,7 @@ extensions = [
 	'sphinxcontrib.tikz',
 	'sphinx_design',
 	'erbsland.sphinx.ansi',
+	'sphinxcontrib.rsvgconverter',
 	'local',
 ]
 

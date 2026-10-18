@@ -8,27 +8,7 @@ import os
 import random
 
 from .common import usermsgs, maude
-
-
-def get_quantile_func():
-	"""Get the quantile function for calculating confidence intervals"""
-
-	try:
-		# SciPy is required for obtaining the quantiles of the Student's
-		# t-distribution, although it is a huge dependency including NumPy
-		from scipy.special import stdtrit
-		return stdtrit
-
-	except ImportError:
-		usermsgs.print_warning('Warning: using the normal distribution for calculating '
-		                       'confidence intervals instead of Student\'s t-distribution, '
-		                       'since SciPy is not available.')
-
-		from statistics import NormalDist
-		normal = NormalDist()
-		# The first argument is the degrees of freedom of the
-		# Student's t-distribution, so it is ignored here
-		return lambda _, p: normal.inv_cdf(p)
+from .smethods import get_statistical_method
 
 
 def run(program, qdata, simulator):
@@ -93,13 +73,15 @@ def run(program, qdata, simulator):
 class QueryData:
 	"""Data associated to a query under evaluation"""
 
-	def __init__(self, query, delta, params):
+	def __init__(self, query, delta, params, smethod):
 		# Query expression index
 		self.query = query
 		# Initial dictionary of variable values
 		self.params = params
 		# Radius of the confidence interval
-		self.delta = delta
+		self.delta = math.inf if delta is None else delta
+		# Statistical method used for calculating the confidence interval
+		self.smethod = smethod
 
 		# Sum of the query outcomes
 		self.sum = 0.0
@@ -134,7 +116,7 @@ def make_parameter_dicts(qinfo, delta):
 			x += step
 
 
-def check_interval(qdata, num_sims, min_sim, alpha, quantile, verbose):
+def check_interval(qdata, num_sims, min_sim, alpha, verbose):
 	"""Check the confidence interval"""
 
 	# Whether the size of the confidence interval for all queries have converged
@@ -155,16 +137,11 @@ def check_interval(qdata, num_sims, min_sim, alpha, quantile, verbose):
 			query.mu, query.s, query.h = query.sum, 0.0, 0.0
 		# General case
 		else:
-			# The radius encloses the confidence level in the reference
-			# distribution for calculating confidence intervals
-			tinv = quantile(query.n - 1, 1 - alpha / 2) / math.sqrt(query.n)
-
 			query.mu = query.sum / query.n
 			query.s = math.sqrt(max(query.sum_sq - query.sum * query.mu, 0.0) / (query.n - 1))
-			query.h = query.s * tinv
+			query.smethod.check(query, alpha, min_sim)
 
-		if query.h <= query.delta and query.n >= min_sim:
-			query.converged = True
+		if query.converged:
 			query.discarded = num_sims - query.n
 			which.append(k)
 		else:
@@ -183,20 +160,67 @@ def check_interval(qdata, num_sims, min_sim, alpha, quantile, verbose):
 	return converged, which
 
 
-def run_single(program, qdata, num_sims, min_sim, max_sim, simulator, alpha, block_size,
+class Scheduler:
+	"""Decide the number of executions required in each step"""
+
+	def __init__(self, block, min_sim, max_sim, stops):
+		self.block = block  # size of the periodic block
+		self.current = 0  # current number of simulations
+		self.max_sim = max_sim # maximum number of executions
+
+		# Stops to check convergence
+		self.stops = sorted({k for k in stops if k > min_sim}, reverse=True)
+
+		# Number of simulations for the first block
+		self.first_block = max(block, min_sim) if block else min_sim
+
+		if max_sim and max_sim < self.first_block:
+			self.first_block = max_sim
+
+	def __iter__(self):
+		"""The scheduler is an iterator"""
+
+		return self
+
+	def __next__(self):
+		"""Get the next stop"""
+
+		# First block
+		if self.first_block:
+			self.current, self.first_block = self.first_block, None
+			return self.current
+
+		# Already done
+		if self.max_sim and self.current >= self.max_sim:
+			raise StopIteration
+
+		# Using fixed stops
+		if self.block is None or (self.stops and self.current + self.block >= self.stops[-1]):
+			if not self.stops:
+				raise StopIteration
+
+			candidate = self.stops.pop()
+
+		# Using a periodic stop
+		else:
+			candidate = self.current + self.block
+
+			if self.max_sim and candidate > self.max_sim:
+				candidate = self.max_sim
+
+		next_step = candidate - self.current
+		self.current = candidate
+		return next_step
+
+
+def run_single(program, qdata, min_sim, scheduler, simulator, alpha,
                verbose=False, dump=None):
 	"""Run simulation in a single thread"""
 
-	# Size of the first block of execution (it coincides with num_sims
-	# but these number will differ if more blocks are executed)
-	block = num_sims
-
-	quantile = get_quantile_func()
-
 	# This loop continues until the maximum number of simulation is reached
 	# or the confidence interval converges to the given delta
-	while True:
-		for _ in range(block):
+	for block_size in scheduler:
+		for _ in range(block_size):
 			# Run the simulation and compute all queries at once
 			values = run(program, qdata, simulator)
 
@@ -210,24 +234,19 @@ def run_single(program, qdata, num_sims, min_sim, max_sim, simulator, alpha, blo
 					query.sum_sq += value * value
 					query.n += 1
 
-		converged, _ = check_interval(qdata, num_sims, min_sim, alpha, quantile, verbose)
+		converged, _ = check_interval(qdata, scheduler.current, min_sim, alpha, verbose)
 
-		if converged or max_sim and num_sims >= max_sim:
+		if converged:
 			break
 
-		num_sims += block_size
-		block = block_size
-
-	return num_sims, qdata
+	return scheduler.current, qdata
 
 
-def thread_main(program, qdata, simulator, num_sims, block_size, seed, queue, barrier, more, convergents, dump=None):
+def thread_main(program, qdata, simulator, pindex, num_jobs, seed, queue, barrier, more, convergents, dump=None):
 	"""Entry point of a calculating thread"""
 
 	maude.setRandomSeed(seed)
 	random.seed(seed)
-
-	block = num_sims
 
 	# Open dump file for the raw data
 	dump_file = open(dump, 'w') if dump else None
@@ -236,8 +255,13 @@ def thread_main(program, qdata, simulator, num_sims, block_size, seed, queue, ba
 	sum_sq = [0.0] * len(qdata)
 	counts = [0] * len(qdata)
 
+	# Number of simulations for this block
+	block = more.value
+
 	# Repeat until the main process says we are done
 	while True:
+		# Adjust block size for this process
+		block = (block // num_jobs) + (pindex < block % num_jobs)
 
 		for _ in range(block):
 			# Run the simulation and compute all queries at once
@@ -261,7 +285,7 @@ def thread_main(program, qdata, simulator, num_sims, block_size, seed, queue, ba
 			sum_sq[k] = 0.0
 			counts[k] = 0
 
-		if not more.value:
+		if more.value == 0:
 			break
 
 		# Disable queries that have converged
@@ -271,10 +295,11 @@ def thread_main(program, qdata, simulator, num_sims, block_size, seed, queue, ba
 			qdata[convergents[k]].converged = True
 
 		# Continue for a next block
-		block = block_size
+		block = more.value
 
 
-def run_parallel(program, qdata, num_sims, min_sim, max_sim, simulator, alpha, block_size, jobs, verbose=False, dump=None):
+def run_parallel(program, qdata, min_sim, scheduler, simulator, alpha, jobs,
+                 verbose=False, method='chow-robbins', dump=None):
 	"""Run the simulation in multiple threads"""
 	import multiprocessing as mp
 	mp.set_start_method('fork', force=True)
@@ -282,9 +307,6 @@ def run_parallel(program, qdata, num_sims, min_sim, max_sim, simulator, alpha, b
 	# When the number of jobs is zero or negative, we take the CPU count
 	if jobs <= 0:
 		jobs = os.cpu_count()
-
-	# Like in run_single
-	quantile = get_quantile_func()
 
 	# Process communication stuff
 
@@ -294,15 +316,15 @@ def run_parallel(program, qdata, num_sims, min_sim, max_sim, simulator, alpha, b
 	dumps = [f'{dump}.{os.getpid()}-{k}' for k in range(jobs)] if dump else ([None] * jobs)
 	# Queue for transferring the query evaluations
 	queue = mp.Queue()
+	# Barrier to synchronize processes
+	# (running them asynchronously could be an alternative)
 	barrier = mp.Barrier(jobs + 1)
-	more = mp.Value('b', False, lock=False)
+	more = mp.Value('i', next(scheduler), lock=False)
 	convergents = mp.Array('i', [-1] * len(qdata), lock=False)
 
-	rest, rest_block = num_sims % jobs, block_size % jobs
 	processes = [mp.Process(target=thread_main,
-	                        args=(program, qdata, simulator, num_sims // jobs + (k < rest),
-	                              block_size // jobs + (k < rest_block),
-	                              seeds[k], queue, barrier, more, convergents, dumps[k]))
+	                        args=(program, qdata, simulator, k, jobs, seeds[k],
+	                              queue, barrier, more, convergents, dumps[k]))
 	             for k in range(jobs)]
 
 	# Start all processes
@@ -319,14 +341,17 @@ def run_parallel(program, qdata, num_sims, min_sim, max_sim, simulator, alpha, b
 				query.sum_sq += sum_sq[k]
 				query.n += counts[k]
 
-		converged, which = check_interval(qdata, num_sims, min_sim, alpha, quantile, verbose)
+		converged, which = check_interval(qdata, scheduler.current, min_sim, alpha, verbose)
 
-		if converged or max_sim and num_sims >= max_sim:
+		if converged:
 			break
 
-		num_sims += block_size
+		# Obtain the next step of executions from the scheduler
+		more.value = next(scheduler, 0)
 
-		more.value = True
+		if more.value == 0:
+			break
+
 		# Inform which queries have converged
 		for k, qindex in enumerate(which):
 			convergents[k] = qindex
@@ -334,14 +359,14 @@ def run_parallel(program, qdata, num_sims, min_sim, max_sim, simulator, alpha, b
 
 		barrier.wait()
 
-	more.value = False
+	more.value = 0
 	barrier.wait()
 
 	# Wait for all processes
 	for p in processes:
 		p.join()
 
-	return num_sims, qdata
+	return scheduler.current, qdata
 
 
 def qdata_to_dict(num_sims, qdata, program):
@@ -379,14 +404,42 @@ def qdata_to_dict(num_sims, qdata, program):
 	return dict(nsims=num_sims, queries=queries)
 
 
-def check(program, simulator, seed, alpha, delta, block, min_sim, max_sim, jobs, verbose=False, dump=None):
+def initialize_methods(qdata, delta, alpha, block, min_sim, max_sim, verbose=False, default_block=30):
+	"""Initialize the statistical methods of the given queries"""
+
+	max_required, max_query, stops = min_sim, None, []
+
+	for query in qdata:
+		# A number of execution is required for this query
+		if required := query.smethod.init(query.delta, alpha, min_sim):
+			# Insufficient number of executions
+			if max_sim and required > max_sim:
+				usermsgs.print_warning(f'Query {query.query + 1} requires {required} simulations by {query.smethod.NAME}, '
+				                       f'but at most {max_sim} are allowed')
+
+			else:
+				stops.append(required)
+
+				if required > max_required:
+					max_required = required
+					max_query = query
+
+	# Inform about the number of required simulations
+	if verbose and max_query:
+		usermsgs.print_info(f'Query {max_query.query + 1} requires {max_required} simulations by {max_query.smethod.NAME}')
+
+	# Set a default delta value if sequential methods are used
+	if block is None and len(stops) < len(qdata):
+		block = default_block
+
+	# Prepare an scheduler for the experiment
+	scheduler = Scheduler(block, min_sim, max_sim, stops)
+
+	return scheduler
+
+
+def check(program, simulator, seed, alpha, delta, block, min_sim, max_sim, jobs, smethod, verbose=False, dump=None):
 	"""Run the statistical model checker"""
-
-	# The number of simulations for the first block
-	num_sims = max(block, min_sim or 1)
-
-	if max_sim:
-		num_sims = min(num_sims, max_sim)
 
 	# Set the random seed (both Python's and Maude's)
 	if seed is not None and seed >= 0:
@@ -395,15 +448,35 @@ def check(program, simulator, seed, alpha, delta, block, min_sim, max_sim, jobs,
 
 	# Each query maintains some data like the sum of the outcomes
 	# and the sum of their squares
-	qdata = [QueryData(k, dt, idict)
+	qdata = [QueryData(k, dt, idict, method)
 	         for k, qinfo in enumerate(program.queries)
-	         for idict, dt in make_parameter_dicts(qinfo, delta)]
+	         for idict, dt in make_parameter_dicts(qinfo, delta)
+		 if (method := get_statistical_method(qinfo.method if qinfo.method else smethod,
+		                                      qinfo=qinfo if qinfo.method else None))]
+
+	# All queries have been discarded
+	if not qdata:
+		usermsgs.print_error('No valid queries in the input file.')
+		return None, None
+
+	# Initialize statistical methods
+	# (get the scheduler to decide when to stop for checking convergence or at all)
+	scheduler = initialize_methods(qdata, delta, alpha, block, min_sim, max_sim, verbose=verbose)
+
+	# If a dump path is given, try to create its parent directories if they do not exist
+	if dump and (parent := os.path.dirname(dump)):
+		try:
+			os.makedirs(parent, exist_ok=True)
+
+		except OSError as oe:
+			usermsgs.print_error(f'Cannot create parent directories for the dump file: {oe}')
+			return None, None
 
 	# Run the simulations
-	if jobs == 1 and num_sims != 1:
+	if jobs == 1 and scheduler.first_block != 1:
 		with (open(dump, 'w') if dump else contextlib.nullcontext()) as dump_file:
-			return run_single(program, qdata, num_sims, min_sim, max_sim, simulator, alpha,
-					  block, verbose=verbose, dump=dump_file)
+			return run_single(program, qdata, min_sim, scheduler, simulator, alpha,
+					  verbose=verbose, dump=dump_file)
 	else:
-		return run_parallel(program, qdata, num_sims, min_sim, max_sim, simulator, alpha,
-				    block, jobs, verbose=verbose, dump=dump)
+		return run_parallel(program, qdata, min_sim, scheduler, simulator, alpha, jobs,
+				    verbose=verbose, dump=dump)

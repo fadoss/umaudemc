@@ -37,13 +37,13 @@ select command in the file.
 Moreover, the following arguments may be inserted between `umaudemc` and the subcommand:
 
 `--verbose`, `-v`
-: Select the verbose mode so that more information is printed by the tool.
+: Selects the verbose mode so that more information is printed by the tool.
 
 `--no-advise`
 : Suppress debug advisories from Maude, like the `-no-advise` option of the Maude interpreter.
 
 `--version`
-: Show the current version of the tool and the optional dependencies that have been detected to be available or missing.
+: Shows the current version of the tool and the optional dependencies that have been detected to be available or missing.
 
 Moreover, `umuademc` can be used as a Python library (see [](#sec:apiref)).
 

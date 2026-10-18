@@ -12,10 +12,10 @@ The optional strategy argument can be any well-defined strategy expression. Form
 In addition to these positional arguments, other optional parameters can be set up that are listed when invoking the program with the `--help` flag. By default, the module that would be selected when loading the given file into the Maude interpreter will be the selected module for model checking (i.e. the last module to be parsed or selected with the `select` command), but this can be changed with the following options:
 
 `--module ⟨name⟩`, `-m ⟨name⟩`
-: Select a module by its name to be used for model checking.
+: Selects a module by its name to be used for model checking.
 
 `–-metamodule ⟨term⟩`, `-M ⟨term⟩` 
-: Select the module whose metarepresenation is provided as an argument for model checking. The given term will be evaluated in the module specified with `--module` or selected by default.
+: Selects the module whose metarepresenation is provided as an argument for model checking. The given term will be evaluated in the module specified with `--module` or selected by default.
 
 Other options are used to control the format of counterexamples. The `-–slabel` option is specially useful to simplify counterexamples involving complex terms.
 
@@ -76,13 +76,13 @@ If the `strategy` argument is given in the command line, properties are checked 
 : Merges successor states with a common term but different strategy continuations, if the option is `state` or `edge`. Moreover, with `edge` only successors by a common transition label are merged. Merging can be disabled completely with `no` and can be instructed to set the appropriate configuration with `default` (`edge` for μ-calculus with edge labels, `no` for LTL, and `state` for the rest).
 
 `–-purge-fails ⟨option⟩` 
-: Enables (`on`) or disables (`off`) the elimination of failed states. The `default` option is `off` for LTL and on-the-fly model checking algorithms, and `on` otherwise.
+: Enables (`on`) or disables (`off`) the elimination of failed states. The `default` option is `off` for LTL and on-the-fly model-checking algorithms, and `on` otherwise.
 
 `–-opaque ⟨list⟩`
 : Comma-separated list with the names of the strategies to be considered [*opaque*](#sec:opaque) (i.e. their complete execution is an atomic step of the model).
 
 `–-kleene-iteration`, `-k`
-: Make the semantics of the iteration coincide with the Kleene star (see [](#sec:kleene)).
+: Makes the semantics of the iteration coincide with the Kleene star (see [](#sec:kleene)).
 
 `–-show-strat`
 : Shows the next strategy to be executed from each state in the counterexample.
@@ -159,7 +159,7 @@ The property [1;32mis[0m satisfied in the initial state
 (sec:check-backends)=
 ## External model checkers and their installation
 
-The `umaudemc` utility does model checking by alternatively calling the builtin Maude model checker, some algorithms implemented in the tool itself, and some external model checkers. LTL, CTL and μ-calculus properties can be checked out of the box using the first two options. However, for using other model checkers like LTSmin, NuSMV, Spot, or Spin their corresponding programs have to be installed or downloaded in locations where the utility is able to find them. Some backends may be more efficient that others (in general, the builtin Maude model checker and LTSmin should be the best choices), some easier to install, and not all of them support all temporal logics, as shown in the following table.
+The `umaudemc` utility does model checking by alternatively calling the builtin Maude model checker, some algorithms implemented in the tool itself, and some external model checkers. LTL, CTL and μ-calculus properties can be checked out of the box using the first two options. However, for using other model checkers like LTSmin, NuSMV, Spot, or Spin their corresponding programs have to be installed or downloaded in locations where the utility is able to find them. Some backends may be more efficient than others (in general, the builtin Maude model checker and LTSmin should be the best choices), some easier to install, and not all of them support all temporal logics, as shown in the following table.
 
 | Tool	          | Backend   | LTL        | CTL	| CTL*	 | μ-calculus  |
 | --------------- | --------- | :--------: | :----: | :----: | :---------: |
@@ -173,7 +173,7 @@ The `umaudemc` utility does model checking by alternatively calling the builtin 
 
 * The built-in LTL model checker included in Maude {cite:p}`maudemc` and its extension for strategy-controlled systems {cite:p}`ause` are already available in the `maude` library. No action is required to install them.
 * [LTSmin](https://github.com/utwente-fmt/ltsmin) is a language-independent model checker, for which a Maude language extension has been written {cite:p}`smcJournal-btime`. Download the model checker [here](https://github.com/utwente-fmt/ltsmin/releases/), extract the package, and set the environment variable `LTSMIN_PATH` to its binary directory. The environment variable `MAUDEMC_PATH` should also be set to the full path of the Maude-LTSmin plugin that can be downloaded from [maude.ucm.es/strategies](https://maude.ucm.es/strategies/#downloads). However, for model checking μ-calculus properties containing both atomic propositions and rule labels, a modified version of LTSmin is required as well as the `pbespgsolve` tool from mCRL2 {cite:p}`mCRL2`. A ready-to-use package[^proposed] can be downloaded from [here](https://maude.ucm.es/strategies).
-* [NuSMV](https://nusmv.fbk.eu) is well-known BDD-based model checker for LTL and CTL. After downloading it from [here](https://nusmv.fbk.eu/downloads.html), extract the package and set the environment variable `NUSMV_PATH` to the path where the `NuSMV` binary resides.
+* [NuSMV](https://nusmv.fbk.eu) is a well-known BDD-based model checker for LTL and CTL. After downloading it from [here](https://nusmv.fbk.eu/downloads.html), extract the package and set the environment variable `NUSMV_PATH` to the path where the `NuSMV` binary resides.
 * [`pyModelChecking`](https://github.com/albertocasagrande/pyModelChecking) is a simple Python model-checking library. It can be installed with `pip install pyModelChecking`.
 * [Spot](https://spot.lrde.epita.fr/) is a library and tool for LTL and ω-automata manipulation. There are [installation instructions](https://spot.lre.epita.fr/install.html) in its website. Once the Python package is installed, it will be available for `umaudemc`.
 * [Spin](https://spinroot.com/) is a widely-used LTL model checker. The path containing the `spin` binary should be specified with the `SPIN_PATH` environment variable if not already in the system path.

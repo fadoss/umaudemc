@@ -1,0 +1,15 @@
+# Statistical model checking under different statistical methods
+
+umaudemc scheck bernoulli 0.5 bernoulli.quatex 'bern(0.5)' --assign step -d 0.05 --seed 1 --smethod chow-robbins
+umaudemc scheck bernoulli 0.5 bernoulli.quatex 'bern(0.5)' --assign step -d 0.05 --seed 1 --smethod cr
+umaudemc scheck bernoulli 0.5 bernoulli.quatex 'bern(0.5)' --assign step -d 0.05 --seed 2 --smethod seq-clopper-pearson
+umaudemc scheck bernoulli 0.5 bernoulli.quatex 'bern(0.5)' --assign step -d 0.05 --seed 3 --smethod scp
+umaudemc scheck bernoulli 0.5 bernoulli.quatex 'bern(0.5)' --assign step -d 0.05 --seed 4 --smethod okamoto
+umaudemc scheck bernoulli 0.5 bernoulli.quatex 'bern(0.5)' --assign step -d 0.05 --seed 5 --smethod 'hoeffding(1.1)'
+umaudemc scheck bernoulli 0.5 bernoulli.quatex 'bern(0.5)' --assign step -d 0.05 --seed 6 --smethod chen
+
+# With minimum number of executions
+umaudemc scheck bernoulli 0.5 bernoulli.quatex 'bern(0.5)' --assign step --nsims 50- --seed 1 --smethod chow-robbins
+umaudemc scheck bernoulli 0.5 bernoulli.quatex 'bern(0.5)' --assign step --nsims 50- --seed 2 --smethod seq-clopper-pearson
+umaudemc scheck bernoulli 0.5 bernoulli.quatex 'bern(0.5)' --assign step --nsims 50- --seed 3 --smethod okamoto
+umaudemc scheck bernoulli 0.5 bernoulli.quatex 'bern(0.5)' --assign step --nsims 50- --seed 3 --smethod 'hoeffding(1.1)'
